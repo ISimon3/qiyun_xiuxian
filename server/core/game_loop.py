@@ -11,6 +11,8 @@ from server.database.database import get_db_session
 from server.database.models import Character
 from server.database.crud import CharacterCRUD
 from server.core.systems.cultivation_system import CultivationSystem
+from server.core.systems.alchemy_system import AlchemySystem
+from server.core.systems.farm_system import FarmSystem
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,8 @@ class GameLoop:
         try:
             while self.is_running:
                 await self._process_cultivation_cycles()
+                await self._process_alchemy_sessions()
+                await self._process_farm_plots()
                 await asyncio.sleep(60)  # 每分钟检查一次
         except Exception as e:
             logger.error(f"游戏主循环异常: {e}")
@@ -105,6 +109,22 @@ class GameLoop:
 
         except Exception as e:
             logger.error(f"处理角色 {character.name} 修炼失败: {e}")
+
+    async def _process_alchemy_sessions(self):
+        """处理炼丹会话状态更新"""
+        try:
+            async with get_db_session() as db:
+                await AlchemySystem.update_alchemy_sessions(db)
+        except Exception as e:
+            logger.error(f"处理炼丹会话失败: {e}")
+
+    async def _process_farm_plots(self):
+        """处理农场地块状态更新"""
+        try:
+            async with get_db_session() as db:
+                await FarmSystem.update_all_plots(db)
+        except Exception as e:
+            logger.error(f"处理农场地块失败: {e}")
 
     async def force_cultivation_cycle(self, character_id: int) -> Dict[str, Any]:
         """

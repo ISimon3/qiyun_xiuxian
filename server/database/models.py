@@ -69,6 +69,10 @@ class Character(Base):
     cave_level: Mapped[int] = mapped_column(Integer, default=1)  # 洞府等级
     spirit_gathering_array_level: Mapped[int] = mapped_column(Integer, default=0)  # 聚灵阵等级
 
+    # 炼丹相关
+    alchemy_level: Mapped[int] = mapped_column(Integer, default=1)  # 炼丹等级
+    alchemy_exp: Mapped[int] = mapped_column(Integer, default=0)  # 炼丹经验
+
     # 时间戳
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -80,6 +84,7 @@ class Character(Base):
     equipped_items: Mapped[List["EquippedItem"]] = relationship("EquippedItem", back_populates="character", cascade="all, delete-orphan")
     game_logs: Mapped[List["GameLog"]] = relationship("GameLog", back_populates="character", cascade="all, delete-orphan")
     farm_plots: Mapped[List["FarmPlot"]] = relationship("FarmPlot", back_populates="character", cascade="all, delete-orphan")
+    alchemy_sessions: Mapped[List["AlchemySession"]] = relationship("AlchemySession", cascade="all, delete-orphan")
 
     # 索引 - 每个用户只能有一个角色
     __table_args__ = (
@@ -277,3 +282,69 @@ class FarmPlot(Base):
 
     def __repr__(self):
         return f"<FarmPlot(id={self.id}, character_id={self.character_id}, plot_index={self.plot_index})>"
+
+
+class AlchemyRecipe(Base):
+    """炼丹丹方表"""
+    __tablename__ = "alchemy_recipes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    recipe_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)  # 丹方ID
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # 丹方属性
+    quality: Mapped[str] = mapped_column(String(20), nullable=False)  # 丹药品质
+    required_realm: Mapped[int] = mapped_column(Integer, default=0)  # 需要境界
+    required_alchemy_level: Mapped[int] = mapped_column(Integer, default=1)  # 需要炼丹等级
+
+    # 炼制配置
+    materials: Mapped[dict] = mapped_column(JSON, nullable=False)  # 所需材料 {"材料名": 数量}
+    result_item_name: Mapped[str] = mapped_column(String(100), nullable=False)  # 产出物品名
+    base_time_minutes: Mapped[int] = mapped_column(Integer, default=30)  # 基础炼制时间(分钟)
+    base_success_rate: Mapped[float] = mapped_column(Float, default=0.7)  # 基础成功率
+
+    # 丹药效果
+    effects: Mapped[dict] = mapped_column(JSON, nullable=True)  # 丹药效果配置
+
+    # 时间戳
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<AlchemyRecipe(id={self.id}, recipe_id='{self.recipe_id}', name='{self.name}')>"
+
+
+class AlchemySession(Base):
+    """炼丹会话表"""
+    __tablename__ = "alchemy_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    character_id: Mapped[int] = mapped_column(Integer, ForeignKey("characters.id"), nullable=False)
+    recipe_id: Mapped[str] = mapped_column(String(50), nullable=False)  # 丹方ID
+
+    # 炼制状态
+    status: Mapped[str] = mapped_column(String(20), default="IN_PROGRESS")  # IN_PROGRESS, COMPLETED, FAILED
+    quality: Mapped[str] = mapped_column(String(20), nullable=False)  # 炼制品质
+
+    # 时间信息
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    finish_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # 炼制结果
+    success_rate: Mapped[float] = mapped_column(Float, default=0.7)  # 实际成功率
+    result_item_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  # 产出物品
+    result_quality: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # 产出品质
+    exp_gained: Mapped[int] = mapped_column(Integer, default=0)  # 获得的炼丹经验
+
+    # 关系
+    character: Mapped["Character"] = relationship("Character", overlaps="alchemy_sessions")
+
+    # 索引
+    __table_args__ = (
+        Index('ix_alchemy_session_character_status', 'character_id', 'status'),
+    )
+
+    def __repr__(self):
+        return f"<AlchemySession(id={self.id}, character_id={self.character_id}, recipe_id='{self.recipe_id}', status='{self.status}')>"

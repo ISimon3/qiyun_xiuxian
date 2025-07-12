@@ -138,7 +138,7 @@ class DataInitializer:
             {
                 "name": "灵石碎片",
                 "description": "蕴含灵力的石头碎片",
-                "item_type": "MATERIAL", 
+                "item_type": "MATERIAL",
                 "quality": "COMMON",
                 "stack_size": 999,
                 "sell_price": 5
@@ -151,7 +151,192 @@ class DataInitializer:
                 "stack_size": 99,
                 "sell_price": 50
             },
-            
+
+            # 炼丹材料
+            {
+                "name": "聚气草",
+                "description": "蕴含灵气的草药",
+                "item_type": "MATERIAL",
+                "quality": "COMMON",
+                "stack_size": 999,
+                "sell_price": 3
+            },
+            {
+                "name": "灵芝",
+                "description": "珍贵的药材",
+                "item_type": "MATERIAL",
+                "quality": "UNCOMMON",
+                "stack_size": 999,
+                "sell_price": 10
+            },
+            {
+                "name": "千年灵芝",
+                "description": "极其珍贵的千年药材",
+                "item_type": "MATERIAL",
+                "quality": "RARE",
+                "stack_size": 99,
+                "sell_price": 100
+            },
+            {
+                "name": "虎骨草",
+                "description": "增强力量的草药",
+                "item_type": "MATERIAL",
+                "quality": "UNCOMMON",
+                "stack_size": 999,
+                "sell_price": 8
+            },
+            {
+                "name": "智慧花",
+                "description": "提升智慧的花朵",
+                "item_type": "MATERIAL",
+                "quality": "UNCOMMON",
+                "stack_size": 999,
+                "sell_price": 8
+            },
+            {
+                "name": "龟甲草",
+                "description": "增强防御的草药",
+                "item_type": "MATERIAL",
+                "quality": "UNCOMMON",
+                "stack_size": 999,
+                "sell_price": 8
+            },
+            {
+                "name": "破境草",
+                "description": "助力突破的神奇草药",
+                "item_type": "MATERIAL",
+                "quality": "RARE",
+                "stack_size": 99,
+                "sell_price": 50
+            },
+            {
+                "name": "四叶草",
+                "description": "带来好运的稀有草药",
+                "item_type": "MATERIAL",
+                "quality": "RARE",
+                "stack_size": 99,
+                "sell_price": 30
+            },
+            {
+                "name": "灵石粉",
+                "description": "研磨的灵石粉末",
+                "item_type": "MATERIAL",
+                "quality": "COMMON",
+                "stack_size": 999,
+                "sell_price": 5
+            },
+            {
+                "name": "铁精",
+                "description": "精炼的铁质材料",
+                "item_type": "MATERIAL",
+                "quality": "UNCOMMON",
+                "stack_size": 999,
+                "sell_price": 15
+            },
+            {
+                "name": "玄铁粉",
+                "description": "珍贵的玄铁粉末",
+                "item_type": "MATERIAL",
+                "quality": "UNCOMMON",
+                "stack_size": 999,
+                "sell_price": 20
+            },
+            {
+                "name": "天雷石",
+                "description": "蕴含雷电之力的石头",
+                "item_type": "MATERIAL",
+                "quality": "RARE",
+                "stack_size": 99,
+                "sell_price": 80
+            },
+            {
+                "name": "幸运石",
+                "description": "带来好运的神秘石头",
+                "item_type": "MATERIAL",
+                "quality": "RARE",
+                "stack_size": 99,
+                "sell_price": 60
+            },
+            {
+                "name": "清水",
+                "description": "纯净的清水",
+                "item_type": "MATERIAL",
+                "quality": "COMMON",
+                "stack_size": 999,
+                "sell_price": 1
+            },
+            {
+                "name": "月华露",
+                "description": "月光凝聚的露水",
+                "item_type": "MATERIAL",
+                "quality": "UNCOMMON",
+                "stack_size": 999,
+                "sell_price": 25
+            },
+            {
+                "name": "龙血",
+                "description": "传说中的龙族血液",
+                "item_type": "MATERIAL",
+                "quality": "EPIC",
+                "stack_size": 10,
+                "sell_price": 500
+            },
+            {
+                "name": "凤凰羽",
+                "description": "凤凰的珍贵羽毛",
+                "item_type": "MATERIAL",
+                "quality": "EPIC",
+                "stack_size": 10,
+                "sell_price": 300
+            },
+
+            # 炼制出的丹药
+            {
+                "name": "聚气丹",
+                "description": "增加修炼经验的丹药",
+                "item_type": "PILL",
+                "quality": "COMMON",
+                "stack_size": 99,
+                "sell_price": 20,
+                "base_attributes": {"cultivation_exp": 100}
+            },
+            {
+                "name": "力量丹",
+                "description": "永久提升物理攻击的丹药",
+                "item_type": "PILL",
+                "quality": "UNCOMMON",
+                "stack_size": 50,
+                "sell_price": 100,
+                "base_attributes": {"physical_attack_permanent": 10}
+            },
+            {
+                "name": "智慧丹",
+                "description": "永久提升法术攻击的丹药",
+                "item_type": "PILL",
+                "quality": "UNCOMMON",
+                "stack_size": 50,
+                "sell_price": 100,
+                "base_attributes": {"magic_attack_permanent": 10}
+            },
+            {
+                "name": "护体丹",
+                "description": "永久提升防御力的丹药",
+                "item_type": "PILL",
+                "quality": "UNCOMMON",
+                "stack_size": 50,
+                "sell_price": 120,
+                "base_attributes": {"physical_defense_permanent": 8, "magic_defense_permanent": 8}
+            },
+            {
+                "name": "破境丹",
+                "description": "提升突破成功率的丹药",
+                "item_type": "PILL",
+                "quality": "RARE",
+                "stack_size": 20,
+                "sell_price": 500,
+                "base_attributes": {"breakthrough_rate_bonus": 0.3}
+            },
+
             # 种子
             {
                 "name": "灵草种子",

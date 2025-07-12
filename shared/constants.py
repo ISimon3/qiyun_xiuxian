@@ -686,6 +686,191 @@ FARM_SYSTEM_CONFIG = {
     }
 }
 
+# 炼丹系统配置
+ALCHEMY_SYSTEM_CONFIG = {
+    # 基础配置
+    "MAX_CONCURRENT_SESSIONS": 3,  # 最大同时炼制数量
+    "BASE_SUCCESS_RATE": 0.7,      # 基础成功率
+    "QUALITY_BONUS_RATE": 0.1,     # 品质加成概率
+
+    # 炼制时间配置 (分钟)
+    "ALCHEMY_TIME": {
+        "COMMON": 30,      # 普通丹药30分钟
+        "UNCOMMON": 60,    # 优秀丹药1小时
+        "RARE": 120,       # 稀有丹药2小时
+        "EPIC": 240,       # 史诗丹药4小时
+        "LEGENDARY": 480,  # 传说丹药8小时
+    },
+
+    # 成功率修正
+    "SUCCESS_RATE_MODIFIERS": {
+        "realm_bonus": 0.02,      # 每个境界+2%成功率
+        "luck_bonus": 0.001,      # 每点气运+0.1%成功率
+        "cave_bonus": 0.05,       # 丹房等级每级+5%成功率
+    },
+
+    # 品质提升概率
+    "QUALITY_UPGRADE_CHANCE": {
+        "COMMON_TO_UNCOMMON": 0.15,
+        "UNCOMMON_TO_RARE": 0.10,
+        "RARE_TO_EPIC": 0.05,
+        "EPIC_TO_LEGENDARY": 0.02,
+    }
+}
+
+# 丹方配置
+ALCHEMY_RECIPES = {
+    # 基础恢复类丹药
+    "healing_pill": {
+        "id": "healing_pill",
+        "name": "回血丹",
+        "description": "恢复生命值的基础丹药",
+        "quality": "COMMON",
+        "required_realm": 1,  # 练气初期
+        "materials": {
+            "灵草": 2,
+            "清水": 1
+        },
+        "result_item": "回血丹",
+        "base_time_minutes": 30,
+        "effects": {
+            "HP_RESTORE": 500
+        }
+    },
+    "qi_pill": {
+        "id": "qi_pill",
+        "name": "聚气丹",
+        "description": "增加修炼经验的丹药",
+        "quality": "COMMON",
+        "required_realm": 1,
+        "materials": {
+            "聚气草": 3,
+            "灵石粉": 1
+        },
+        "result_item": "聚气丹",
+        "base_time_minutes": 45,
+        "effects": {
+            "CULTIVATION_EXP": 100
+        }
+    },
+    "strength_pill": {
+        "id": "strength_pill",
+        "name": "力量丹",
+        "description": "永久提升物理攻击的丹药",
+        "quality": "UNCOMMON",
+        "required_realm": 5,  # 筑基初期
+        "materials": {
+            "虎骨草": 2,
+            "铁精": 1,
+            "灵芝": 1
+        },
+        "result_item": "力量丹",
+        "base_time_minutes": 60,
+        "effects": {
+            "PHYSICAL_ATTACK_PERMANENT": 10
+        }
+    },
+    "wisdom_pill": {
+        "id": "wisdom_pill",
+        "name": "智慧丹",
+        "description": "永久提升法术攻击的丹药",
+        "quality": "UNCOMMON",
+        "required_realm": 5,
+        "materials": {
+            "智慧花": 2,
+            "月华露": 1,
+            "灵芝": 1
+        },
+        "result_item": "智慧丹",
+        "base_time_minutes": 60,
+        "effects": {
+            "MAGIC_ATTACK_PERMANENT": 10
+        }
+    },
+    "defense_pill": {
+        "id": "defense_pill",
+        "name": "护体丹",
+        "description": "永久提升防御力的丹药",
+        "quality": "UNCOMMON",
+        "required_realm": 5,
+        "materials": {
+            "龟甲草": 2,
+            "玄铁粉": 1,
+            "灵芝": 1
+        },
+        "result_item": "护体丹",
+        "base_time_minutes": 60,
+        "effects": {
+            "PHYSICAL_DEFENSE_PERMANENT": 8,
+            "MAGIC_DEFENSE_PERMANENT": 8
+        }
+    },
+    "breakthrough_pill": {
+        "id": "breakthrough_pill",
+        "name": "破境丹",
+        "description": "提升突破成功率的丹药",
+        "quality": "RARE",
+        "required_realm": 9,  # 金丹初期
+        "materials": {
+            "千年灵芝": 1,
+            "破境草": 3,
+            "天雷石": 1,
+            "龙血": 1
+        },
+        "result_item": "破境丹",
+        "base_time_minutes": 120,
+        "effects": {
+            "BREAKTHROUGH_RATE_BONUS": 0.3  # +30%突破成功率
+        }
+    },
+    "luck_pill": {
+        "id": "luck_pill",
+        "name": "转运丹",
+        "description": "提升气运值的丹药",
+        "quality": "RARE",
+        "required_realm": 9,
+        "materials": {
+            "四叶草": 5,
+            "幸运石": 2,
+            "凤凰羽": 1
+        },
+        "result_item": "转运丹",
+        "base_time_minutes": 90,
+        "effects": {
+            "LUCK_VALUE": 20
+        }
+    }
+}
+
+# 炼丹材料配置
+ALCHEMY_MATERIALS = {
+    # 基础草药
+    "灵草": {"type": "herb", "rarity": "common", "description": "最基础的炼丹材料"},
+    "聚气草": {"type": "herb", "rarity": "common", "description": "蕴含灵气的草药"},
+    "灵芝": {"type": "herb", "rarity": "uncommon", "description": "珍贵的药材"},
+    "千年灵芝": {"type": "herb", "rarity": "rare", "description": "极其珍贵的千年药材"},
+
+    # 特殊草药
+    "虎骨草": {"type": "herb", "rarity": "uncommon", "description": "增强力量的草药"},
+    "智慧花": {"type": "herb", "rarity": "uncommon", "description": "提升智慧的花朵"},
+    "龟甲草": {"type": "herb", "rarity": "uncommon", "description": "增强防御的草药"},
+    "破境草": {"type": "herb", "rarity": "rare", "description": "助力突破的神奇草药"},
+    "四叶草": {"type": "herb", "rarity": "rare", "description": "带来好运的稀有草药"},
+
+    # 矿物材料
+    "灵石粉": {"type": "mineral", "rarity": "common", "description": "研磨的灵石粉末"},
+    "铁精": {"type": "mineral", "rarity": "uncommon", "description": "精炼的铁质材料"},
+    "玄铁粉": {"type": "mineral", "rarity": "uncommon", "description": "珍贵的玄铁粉末"},
+    "天雷石": {"type": "mineral", "rarity": "rare", "description": "蕴含雷电之力的石头"},
+    "幸运石": {"type": "mineral", "rarity": "rare", "description": "带来好运的神秘石头"},
+
+    # 特殊材料
+    "清水": {"type": "liquid", "rarity": "common", "description": "纯净的清水"},
+    "月华露": {"type": "liquid", "rarity": "uncommon", "description": "月光凝聚的露水"},
+    "龙血": {"type": "liquid", "rarity": "epic", "description": "传说中的龙族血液"},
+    "凤凰羽": {"type": "material", "rarity": "epic", "description": "凤凰的珍贵羽毛"}
+}
+
 # 默认配置
 DEFAULT_CONFIG = {
     "CULTIVATION_BASE_EXP": 10,       # 基础修炼经验/分钟

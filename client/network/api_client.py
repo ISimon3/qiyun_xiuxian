@@ -353,6 +353,41 @@ class GameAPI:
         data = {"plot_index": plot_index}
         return self.client.post('/api/v1/game/harvest-plot', data)
 
+    def get_alchemy_info(self) -> Dict[str, Any]:
+        """
+        获取炼丹信息
+
+        Returns:
+            炼丹信息
+        """
+        return self.client.get('/api/v1/game/alchemy-info')
+
+    def start_alchemy(self, recipe_id: str) -> Dict[str, Any]:
+        """
+        开始炼丹
+
+        Args:
+            recipe_id: 丹方ID
+
+        Returns:
+            炼丹结果
+        """
+        data = {"recipe_id": recipe_id}
+        return self.client.post('/api/v1/game/start-alchemy', data)
+
+    def collect_alchemy_result(self, session_id: int) -> Dict[str, Any]:
+        """
+        收取炼丹结果
+
+        Args:
+            session_id: 炼丹会话ID
+
+        Returns:
+            收取结果
+        """
+        data = {"session_id": session_id}
+        return self.client.post('/api/v1/game/collect-alchemy', data)
+
     def unlock_plot(self, plot_index: int) -> Dict[str, Any]:
         """
         解锁地块

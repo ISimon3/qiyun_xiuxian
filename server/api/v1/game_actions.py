@@ -13,7 +13,9 @@ from shared.schemas import (
     BaseResponse, DailySignInResult, UseLuckItemRequest, UseLuckItemResult,
     LuckSystemInfo, LuckEffectInfo, CaveInfo, UpgradeCaveRequest, UpgradeCaveResult,
     FarmInfo, PlantSeedRequest, HarvestPlotRequest, UnlockPlotRequest,
-    PlantSeedResult, HarvestResult, UnlockPlotResult
+    PlantSeedResult, HarvestResult, UnlockPlotResult,
+    AlchemyInfo, StartAlchemyRequest, StartAlchemyResult,
+    CollectAlchemyRequest, CollectAlchemyResult
 )
 from shared.utils import get_luck_level_name
 from shared.constants import LUCK_LEVELS, DEFAULT_CONFIG
@@ -468,4 +470,93 @@ async def force_cultivation_cycle(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"强制修炼周期失败: {str(e)}"
+        )
+
+
+@router.get("/alchemy-info", response_model=BaseResponse, summary="获取炼丹信息")
+async def get_alchemy_info(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取炼丹系统信息
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 获取炼丹信息
+        from server.core.systems.alchemy_system import AlchemySystem
+        result = await AlchemySystem.get_alchemy_info(db, character)
+
+        return BaseResponse(
+            success=result["success"],
+            message="获取炼丹信息成功" if result["success"] else result.get("message", "获取炼丹信息失败"),
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取炼丹信息失败: {str(e)}"
+        )
+
+
+@router.post("/start-alchemy", response_model=BaseResponse, summary="开始炼丹")
+async def start_alchemy(
+    request: StartAlchemyRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    开始炼丹
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 开始炼丹
+        from server.core.systems.alchemy_system import AlchemySystem
+        result = await AlchemySystem.start_alchemy(db, character, request.recipe_id)
+
+        return BaseResponse(
+            success=result["success"],
+            message=result["message"],
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"开始炼丹失败: {str(e)}"
+        )
+
+
+@router.post("/collect-alchemy", response_model=BaseResponse, summary="收取炼丹结果")
+async def collect_alchemy_result(
+    request: CollectAlchemyRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    收取炼丹结果
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 收取炼丹结果
+        from server.core.systems.alchemy_system import AlchemySystem
+        result = await AlchemySystem.collect_alchemy_result(db, character, request.session_id)
+
+        return BaseResponse(
+            success=result["success"],
+            message=result["message"],
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"收取炼丹结果失败: {str(e)}"
         )

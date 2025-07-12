@@ -515,7 +515,21 @@ class MainWindow(QMainWindow):
 
     def show_alchemy_window(self):
         """显示炼丹窗口"""
-        QMessageBox.information(self, "提示", "炼丹功能正在开发中...")
+        try:
+            from client.ui.windows.alchemy_window import AlchemyWindow
+
+            # 检查是否已经打开了炼丹窗口
+            if hasattr(self, 'alchemy_window') and self.alchemy_window and not self.alchemy_window.isHidden():
+                # 如果已经打开，就将其置于前台
+                self.alchemy_window.raise_()
+                self.alchemy_window.activateWindow()
+                return
+
+            # 创建新的炼丹窗口
+            self.alchemy_window = AlchemyWindow(self.api_client, self.state_manager)
+            self.alchemy_window.show()  # 使用show()而不是exec()，实现非模态
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"打开炼丹窗口失败: {str(e)}")
 
     def show_dungeon_window(self):
         """显示副本窗口"""

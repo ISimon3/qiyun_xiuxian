@@ -208,6 +208,85 @@ class UseItem(BaseModel):
     quantity: int = 1
 
 
+# 炼丹相关
+class AlchemyRecipeInfo(BaseModel):
+    """丹方信息"""
+    id: str
+    name: str
+    description: str
+    quality: str
+    required_realm: int
+    required_alchemy_level: int
+    materials: Dict[str, int]  # 材料名称: 数量
+    result_item_name: str
+    base_time_minutes: int
+    base_success_rate: float
+    effects: Optional[Dict[str, Any]] = None
+    can_craft: bool = False  # 是否可以炼制
+    missing_materials: Optional[Dict[str, int]] = None  # 缺少的材料
+
+    class Config:
+        from_attributes = True
+
+
+class AlchemySessionInfo(BaseModel):
+    """炼丹会话信息"""
+    id: int
+    recipe_id: str
+    recipe_name: str
+    status: str
+    quality: str
+    started_at: datetime
+    finish_at: datetime
+    completed_at: Optional[datetime] = None
+    success_rate: float
+    result_item_name: Optional[str] = None
+    result_quality: Optional[str] = None
+    exp_gained: int = 0
+    remaining_time_seconds: int = 0
+    progress: float = 0.0
+
+    class Config:
+        from_attributes = True
+
+
+class AlchemyInfo(BaseModel):
+    """炼丹系统信息"""
+    success: bool
+    alchemy_level: int
+    alchemy_exp: int
+    max_concurrent_sessions: int
+    active_sessions: List[AlchemySessionInfo]
+    available_recipes: List[AlchemyRecipeInfo]
+    materials_inventory: Dict[str, int]  # 材料库存
+
+
+class StartAlchemyRequest(BaseModel):
+    """开始炼丹请求"""
+    recipe_id: str
+
+
+class StartAlchemyResult(BaseModel):
+    """开始炼丹结果"""
+    success: bool
+    message: str
+    session_info: Optional[AlchemySessionInfo] = None
+
+
+class CollectAlchemyRequest(BaseModel):
+    """收取炼丹结果请求"""
+    session_id: int
+
+
+class CollectAlchemyResult(BaseModel):
+    """收取炼丹结果"""
+    success: bool
+    message: str
+    result_item: Optional[str] = None
+    result_quality: Optional[str] = None
+    exp_gained: int = 0
+
+
 class DeleteItem(BaseModel):
     """删除物品请求"""
     inventory_item_id: int
