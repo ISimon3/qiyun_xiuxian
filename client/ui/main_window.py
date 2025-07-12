@@ -479,12 +479,39 @@ class MainWindow(QMainWindow):
 
     def show_cave_window(self):
         """显示洞府窗口"""
-        # 直接显示突破功能
-        self.show_breakthrough_dialog()
+        try:
+            from client.ui.windows.cave_window import CaveWindow
+
+            # 检查是否已经打开了洞府窗口
+            if hasattr(self, 'cave_window') and self.cave_window and not self.cave_window.isHidden():
+                # 如果已经打开，就将其置于前台
+                self.cave_window.raise_()
+                self.cave_window.activateWindow()
+                return
+
+            # 创建新的洞府窗口
+            self.cave_window = CaveWindow(self)
+            self.cave_window.show()  # 使用show()而不是exec()，实现非模态
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"打开洞府窗口失败: {str(e)}")
 
     def show_farm_window(self):
-        """显示农场窗口"""
-        QMessageBox.information(self, "提示", "农场功能正在开发中...")
+        """显示灵田窗口"""
+        try:
+            from client.ui.windows.farm_window import FarmWindow
+
+            # 检查是否已经打开了灵田窗口
+            if hasattr(self, 'farm_window') and self.farm_window and not self.farm_window.isHidden():
+                # 如果已经打开，就将其置于前台
+                self.farm_window.raise_()
+                self.farm_window.activateWindow()
+                return
+
+            # 创建新的灵田窗口
+            self.farm_window = FarmWindow(self)
+            self.farm_window.show()  # 使用show()而不是exec()，实现非模态
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"打开灵田窗口失败: {str(e)}")
 
     def show_alchemy_window(self):
         """显示炼丹窗口"""

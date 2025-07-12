@@ -65,6 +65,10 @@ class Character(Base):
     physical_defense_training: Mapped[int] = mapped_column(Integer, default=0)
     magic_defense_training: Mapped[int] = mapped_column(Integer, default=0)
 
+    # 洞府相关
+    cave_level: Mapped[int] = mapped_column(Integer, default=1)  # 洞府等级
+    spirit_gathering_array_level: Mapped[int] = mapped_column(Integer, default=0)  # 聚灵阵等级
+
     # 时间戳
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -75,6 +79,7 @@ class Character(Base):
     inventory_items: Mapped[List["InventoryItem"]] = relationship("InventoryItem", back_populates="character", cascade="all, delete-orphan")
     equipped_items: Mapped[List["EquippedItem"]] = relationship("EquippedItem", back_populates="character", cascade="all, delete-orphan")
     game_logs: Mapped[List["GameLog"]] = relationship("GameLog", back_populates="character", cascade="all, delete-orphan")
+    farm_plots: Mapped[List["FarmPlot"]] = relationship("FarmPlot", back_populates="character", cascade="all, delete-orphan")
 
     # 索引 - 每个用户只能有一个角色
     __table_args__ = (
@@ -228,3 +233,47 @@ class UserSession(Base):
 
     def __repr__(self):
         return f"<UserSession(id={self.id}, user_id={self.user_id}, active={self.is_active})>"
+
+
+class FarmPlot(Base):
+    """灵田地块表"""
+    __tablename__ = "farm_plots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    character_id: Mapped[int] = mapped_column(Integer, ForeignKey("characters.id"), nullable=False)
+    plot_index: Mapped[int] = mapped_column(Integer, nullable=False)  # 地块编号 (0-11，3x4网格)
+
+    # 地块属性
+    plot_type: Mapped[str] = mapped_column(String(20), default="normal")  # normal, fertile, spiritual
+    is_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)  # 是否已解锁
+
+    # 种植信息
+    seed_item_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("items.id"), nullable=True)
+    planted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    harvest_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # 作物状态
+    growth_stage: Mapped[int] = mapped_column(Integer, default=0)  # 0-4 成长阶段
+    is_ready: Mapped[bool] = mapped_column(Boolean, default=False)  # 是否可收获
+    is_withered: Mapped[bool] = mapped_column(Boolean, default=False)  # 是否枯萎
+
+    # 特殊状态
+    has_pest: Mapped[bool] = mapped_column(Boolean, default=False)  # 是否有虫害
+    has_weed: Mapped[bool] = mapped_column(Boolean, default=False)  # 是否有杂草
+    mutation_chance: Mapped[float] = mapped_column(Float, default=0.0)  # 变异概率
+
+    # 时间戳
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # 关系
+    character: Mapped["Character"] = relationship("Character", back_populates="farm_plots")
+    seed_item: Mapped[Optional["Item"]] = relationship("Item", foreign_keys=[seed_item_id])
+
+    # 索引
+    __table_args__ = (
+        Index('ix_farm_plot_character_index', 'character_id', 'plot_index', unique=True),
+    )
+
+    def __repr__(self):
+        return f"<FarmPlot(id={self.id}, character_id={self.character_id}, plot_index={self.plot_index})>"

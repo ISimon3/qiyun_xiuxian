@@ -550,6 +550,142 @@ EQUIPMENT_ATTRIBUTE_VARIATION = {
     }
 }
 
+# 洞府系统配置
+CAVE_SYSTEM_CONFIG = {
+    # 洞府等级配置 (1-10级)
+    "MAX_CAVE_LEVEL": 10,
+    "CAVE_UPGRADE_COSTS": {
+        2: {"spirit_stone": 1000, "materials": {}},
+        3: {"spirit_stone": 2500, "materials": {}},
+        4: {"spirit_stone": 5000, "materials": {}},
+        5: {"spirit_stone": 10000, "materials": {}},
+        6: {"spirit_stone": 20000, "materials": {}},
+        7: {"spirit_stone": 40000, "materials": {}},
+        8: {"spirit_stone": 80000, "materials": {}},
+        9: {"spirit_stone": 160000, "materials": {}},
+        10: {"spirit_stone": 320000, "materials": {}},
+    },
+
+    # 聚灵阵等级配置 (0-5级)
+    "MAX_SPIRIT_ARRAY_LEVEL": 5,
+    "SPIRIT_ARRAY_UPGRADE_COSTS": {
+        1: {"spirit_stone": 500, "materials": {}},
+        2: {"spirit_stone": 1500, "materials": {}},
+        3: {"spirit_stone": 4000, "materials": {}},
+        4: {"spirit_stone": 10000, "materials": {}},
+        5: {"spirit_stone": 25000, "materials": {}},
+    },
+
+    # 聚灵阵修炼速度加成 (倍率)
+    "SPIRIT_ARRAY_SPEED_BONUS": {
+        0: 1.0,    # 无聚灵阵
+        1: 1.2,    # 1级聚灵阵 +20%
+        2: 1.5,    # 2级聚灵阵 +50%
+        3: 1.8,    # 3级聚灵阵 +80%
+        4: 2.2,    # 4级聚灵阵 +120%
+        5: 2.5,    # 5级聚灵阵 +150%
+    },
+
+    # 洞府等级对应的功能解锁
+    "CAVE_LEVEL_FEATURES": {
+        1: ["突破境界"],
+        2: ["聚灵阵"],
+        3: ["丹房"],
+        4: ["灵田"],
+        5: ["炼器房"],
+        6: ["藏书阁"],
+        7: ["传送阵"],
+        8: ["护山大阵"],
+        9: ["灵兽园"],
+        10: ["仙府升级"],
+    }
+}
+
+# 灵田系统配置
+FARM_SYSTEM_CONFIG = {
+    # 基础配置
+    "TOTAL_PLOTS": 12,  # 总地块数量 (3x4网格)
+    "INITIAL_UNLOCKED_PLOTS": 4,  # 初始解锁地块数量
+
+    # 地块类型配置
+    "PLOT_TYPES": {
+        "normal": {
+            "name": "普通土地",
+            "growth_speed_multiplier": 1.0,
+            "yield_multiplier": 1.0,
+            "mutation_base_chance": 0.01,  # 1%基础变异率
+            "unlock_cost": 0
+        },
+        "fertile": {
+            "name": "肥沃土地",
+            "growth_speed_multiplier": 1.3,
+            "yield_multiplier": 1.2,
+            "mutation_base_chance": 0.02,  # 2%基础变异率
+            "unlock_cost": 1000  # 金币
+        },
+        "spiritual": {
+            "name": "灵田",
+            "growth_speed_multiplier": 1.5,
+            "yield_multiplier": 1.5,
+            "mutation_base_chance": 0.05,  # 5%基础变异率
+            "unlock_cost": 5000  # 金币
+        }
+    },
+
+    # 种子配置
+    "SEED_CONFIG": {
+        "灵草种子": {
+            "growth_time_hours": 2,  # 2小时成熟
+            "yield_min": 1,
+            "yield_max": 3,
+            "result_item": "灵草",
+            "mutation_results": ["高品质灵草", "灵草精华"]
+        },
+        "灵芝种子": {
+            "growth_time_hours": 6,  # 6小时成熟
+            "yield_min": 1,
+            "yield_max": 2,
+            "result_item": "灵芝",
+            "mutation_results": ["千年灵芝", "灵芝王"]
+        },
+        "聚气草种子": {
+            "growth_time_hours": 4,  # 4小时成熟
+            "yield_min": 2,
+            "yield_max": 4,
+            "result_item": "聚气草",
+            "mutation_results": ["聚气草精华", "灵气结晶"]
+        }
+    },
+
+    # 成长阶段
+    "GROWTH_STAGES": {
+        0: "种子",
+        1: "发芽",
+        2: "幼苗",
+        3: "成长",
+        4: "成熟"
+    },
+
+    # 特殊事件概率
+    "EVENT_CHANCES": {
+        "pest_chance": 0.1,    # 10%虫害概率
+        "weed_chance": 0.15,   # 15%杂草概率
+        "wither_chance": 0.05, # 5%枯萎概率（如果不及时收获）
+    },
+
+    # 地块解锁需求
+    "PLOT_UNLOCK_REQUIREMENTS": {
+        4: {"cave_level": 4, "cost": 500},    # 第5个地块需要4级洞府
+        5: {"cave_level": 4, "cost": 500},    # 第6个地块
+        6: {"cave_level": 5, "cost": 1000},   # 第7个地块需要5级洞府
+        7: {"cave_level": 5, "cost": 1000},   # 第8个地块
+        8: {"cave_level": 6, "cost": 2000},   # 第9个地块需要6级洞府
+        9: {"cave_level": 6, "cost": 2000},   # 第10个地块
+        10: {"cave_level": 7, "cost": 5000},  # 第11个地块需要7级洞府
+        11: {"cave_level": 7, "cost": 5000},  # 第12个地块
+    }
+}
+
 # 默认配置
 DEFAULT_CONFIG = {
     "CULTIVATION_BASE_EXP": 10,       # 基础修炼经验/分钟

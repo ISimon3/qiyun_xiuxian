@@ -295,6 +295,77 @@ class GameAPI:
         """
         return self.client.post('/api/v1/game/force-cultivation-cycle')
 
+    def get_cave_info(self) -> Dict[str, Any]:
+        """
+        获取洞府信息
+
+        Returns:
+            洞府信息
+        """
+        return self.client.get('/api/v1/game/cave-info')
+
+    def upgrade_cave(self, upgrade_type: str) -> Dict[str, Any]:
+        """
+        升级洞府或聚灵阵
+
+        Args:
+            upgrade_type: 升级类型 ("cave" 或 "spirit_array")
+
+        Returns:
+            升级结果
+        """
+        data = {"upgrade_type": upgrade_type}
+        return self.client.post('/api/v1/game/upgrade-cave', data)
+
+    def get_farm_info(self) -> Dict[str, Any]:
+        """
+        获取灵田信息
+
+        Returns:
+            灵田信息
+        """
+        return self.client.get('/api/v1/game/farm-info')
+
+    def plant_seed(self, plot_index: int, seed_item_id: int) -> Dict[str, Any]:
+        """
+        种植种子
+
+        Args:
+            plot_index: 地块索引
+            seed_item_id: 种子物品ID
+
+        Returns:
+            种植结果
+        """
+        data = {"plot_index": plot_index, "seed_item_id": seed_item_id}
+        return self.client.post('/api/v1/game/plant-seed', data)
+
+    def harvest_plot(self, plot_index: int) -> Dict[str, Any]:
+        """
+        收获地块
+
+        Args:
+            plot_index: 地块索引
+
+        Returns:
+            收获结果
+        """
+        data = {"plot_index": plot_index}
+        return self.client.post('/api/v1/game/harvest-plot', data)
+
+    def unlock_plot(self, plot_index: int) -> Dict[str, Any]:
+        """
+        解锁地块
+
+        Args:
+            plot_index: 地块索引
+
+        Returns:
+            解锁结果
+        """
+        data = {"plot_index": plot_index}
+        return self.client.post('/api/v1/game/unlock-plot', data)
+
 
 class InventoryAPI:
     """背包和装备相关API"""

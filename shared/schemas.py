@@ -141,6 +141,10 @@ class CharacterInfo(BaseModel):
     # 当前挂机修习方向
     cultivation_focus: Optional[str] = None  # HP, PHYSICAL_ATTACK, MAGIC_ATTACK, PHYSICAL_DEFENSE, MAGIC_DEFENSE
 
+    # 洞府相关
+    cave_level: int = 1
+    spirit_gathering_array_level: int = 0
+
     # 角色属性 (包含装备加成后的最终属性)
     attributes: CharacterAttributes
 
@@ -287,26 +291,89 @@ class WSSystemNotification(BaseModel):
     importance: str = "normal"  # normal, important, critical
 
 
-# 农场相关
-class PlantSeed(BaseModel):
-    seed_item_id: int
-    plot_id: int
-
-
-class HarvestPlot(BaseModel):
-    plot_id: int
-
-
-class FarmPlot(BaseModel):
+# 灵田系统相关
+class FarmPlotInfo(BaseModel):
+    """灵田地块信息"""
     id: int
-    plot_type: str = "normal"  # normal, fertile, spiritual
-    seed_id: Optional[int] = None
-    plant_time: Optional[datetime] = None
-    harvest_time: Optional[datetime] = None
+    plot_index: int
+    plot_type: str
+    is_unlocked: bool
+
+    # 种植信息
+    seed_item_id: Optional[int] = None
+    seed_name: Optional[str] = None
+    planted_at: Optional[datetime] = None
+    harvest_at: Optional[datetime] = None
+
+    # 作物状态
+    growth_stage: int = 0
+    growth_stage_name: str = "空地"
     is_ready: bool = False
+    is_withered: bool = False
+
+    # 特殊状态
+    has_pest: bool = False
+    has_weed: bool = False
+    mutation_chance: float = 0.0
+
+    # 时间信息
+    remaining_time_seconds: int = 0
+    total_growth_time_seconds: int = 0
+    growth_progress: float = 0.0
 
     class Config:
         from_attributes = True
+
+
+class FarmInfo(BaseModel):
+    """灵田总体信息"""
+    total_plots: int
+    unlocked_plots: int
+    plots: List[FarmPlotInfo]
+    available_seeds: List[Dict[str, Any]]  # 可用种子列表
+
+    class Config:
+        from_attributes = True
+
+
+class PlantSeedRequest(BaseModel):
+    """种植种子请求"""
+    plot_index: int
+    seed_item_id: int
+
+
+class HarvestPlotRequest(BaseModel):
+    """收获地块请求"""
+    plot_index: int
+
+
+class UnlockPlotRequest(BaseModel):
+    """解锁地块请求"""
+    plot_index: int
+
+
+class PlantSeedResult(BaseModel):
+    """种植结果"""
+    success: bool
+    message: str
+    plot_info: Optional[FarmPlotInfo] = None
+
+
+class HarvestResult(BaseModel):
+    """收获结果"""
+    success: bool
+    message: str
+    harvested_items: List[Dict[str, Any]]  # 收获的物品
+    is_mutation: bool = False
+    plot_info: Optional[FarmPlotInfo] = None
+
+
+class UnlockPlotResult(BaseModel):
+    """解锁地块结果"""
+    success: bool
+    message: str
+    cost: int
+    plot_info: Optional[FarmPlotInfo] = None
 
 
 # 炼丹相关
@@ -488,6 +555,35 @@ class ShopItem(BaseModel):
 class PurchaseItem(BaseModel):
     shop_item_id: int
     quantity: int = 1
+
+
+# 洞府相关
+class CaveInfo(BaseModel):
+    """洞府信息"""
+    cave_level: int
+    spirit_gathering_array_level: int
+    max_cave_level: int
+    max_spirit_array_level: int
+    available_features: List[str]
+    cultivation_speed_bonus: float
+
+    class Config:
+        from_attributes = True
+
+
+class UpgradeCaveRequest(BaseModel):
+    """洞府升级请求"""
+    upgrade_type: str  # "cave" 或 "spirit_array"
+
+
+class UpgradeCaveResult(BaseModel):
+    """洞府升级结果"""
+    success: bool
+    message: str
+    old_level: int
+    new_level: int
+    cost_spirit_stone: int
+    cost_materials: Dict[str, int]
 
 
 # 日志相关

@@ -11,7 +11,9 @@ from server.core.dependencies import get_current_active_user
 from server.core.systems.luck_system import LuckSystem
 from shared.schemas import (
     BaseResponse, DailySignInResult, UseLuckItemRequest, UseLuckItemResult,
-    LuckSystemInfo, LuckEffectInfo
+    LuckSystemInfo, LuckEffectInfo, CaveInfo, UpgradeCaveRequest, UpgradeCaveResult,
+    FarmInfo, PlantSeedRequest, HarvestPlotRequest, UnlockPlotRequest,
+    PlantSeedResult, HarvestResult, UnlockPlotResult
 )
 from shared.utils import get_luck_level_name
 from shared.constants import LUCK_LEVELS, DEFAULT_CONFIG
@@ -259,6 +261,184 @@ async def get_cultivation_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取修炼状态失败: {str(e)}"
+        )
+
+
+@router.get("/cave-info", response_model=BaseResponse, summary="获取洞府信息")
+async def get_cave_info(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取洞府信息
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 获取洞府信息
+        from server.core.systems.cave_system import CaveSystem
+        result = await CaveSystem.get_cave_info(db, character)
+
+        return BaseResponse(
+            success=result["success"],
+            message="获取洞府信息成功" if result["success"] else result.get("message", "获取洞府信息失败"),
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取洞府信息失败: {str(e)}"
+        )
+
+
+@router.post("/upgrade-cave", response_model=BaseResponse, summary="升级洞府")
+async def upgrade_cave(
+    request: UpgradeCaveRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    升级洞府或聚灵阵
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 执行升级
+        from server.core.systems.cave_system import CaveSystem
+        result = await CaveSystem.upgrade_cave(db, character, request.upgrade_type)
+
+        return BaseResponse(
+            success=result["success"],
+            message=result["message"],
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"升级洞府失败: {str(e)}"
+        )
+
+
+@router.get("/farm-info", response_model=BaseResponse, summary="获取灵田信息")
+async def get_farm_info(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取灵田信息
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 获取灵田信息
+        from server.core.systems.farm_system import FarmSystem
+        result = await FarmSystem.get_farm_info(db, character)
+
+        return BaseResponse(
+            success=result["success"],
+            message="获取灵田信息成功" if result["success"] else result.get("message", "获取灵田信息失败"),
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取灵田信息失败: {str(e)}"
+        )
+
+
+@router.post("/plant-seed", response_model=BaseResponse, summary="种植种子")
+async def plant_seed(
+    request: PlantSeedRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    种植种子
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 种植种子
+        from server.core.systems.farm_system import FarmSystem
+        result = await FarmSystem.plant_seed(db, character, request.plot_index, request.seed_item_id)
+
+        return BaseResponse(
+            success=result["success"],
+            message=result["message"],
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"种植种子失败: {str(e)}"
+        )
+
+
+@router.post("/harvest-plot", response_model=BaseResponse, summary="收获地块")
+async def harvest_plot(
+    request: HarvestPlotRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    收获地块
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 收获地块
+        from server.core.systems.farm_system import FarmSystem
+        result = await FarmSystem.harvest_plot(db, character, request.plot_index)
+
+        return BaseResponse(
+            success=result["success"],
+            message=result["message"],
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"收获地块失败: {str(e)}"
+        )
+
+
+@router.post("/unlock-plot", response_model=BaseResponse, summary="解锁地块")
+async def unlock_plot(
+    request: UnlockPlotRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    解锁地块
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 解锁地块
+        from server.core.systems.farm_system import FarmSystem
+        result = await FarmSystem.unlock_plot(db, character, request.plot_index)
+
+        return BaseResponse(
+            success=result["success"],
+            message=result["message"],
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"解锁地块失败: {str(e)}"
         )
 
 

@@ -160,11 +160,17 @@ class CultivationSystem:
             if not character.cultivation_focus:
                 character.cultivation_focus = "HP"  # 默认体修
 
+            # 计算修炼速度加成（包含聚灵阵加成）
+            from server.core.systems.cave_system import CaveSystem
+            spirit_array_bonus = CaveSystem.get_cultivation_speed_bonus(
+                character.spirit_gathering_array_level
+            )
+
             # 计算修炼收益 (5分钟 = 5次1分钟修炼)
             cultivation_result = simulate_cultivation_session(
                 character.luck_value,
                 character.cultivation_focus,
-                1.0  # 基础修炼速度
+                spirit_array_bonus  # 应用聚灵阵修炼速度加成
             )
 
             # 5分钟的收益是1分钟的5倍
