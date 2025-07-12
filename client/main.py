@@ -30,6 +30,7 @@ if not PYQT_AVAILABLE:
     sys.exit(1)
 
 from client.ui.login_window import LoginWindow
+from client.ui.main_window import MainWindow
 from client.state_manager import init_state_manager, get_state_manager
 from client.network.api_client import GameAPIClient
 
@@ -48,13 +49,16 @@ class GameApplication:
         
         # 窗口管理
         self.login_window: Optional[LoginWindow] = None
-        self.main_window: Optional[QWidget] = None  # 主游戏窗口，后续实现
+        self.main_window: Optional[MainWindow] = None  # 主游戏窗口
         
         # 设置异常处理
         self.setup_exception_handling()
         
         # 连接状态管理器信号
         self.setup_state_connections()
+
+        # 连接应用程序退出信号
+        self.app.aboutToQuit.connect(self.cleanup_before_quit)
     
     def setup_application(self):
         """设置应用程序基本信息"""
@@ -186,8 +190,8 @@ class GameApplication:
             # 检查是否已有登录状态
             if self.state_manager.is_logged_in and not self.state_manager.is_token_expired():
                 print(f"✅ 检测到已登录用户: {self.state_manager.user_info.get('username')}")
-                # 直接进入主界面（暂时显示登录窗口，后续实现主界面后修改）
-                self.show_login_window()
+                # 直接进入主界面
+                self.show_main_window()
             else:
                 print("📝 显示登录窗口")
                 # 显示登录窗口
@@ -214,21 +218,74 @@ class GameApplication:
 
     def show_main_window(self):
         """显示主游戏窗口"""
-        # TODO: 实现主游戏窗口
-        # 暂时显示一个简单的消息框
-        user_info = self.state_manager.user_info
-        username = user_info.get('username', '未知用户') if user_info else '未知用户'
+        # 确保用户已登录且token有效
+        if not self.state_manager.is_logged_in or self.state_manager.is_token_expired():
+            print("⚠️ 用户未登录或token已过期，显示登录窗口")
+            self.show_login_window()
+            return
 
-        QMessageBox.information(
-            None,
-            "登录成功",
-            f"🎉 欢迎进入气运修仙世界，{username}！\n\n"
-            f"📋 主游戏界面将在后续版本中实现。\n"
-            f"✅ 当前版本仅实现登录注册功能。"
-        )
+        # 初始化或更新API客户端
+        if self.api_client is None:
+            self.api_client = GameAPIClient(self.state_manager.server_url)
 
-        # 暂时退出应用程序
-        self.app.quit()
+        # 确保API客户端有最新的token
+        if self.state_manager.access_token:
+            self.api_client.set_token(self.state_manager.access_token)
+            print(f"✅ API客户端token已设置")
+        else:
+            print("❌ 未找到访问token，显示登录窗口")
+            self.show_login_window()
+            return
+
+        if self.main_window is None:
+            server_url = self.state_manager.server_url
+            self.main_window = MainWindow(server_url)
+
+            # 连接主窗口信号
+            self.main_window.destroyed.connect(self.on_main_window_closed)
+
+        self.main_window.show()
+        self.main_window.raise_()
+        self.main_window.activateWindow()
+
+        # 隐藏登录窗口
+        if self.login_window:
+            self.login_window.hide()
+
+    def on_main_window_closed(self):
+        """主窗口关闭处理"""
+        print("📊 主窗口已关闭")
+        self.main_window = None
+
+        # 检查是否还有登录状态，如果没有则显示登录窗口
+        if not self.state_manager.is_logged_in:
+            print("🔐 用户已登出，显示登录窗口")
+            self.show_login_window()
+        else:
+            # 用户主动关闭主窗口时退出应用程序
+            print("🚪 退出应用程序")
+            self.app.quit()
+
+    def cleanup_before_quit(self):
+        """应用程序退出前的清理工作"""
+        print("🧹 执行退出前清理...")
+
+        try:
+            # 清理主窗口
+            if self.main_window:
+                print("🔄 清理主窗口...")
+                # 主窗口的closeEvent会处理线程停止
+                self.main_window = None
+
+            # 清理登录窗口
+            if self.login_window:
+                print("🔄 清理登录窗口...")
+                self.login_window = None
+
+            print("✅ 清理完成")
+
+        except Exception as e:
+            print(f"❌ 清理时发生错误: {e}")
 
     def on_login_success(self, user_info: dict):
         """登录成功处理"""
@@ -248,10 +305,14 @@ class GameApplication:
         # 初始化API客户端
         if self.api_client is None:
             self.api_client = GameAPIClient(self.state_manager.server_url)
+            print("🔧 API客户端已初始化")
 
         # 设置访问令牌
         if self.state_manager.access_token:
             self.api_client.set_token(self.state_manager.access_token)
+            print(f"🔑 API客户端token已设置: {self.state_manager.access_token[:20]}...")
+        else:
+            print("❌ 警告: 状态管理器中没有访问令牌")
 
     def on_user_logged_out(self):
         """用户登出状态变更处理"""

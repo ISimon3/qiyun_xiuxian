@@ -255,6 +255,19 @@ class GameAPI:
         data = {"cultivation_focus": cultivation_focus}
         return self.client.post('/api/v1/game/start-cultivation', data)
 
+    def change_cultivation_focus(self, cultivation_focus: str) -> Dict[str, Any]:
+        """
+        变更修炼方向
+
+        Args:
+            cultivation_focus: 新的修炼方向
+
+        Returns:
+            变更结果
+        """
+        data = {"cultivation_focus": cultivation_focus}
+        return self.client.post('/api/v1/game/change-cultivation-focus', data)
+
     def manual_breakthrough(self) -> Dict[str, Any]:
         """
         手动突破境界
@@ -283,6 +296,107 @@ class GameAPI:
         return self.client.post('/api/v1/game/force-cultivation-cycle')
 
 
+class InventoryAPI:
+    """背包和装备相关API"""
+
+    def __init__(self, client: APIClient):
+        self.client = client
+
+    def get_inventory(self) -> Dict[str, Any]:
+        """
+        获取角色背包
+
+        Returns:
+            背包物品列表
+        """
+        return self.client.get('/api/v1/inventory/inventory')
+
+    def get_equipment(self) -> Dict[str, Any]:
+        """
+        获取角色装备
+
+        Returns:
+            装备信息
+        """
+        return self.client.get('/api/v1/inventory/equipment')
+
+    def equip_item(self, item_id: int, slot: str) -> Dict[str, Any]:
+        """
+        装备物品
+
+        Args:
+            item_id: 物品ID
+            slot: 装备部位
+
+        Returns:
+            装备结果
+        """
+        data = {
+            "item_id": item_id,
+            "slot": slot
+        }
+        return self.client.post('/api/v1/inventory/equip', data)
+
+    def unequip_item(self, slot: str) -> Dict[str, Any]:
+        """
+        卸下装备
+
+        Args:
+            slot: 装备部位
+
+        Returns:
+            卸下结果
+        """
+        data = {"slot": slot}
+        return self.client.post('/api/v1/inventory/unequip', data)
+
+    def use_item(self, item_id: int, quantity: int = 1) -> Dict[str, Any]:
+        """
+        使用物品
+
+        Args:
+            item_id: 物品ID
+            quantity: 使用数量
+
+        Returns:
+            使用结果
+        """
+        data = {
+            "item_id": item_id,
+            "quantity": quantity
+        }
+        return self.client.post('/api/v1/inventory/use-item', data)
+
+    def delete_item(self, inventory_item_id: int, quantity: int = None) -> Dict[str, Any]:
+        """
+        删除物品
+
+        Args:
+            inventory_item_id: 背包物品ID
+            quantity: 删除数量
+
+        Returns:
+            删除结果
+        """
+        data = {"inventory_item_id": inventory_item_id}
+        if quantity is not None:
+            data["quantity"] = quantity
+        return self.client.post('/api/v1/inventory/delete-item', data)
+
+    def sort_inventory(self, sort_type: str = "type") -> Dict[str, Any]:
+        """
+        整理背包
+
+        Args:
+            sort_type: 排序类型 (type, quality, name)
+
+        Returns:
+            整理结果
+        """
+        data = {"sort_type": sort_type}
+        return self.client.post('/api/v1/inventory/sort', data)
+
+
 class GameAPIClient(APIClient):
     """游戏API客户端，整合所有API模块"""
 
@@ -293,6 +407,7 @@ class GameAPIClient(APIClient):
         self.auth = AuthAPI(self)
         self.user = UserAPI(self)
         self.game = GameAPI(self)
+        self.inventory = InventoryAPI(self)
 
     def test_connection(self) -> bool:
         """

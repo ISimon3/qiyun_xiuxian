@@ -122,10 +122,18 @@ class LoginTab(QWidget):
 
         layout.addLayout(form_layout)
 
-        # 记住登录状态
+        # 记住选项
+        remember_layout = QVBoxLayout()
+
         self.remember_checkbox = QCheckBox("记住登录状态")
         self.remember_checkbox.setChecked(True)
-        layout.addWidget(self.remember_checkbox)
+        remember_layout.addWidget(self.remember_checkbox)
+
+        self.remember_password_checkbox = QCheckBox("记住密码")
+        self.remember_password_checkbox.setChecked(False)
+        remember_layout.addWidget(self.remember_password_checkbox)
+
+        layout.addLayout(remember_layout)
 
         # 登录按钮
         self.login_button = QPushButton("登录")
@@ -138,6 +146,9 @@ class LoginTab(QWidget):
         self.password_edit.returnPressed.connect(self.on_login_clicked)
 
         self.setLayout(layout)
+
+        # 加载保存的登录信息
+        self.load_saved_credentials()
 
     def on_login_clicked(self):
         """登录按钮点击事件"""
@@ -155,8 +166,73 @@ class LoginTab(QWidget):
             self.password_edit.setFocus()
             return
 
+        # 保存凭据（如果勾选了记住密码）
+        if self.remember_password_checkbox.isChecked():
+            self.save_credentials(username, password)
+        else:
+            self.clear_saved_password()
+
         # 发送登录请求信号
         self.login_requested.emit(username, password)
+
+    def save_credentials(self, username: str, password: str):
+        """保存用户凭据"""
+        try:
+            import base64
+            from client.state_manager import get_state_manager
+
+            state_manager = get_state_manager()
+
+            # 简单的base64编码（注意：这不是安全的加密，仅用于演示）
+            encoded_password = base64.b64encode(password.encode()).decode()
+
+            # 保存到状态管理器
+            state_manager.save_credentials(username, encoded_password)
+            print(f"✅ 已保存用户 {username} 的登录凭据")
+
+        except Exception as e:
+            print(f"❌ 保存凭据失败: {e}")
+
+    def load_saved_credentials(self):
+        """加载保存的凭据"""
+        try:
+            import base64
+            from client.state_manager import get_state_manager
+
+            state_manager = get_state_manager()
+            credentials = state_manager.get_saved_credentials()
+
+            if credentials:
+                username = credentials.get('username', '')
+                encoded_password = credentials.get('password', '')
+
+                if username:
+                    self.username_edit.setText(username)
+
+                if encoded_password:
+                    # 解码密码
+                    try:
+                        password = base64.b64decode(encoded_password.encode()).decode()
+                        self.password_edit.setText(password)
+                        self.remember_password_checkbox.setChecked(True)
+                        print(f"✅ 已加载用户 {username} 的保存凭据")
+                    except Exception as e:
+                        print(f"❌ 解码密码失败: {e}")
+
+        except Exception as e:
+            print(f"❌ 加载凭据失败: {e}")
+
+    def clear_saved_password(self):
+        """清除保存的密码"""
+        try:
+            from client.state_manager import get_state_manager
+
+            state_manager = get_state_manager()
+            state_manager.clear_saved_password()
+            print("🧹 已清除保存的密码")
+
+        except Exception as e:
+            print(f"❌ 清除密码失败: {e}")
 
     def set_enabled(self, enabled: bool):
         """设置控件启用状态"""

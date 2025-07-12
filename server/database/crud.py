@@ -102,8 +102,20 @@ class CharacterCRUD:
             # 使用简单的默认灵根，避免复杂的随机选择
             selected_root = "单灵根"
 
+            # 生成8位随机角色ID
+            import random
+            while True:
+                random_id = random.randint(10000000, 99999999)  # 8位随机数
+                # 检查ID是否已存在
+                existing_check = await db.execute(
+                    select(Character).where(Character.id == random_id)
+                )
+                if not existing_check.scalar_one_or_none():
+                    break
+
             # 创建角色，使用用户名作为角色名
             db_character = Character(
+                id=random_id,
                 user_id=user_id,
                 name=username,
                 spiritual_root=selected_root
@@ -207,6 +219,12 @@ class ItemCRUD:
             .order_by(Item.name)
         )
         return result.scalars().all()
+
+    @staticmethod
+    async def get_item_by_name(db: AsyncSession, name: str) -> Optional[Item]:
+        """根据名称获取物品"""
+        result = await db.execute(select(Item).where(Item.name == name))
+        return result.scalar_one_or_none()
 
     @staticmethod
     async def search_items(db: AsyncSession, keyword: str, limit: int = 50) -> List[Item]:

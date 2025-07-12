@@ -171,6 +171,12 @@ class ItemInfo(BaseModel):
     stack_size: int = 1
     sell_price: int = 0
 
+    # 装备专用字段
+    equipment_slot: Optional[str] = None
+    required_realm: int = 0
+    base_attributes: Optional[Dict[str, Any]] = None
+    special_effects: Optional[Dict[str, Any]] = None
+
     class Config:
         from_attributes = True
 
@@ -190,6 +196,23 @@ class EquipItem(BaseModel):
 class UnequipItem(BaseModel):
     """卸下装备请求"""
     slot: str
+
+
+class UseItem(BaseModel):
+    """使用物品请求"""
+    item_id: int
+    quantity: int = 1
+
+
+class DeleteItem(BaseModel):
+    """删除物品请求"""
+    inventory_item_id: int
+    quantity: Optional[int] = None  # None表示删除全部
+
+
+class SortInventory(BaseModel):
+    """整理背包请求"""
+    sort_type: str = "type"  # type, quality, name
 
 
 

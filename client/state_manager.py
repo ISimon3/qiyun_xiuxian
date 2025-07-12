@@ -37,6 +37,7 @@ class StateManager(QObject):
         self._characters: List[Dict[str, Any]] = []
         self._current_character: Optional[Dict[str, Any]] = None
         self._server_url: str = "http://localhost:8000"
+        self._saved_credentials: Optional[Dict[str, str]] = None
 
         # 加载保存的配置
         self.load_config()
@@ -85,15 +86,25 @@ class StateManager(QObject):
             user_info: 用户信息
             token_data: 令牌数据
         """
+        print(f"📊 状态管理器: 开始登录处理 - {user_info.get('username')}")
+
         self._user_info = user_info
         self._access_token = token_data.get('access_token')
+
+        if not self._access_token:
+            print("❌ 警告: 未获取到访问令牌")
+            return
 
         # 计算token过期时间
         expires_in = token_data.get('expires_in', 3600)
         self._token_expires_at = datetime.now().timestamp() + expires_in
 
+        print(f"✅ Token设置成功，有效期: {expires_in}秒")
+        print(f"🔑 Token: {self._access_token[:20]}...")
+
         # 保存配置
         self.save_config()
+        print("💾 登录状态已保存")
 
         # 发送登录信号
         self.user_logged_in.emit(user_info)
@@ -114,11 +125,53 @@ class StateManager(QObject):
         self.user_logged_out.emit()
         self.state_changed.emit('logout', None)
 
+    def save_credentials(self, username: str, encoded_password: str) -> None:
+        """
+        保存用户凭据
+
+        Args:
+            username: 用户名
+            encoded_password: 编码后的密码
+        """
+        self._saved_credentials = {
+            'username': username,
+            'password': encoded_password
+        }
+        self.save_config()
+        print(f"📝 状态管理器: 已保存用户 {username} 的凭据")
+
+    def get_saved_credentials(self) -> Optional[Dict[str, str]]:
+        """
+        获取保存的凭据
+
+        Returns:
+            保存的凭据字典，包含username和password字段
+        """
+        return self._saved_credentials
+
+    def clear_saved_password(self) -> None:
+        """清除保存的密码，但保留用户名"""
+        if self._saved_credentials:
+            self._saved_credentials = {
+                'username': self._saved_credentials.get('username', ''),
+                'password': ''
+            }
+            self.save_config()
+            print("🧹 状态管理器: 已清除保存的密码")
+
+    def clear_all_credentials(self) -> None:
+        """清除所有保存的凭据"""
+        self._saved_credentials = None
+        self.save_config()
+        print("🧹 状态管理器: 已清除所有保存的凭据")
+
     def is_token_expired(self) -> bool:
         """检查token是否过期"""
         if not self._token_expires_at:
             return True
-        return datetime.now().timestamp() >= self._token_expires_at
+        # 提前5分钟认为token过期，避免边界情况
+        buffer_time = 300  # 5分钟
+        return datetime.now().timestamp() >= (self._token_expires_at - buffer_time)
 
     def update_characters(self, characters: List[Dict[str, Any]]) -> None:
         """
@@ -164,6 +217,7 @@ class StateManager(QObject):
                 'token_expires_at': self._token_expires_at,
                 'characters': self._characters,
                 'current_character': self._current_character,
+                'saved_credentials': self._saved_credentials,
                 'last_updated': datetime.now().isoformat()
             }
 
@@ -189,6 +243,7 @@ class StateManager(QObject):
             self._token_expires_at = config_data.get('token_expires_at')
             self._characters = config_data.get('characters', [])
             self._current_character = config_data.get('current_character')
+            self._saved_credentials = config_data.get('saved_credentials')
 
             # 检查token是否过期
             if self._access_token and self.is_token_expired():

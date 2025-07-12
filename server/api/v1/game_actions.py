@@ -167,6 +167,43 @@ async def start_cultivation(
         )
 
 
+@router.post("/change-cultivation-focus", response_model=BaseResponse, summary="变更修炼方向")
+async def change_cultivation_focus(
+    request: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    变更修炼方向
+
+    Args:
+        request: 包含cultivation_focus的请求数据
+    """
+    try:
+        # 获取修炼方向
+        cultivation_focus = request.get("cultivation_focus", "HP")
+
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 变更修炼方向
+        from server.core.systems.cultivation_system import CultivationSystem
+        result = await CultivationSystem.change_cultivation_focus(db, character, cultivation_focus)
+
+        return BaseResponse(
+            success=result["success"],
+            message=result["message"],
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        logger.error(f"变更修炼方向失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"变更修炼方向失败: {str(e)}"
+        )
+
+
 @router.post("/manual-breakthrough", response_model=BaseResponse, summary="手动突破")
 async def manual_breakthrough(
     current_user: User = Depends(get_current_active_user),

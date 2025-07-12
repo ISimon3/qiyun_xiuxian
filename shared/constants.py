@@ -463,7 +463,7 @@ ATTRIBUTE_FORMULAS = {
 
 # 物品品质
 ITEM_QUALITY = {
-    "COMMON": {"name": "普通", "color": "#FFFFFF"},
+    "COMMON": {"name": "普通", "color": "#333333"},
     "UNCOMMON": {"name": "优秀", "color": "#00FF00"},
     "RARE": {"name": "稀有", "color": "#0080FF"},
     "EPIC": {"name": "史诗", "color": "#8000FF"},

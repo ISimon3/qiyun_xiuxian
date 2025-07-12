@@ -78,6 +78,69 @@ class CultivationSystem:
             raise Exception(f"开始修炼失败: {str(e)}")
 
     @staticmethod
+    async def change_cultivation_focus(
+        db: AsyncSession,
+        character: Character,
+        cultivation_focus: str
+    ) -> Dict[str, Any]:
+        """
+        变更修炼方向
+
+        Args:
+            db: 数据库会话
+            character: 角色对象
+            cultivation_focus: 新的修炼方向
+
+        Returns:
+            变更结果
+        """
+        try:
+            # 验证修炼方向
+            if cultivation_focus not in CULTIVATION_FOCUS_TYPES:
+                return {
+                    "success": False,
+                    "message": f"无效的修炼方向: {cultivation_focus}"
+                }
+
+            # 获取旧的修炼方向
+            old_focus = character.cultivation_focus or "HP"
+            old_focus_name = CULTIVATION_FOCUS_TYPES.get(old_focus, {}).get("name", "未知")
+
+            # 更新角色的修炼方向
+            character.cultivation_focus = cultivation_focus
+            character.last_active = datetime.now()
+
+            # 记录日志
+            focus_name = CULTIVATION_FOCUS_TYPES[cultivation_focus]["name"]
+            await GameLogCRUD.create_log(
+                db,
+                character.id,
+                "CULTIVATION_FOCUS_CHANGE",
+                f"修炼方向变更：{old_focus_name} → {focus_name}",
+                {
+                    "old_cultivation_focus": old_focus,
+                    "new_cultivation_focus": cultivation_focus,
+                    "old_focus_name": old_focus_name,
+                    "new_focus_name": focus_name
+                }
+            )
+
+            await db.commit()
+
+            return {
+                "success": True,
+                "message": f"修炼方向已变更为：{focus_name}",
+                "old_cultivation_focus": old_focus,
+                "new_cultivation_focus": cultivation_focus,
+                "old_focus_name": old_focus_name,
+                "new_focus_name": focus_name
+            }
+
+        except Exception as e:
+            await db.rollback()
+            raise Exception(f"变更修炼方向失败: {str(e)}")
+
+    @staticmethod
     async def process_cultivation_cycle(
         db: AsyncSession,
         character: Character

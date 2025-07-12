@@ -19,6 +19,15 @@ class Settings(BaseSettings):
 
     # 数据库配置
     DATABASE_URL: str = "sqlite+aiosqlite:///./qiyun_xiuxian.db"
+
+    @property
+    def database_url(self) -> str:
+        """获取数据库URL，确保使用项目根目录的数据库文件"""
+        import os
+        # 获取项目根目录（config.py的上两级目录）
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        db_path = os.path.join(project_root, "qiyun_xiuxian.db")
+        return f"sqlite+aiosqlite:///{db_path}"
     DATABASE_ECHO: bool = False  # 是否打印SQL语句
 
     # PostgreSQL配置 (可选)
@@ -61,7 +70,8 @@ class Settings(BaseSettings):
         postgres_url = self.postgres_url
         if postgres_url:
             return postgres_url
-        return self.DATABASE_URL
+        # 使用绝对路径的SQLite数据库
+        return self.database_url
 
 
 # 创建全局配置实例

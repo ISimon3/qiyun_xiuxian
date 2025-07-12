@@ -10,7 +10,8 @@ from server.database.models import User
 from server.core.dependencies import get_current_active_user
 from server.core.character_service import CharacterService
 from shared.schemas import (
-    BaseResponse, InventoryItem, EquipItem, UnequipItem, ItemInfo
+    BaseResponse, InventoryItem, EquipItem, UnequipItem, ItemInfo,
+    UseItem, DeleteItem, SortInventory
 )
 
 router = APIRouter()
@@ -77,13 +78,27 @@ async def get_character_equipment(
         # 获取或创建角色
         character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
 
-        # 简化装备信息获取，暂时返回空装备
+        # 获取角色装备
+        equipped_items = await EquipmentCRUD.get_character_equipment(db, character.id)
+
+        # 构建装备数据
+        equipment_data = {}
+        for equipped_item in equipped_items:
+            if equipped_item.item:
+                item_info = ItemInfo.model_validate(equipped_item.item)
+                equipment_data[equipped_item.slot] = {
+                    "item_info": item_info.model_dump(),
+                    "actual_attributes": equipped_item.actual_attributes or {},
+                    "attribute_variation": equipped_item.attribute_variation,
+                    "equipped_at": equipped_item.equipped_at.isoformat() if equipped_item.equipped_at else None
+                }
+
         return BaseResponse(
             success=True,
             message="获取装备信息成功",
             data={
                 "character_id": character.id,
-                "equipment": None,  # 暂时返回空装备
+                "equipment": equipment_data,
                 "attributes": {
                     "hp": 100,
                     "physical_attack": 20,
@@ -157,8 +172,27 @@ async def equip_item(
                 detail=f"境界不足，需要{item.required_realm}境界"
             )
         
-        # TODO: 检查背包中是否有该物品
-        # 这里简化处理，实际应该从背包中移除物品
+        # 检查背包中是否有该物品并移除
+        inventory_items = await InventoryCRUD.get_character_inventory(db, character.id)
+        target_inventory_item = None
+        for inv_item in inventory_items:
+            if inv_item.item_id == equip_data.item_id:
+                target_inventory_item = inv_item
+                break
+
+        if not target_inventory_item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="背包中没有该物品"
+            )
+
+        # 从背包中移除物品（装备类物品数量通常为1）
+        if target_inventory_item.quantity > 1:
+            target_inventory_item.quantity -= 1
+            await db.commit()
+        else:
+            await db.delete(target_inventory_item)
+            await db.commit()
         
         # 生成装备属性
         from shared.utils import generate_equipment_attributes
@@ -221,16 +255,40 @@ async def unequip_item(
         # 获取或创建角色
         character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
 
-        # 卸下装备
-        success = await EquipmentCRUD.unequip_item(db, character.id, unequip_data.slot)
-        
-        if not success:
+        # 先获取要卸下的装备信息
+        equipped_items = await EquipmentCRUD.get_character_equipment(db, character.id)
+        target_equipped_item = None
+        for equipped_item in equipped_items:
+            if equipped_item.slot == unequip_data.slot:
+                target_equipped_item = equipped_item
+                break
+
+        if not target_equipped_item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="该部位没有装备"
             )
-        
-        # TODO: 将装备放回背包
+
+        # 卸下装备
+        success = await EquipmentCRUD.unequip_item(db, character.id, unequip_data.slot)
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="卸下装备失败"
+            )
+
+        # 将装备放回背包
+        from server.database.models import InventoryItem
+        inventory_item = InventoryItem(
+            character_id=character.id,
+            item_id=target_equipped_item.item_id,
+            quantity=1,
+            attribute_variation=target_equipped_item.attribute_variation,
+            actual_attributes=target_equipped_item.actual_attributes
+        )
+        db.add(inventory_item)
+        await db.commit()
         
         # 返回更新后的角色信息
         updated_character = await CharacterCRUD.get_character_by_id(db, character.id)
@@ -250,4 +308,188 @@ async def unequip_item(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"卸下装备失败: {str(e)}"
+        )
+
+
+@router.post("/use-item", response_model=BaseResponse, summary="使用物品")
+async def use_item(
+    use_data: UseItem,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    使用背包中的物品（消耗品、丹药等）
+
+    - **item_id**: 物品ID
+    - **quantity**: 使用数量
+    """
+    try:
+        # 获取或创建角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 获取物品信息
+        item = await ItemCRUD.get_item_by_id(db, use_data.item_id)
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="物品不存在"
+            )
+
+        # 检查是否为可使用物品
+        if item.item_type not in ["CONSUMABLE", "PILL"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="该物品不能使用"
+            )
+
+        # 检查背包中是否有足够的物品
+        inventory_items = await InventoryCRUD.get_character_inventory(db, character.id)
+        target_item = None
+        for inv_item in inventory_items:
+            if inv_item.item_id == use_data.item_id:
+                target_item = inv_item
+                break
+
+        if not target_item or target_item.quantity < use_data.quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="物品数量不足"
+            )
+
+        # 使用物品效果（简化处理）
+        effect_message = f"使用了{item.name}x{use_data.quantity}"
+
+        # 特殊物品效果处理
+        if "转运" in item.name:
+            # 气运道具，调用气运系统
+            from server.core.systems.luck_system import LuckSystem
+            result = await LuckSystem.use_luck_item(db, character, use_data.item_id, use_data.quantity)
+            if not result["success"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=result["message"]
+                )
+            effect_message = result["message"]
+        else:
+            # 其他消耗品，减少数量
+            await InventoryCRUD.remove_item_from_inventory(db, target_item.id, use_data.quantity)
+
+        return BaseResponse(
+            success=True,
+            message=effect_message,
+            data={
+                "item_name": item.name,
+                "quantity_used": use_data.quantity,
+                "remaining_quantity": max(0, target_item.quantity - use_data.quantity)
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"使用物品失败: {str(e)}"
+        )
+
+
+@router.post("/delete-item", response_model=BaseResponse, summary="删除物品")
+async def delete_item(
+    delete_data: DeleteItem,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    删除背包中的物品
+
+    - **inventory_item_id**: 背包物品ID
+    - **quantity**: 删除数量（None表示删除全部）
+    """
+    try:
+        # 获取或创建角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 删除物品
+        success = await InventoryCRUD.remove_item_from_inventory(
+            db, delete_data.inventory_item_id, delete_data.quantity
+        )
+
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="物品不存在"
+            )
+
+        return BaseResponse(
+            success=True,
+            message="物品删除成功",
+            data={
+                "inventory_item_id": delete_data.inventory_item_id,
+                "quantity_deleted": delete_data.quantity
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"删除物品失败: {str(e)}"
+        )
+
+
+@router.post("/sort", response_model=BaseResponse, summary="整理背包")
+async def sort_inventory(
+    sort_data: SortInventory,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    整理背包物品
+
+    - **sort_type**: 排序类型 (type, quality, name)
+    """
+    try:
+        # 获取或创建角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 获取背包物品
+        inventory_items = await InventoryCRUD.get_character_inventory(db, character.id)
+
+        # 根据排序类型进行排序
+        if sort_data.sort_type == "type":
+            # 按物品类型排序
+            sorted_items = sorted(inventory_items, key=lambda x: (x.item.item_type if x.item else "", x.item.name if x.item else ""))
+        elif sort_data.sort_type == "quality":
+            # 按品质排序
+            quality_order = {"COMMON": 1, "UNCOMMON": 2, "RARE": 3, "EPIC": 4, "LEGENDARY": 5}
+            sorted_items = sorted(inventory_items, key=lambda x: (
+                quality_order.get(x.item.quality if x.item else "COMMON", 0),
+                x.item.name if x.item else ""
+            ))
+        else:  # name
+            # 按名称排序
+            sorted_items = sorted(inventory_items, key=lambda x: x.item.name if x.item else "")
+
+        # 更新背包位置
+        for i, item in enumerate(sorted_items):
+            item.slot_position = i + 1
+
+        await db.commit()
+
+        return BaseResponse(
+            success=True,
+            message=f"背包整理完成（按{sort_data.sort_type}排序）",
+            data={
+                "sort_type": sort_data.sort_type,
+                "total_items": len(sorted_items)
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"整理背包失败: {str(e)}"
         )
