@@ -53,8 +53,7 @@ qiyun_xiuxian/
 ├── requirements.txt             # 项目依赖库
 ├── README.md                    # 项目说明文档
 ├── start_server.bat             # 服务器启动脚本 (Windows)
-├── start_client.bat             # 客户端启动脚本 (Windows)
-└── fix_pyqt.py                  # PyQt6问题诊断工具
+└── start_client.bat             # 客户端启动脚本 (Windows)
 
 ## 🚀 快速启动
 
@@ -66,7 +65,7 @@ qiyun_xiuxian/
 start_server.bat
 
 # 或手动执行
-python server/server_main.py
+python server/main.py
 ```
 
 **启动客户端:**
@@ -75,27 +74,15 @@ python server/server_main.py
 start_client.bat
 
 # 或手动执行
-python client/client_main.py
-```
-
-### 方式2: 传统方式
-
-**启动服务器:**
-```bash
-python server/main.py
-```
-
-**启动客户端:**
-```bash
 python client/main.py
 ```
 
 ### 🔧 故障排除
 
-如果遇到PyQt6导入问题，运行诊断工具：
-```bash
-python fix_pyqt.py
-```
+如果遇到PyQt6导入问题：
+1. 重新安装PyQt6: `pip uninstall PyQt6 && pip install PyQt6`
+2. 安装Visual C++运行库
+3. 或尝试使用PyQt5: `pip install PyQt5`
 
 ## ✅ 当前完成状态
 
@@ -108,8 +95,8 @@ python fix_pyqt.py
 - [x] `client/network/api_client.py` - HTTP请求封装
 - [x] `client/state_manager.py` - 客户端状态管理
 - [x] `client/ui/login_window.py` - 登录注册界面
-- [x] `client/client_main.py` - 客户端启动入口
-- [x] 服务器和客户端启动脚本分离
+- [x] `client/main.py` - 客户端启动入口
+- [x] 项目结构优化和文件清理
 - [x] PyQt6兼容性问题解决
 
 

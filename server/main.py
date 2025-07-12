@@ -161,8 +161,13 @@ app.include_router(auth.router, prefix="/api/v1/auth", tags=["认证"])
 app.include_router(user.router, prefix="/api/v1/user", tags=["用户"])
 
 
-if __name__ == "__main__":
-    # 直接运行时的配置
+def start_server():
+    """启动服务器"""
+    print("🚀 正在启动气运修仙游戏服务器...")
+    print(f"📡 服务器地址: http://{settings.HOST}:{settings.PORT}")
+    print(f"🔧 调试模式: {'开启' if settings.DEBUG else '关闭'}")
+    print("=" * 50)
+    
     uvicorn.run(
         "server.main:app",
         host=settings.HOST,
@@ -170,3 +175,7 @@ if __name__ == "__main__":
         reload=settings.DEBUG,
         log_level="info" if settings.DEBUG else "warning"
     )
+
+
+if __name__ == "__main__":
+    start_server()

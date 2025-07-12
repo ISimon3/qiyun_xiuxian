@@ -4,13 +4,30 @@ import sys
 import os
 import traceback
 from typing import Optional
-from PyQt6.QtWidgets import QApplication, QMessageBox, QWidget
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QIcon
 
 # 添加项目根目录到Python路径
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
+
+# 检查PyQt6是否可用
+try:
+    from PyQt6.QtWidgets import QApplication, QMessageBox, QWidget
+    from PyQt6.QtCore import Qt, QTimer
+    from PyQt6.QtGui import QIcon
+    PYQT_AVAILABLE = True
+except ImportError as e:
+    PYQT_AVAILABLE = False
+    PYQT_ERROR = str(e)
+
+if not PYQT_AVAILABLE:
+    print("❌ PyQt6导入失败!")
+    print(f"错误信息: {PYQT_ERROR}")
+    print("\n🔧 解决方案:")
+    print("1. 重新安装PyQt6: pip uninstall PyQt6 && pip install PyQt6")
+    print("2. 如果是DLL错误，尝试安装Visual C++运行库")
+    print("3. 或者尝试安装PyQt5: pip install PyQt5")
+    print("4. 运行诊断工具: python fix_pyqt.py")
+    sys.exit(1)
 
 from client.ui.login_window import LoginWindow
 from client.state_manager import init_state_manager, get_state_manager
@@ -19,41 +36,41 @@ from client.network.api_client import GameAPIClient
 
 class GameApplication:
     """游戏应用程序主类"""
-
+    
     def __init__(self):
         # 初始化Qt应用程序
         self.app = QApplication(sys.argv)
         self.setup_application()
-
+        
         # 初始化组件
         self.state_manager = init_state_manager()
         self.api_client: Optional[GameAPIClient] = None
-
+        
         # 窗口管理
         self.login_window: Optional[LoginWindow] = None
         self.main_window: Optional[QWidget] = None  # 主游戏窗口，后续实现
-
+        
         # 设置异常处理
         self.setup_exception_handling()
-
+        
         # 连接状态管理器信号
         self.setup_state_connections()
-
+    
     def setup_application(self):
         """设置应用程序基本信息"""
         self.app.setApplicationName("气运修仙")
         self.app.setApplicationVersion("1.0.0")
         self.app.setOrganizationName("气运修仙工作室")
         self.app.setOrganizationDomain("qiyun-xiuxian.com")
-
+        
         # 设置应用程序图标（如果存在）
         icon_path = os.path.join(os.path.dirname(__file__), "assets", "icons", "app_icon.ico")
         if os.path.exists(icon_path):
             self.app.setWindowIcon(QIcon(icon_path))
-
+        
         # 设置样式
         self.setup_styles()
-
+    
     def setup_styles(self):
         """设置应用程序样式"""
         # 基础样式
@@ -62,7 +79,7 @@ class GameApplication:
             font-family: "Microsoft YaHei", "SimHei", sans-serif;
             font-size: 12px;
         }
-
+        
         QPushButton {
             background-color: #4CAF50;
             color: white;
@@ -71,36 +88,36 @@ class GameApplication:
             padding: 8px 16px;
             font-weight: bold;
         }
-
+        
         QPushButton:hover {
             background-color: #45a049;
         }
-
+        
         QPushButton:pressed {
             background-color: #3d8b40;
         }
-
+        
         QPushButton:disabled {
             background-color: #cccccc;
             color: #666666;
         }
-
+        
         QLineEdit {
             border: 2px solid #ddd;
             border-radius: 4px;
             padding: 8px;
             font-size: 13px;
         }
-
+        
         QLineEdit:focus {
             border-color: #4CAF50;
         }
-
+        
         QTabWidget::pane {
             border: 1px solid #ddd;
             border-radius: 4px;
         }
-
+        
         QTabBar::tab {
             background-color: #f0f0f0;
             padding: 8px 16px;
@@ -108,26 +125,26 @@ class GameApplication:
             border-top-left-radius: 4px;
             border-top-right-radius: 4px;
         }
-
+        
         QTabBar::tab:selected {
             background-color: white;
             border-bottom: 2px solid #4CAF50;
         }
-
+        
         QProgressBar {
             border: 1px solid #ddd;
             border-radius: 4px;
             text-align: center;
         }
-
+        
         QProgressBar::chunk {
             background-color: #4CAF50;
             border-radius: 3px;
         }
         """
-
+        
         self.app.setStyleSheet(style)
-
+    
     def setup_exception_handling(self):
         """设置全局异常处理"""
         def handle_exception(exc_type, exc_value, exc_traceback):
@@ -136,11 +153,11 @@ class GameApplication:
                 # 允许Ctrl+C中断
                 sys.__excepthook__(exc_type, exc_value, exc_traceback)
                 return
-
+            
             # 记录异常信息
             error_msg = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
             print(f"未处理的异常:\n{error_msg}")
-
+            
             # 显示错误对话框
             try:
                 QMessageBox.critical(
@@ -152,32 +169,35 @@ class GameApplication:
                 )
             except:
                 pass  # 如果连错误对话框都无法显示，就静默处理
-
+        
         # 设置异常钩子
         sys.excepthook = handle_exception
-
+    
     def setup_state_connections(self):
         """设置状态管理器信号连接"""
         self.state_manager.user_logged_in.connect(self.on_user_logged_in)
         self.state_manager.user_logged_out.connect(self.on_user_logged_out)
-
+    
     def run(self):
         """运行应用程序"""
         try:
+            print("🎮 正在启动气运修仙客户端...")
+            
             # 检查是否已有登录状态
             if self.state_manager.is_logged_in and not self.state_manager.is_token_expired():
-                print(f"检测到已登录用户: {self.state_manager.user_info.get('username')}")
+                print(f"✅ 检测到已登录用户: {self.state_manager.user_info.get('username')}")
                 # 直接进入主界面（暂时显示登录窗口，后续实现主界面后修改）
                 self.show_login_window()
             else:
+                print("📝 显示登录窗口")
                 # 显示登录窗口
                 self.show_login_window()
-
+            
             # 启动事件循环
             return self.app.exec()
-
+            
         except Exception as e:
-            print(f"应用程序启动失败: {e}")
+            print(f"❌ 应用程序启动失败: {e}")
             traceback.print_exc()
             return 1
 
@@ -202,9 +222,9 @@ class GameApplication:
         QMessageBox.information(
             None,
             "登录成功",
-            f"欢迎进入气运修仙世界，{username}！\n\n"
-            f"主游戏界面将在后续版本中实现。\n"
-            f"当前版本仅实现登录注册功能。"
+            f"🎉 欢迎进入气运修仙世界，{username}！\n\n"
+            f"📋 主游戏界面将在后续版本中实现。\n"
+            f"✅ 当前版本仅实现登录注册功能。"
         )
 
         # 暂时退出应用程序
@@ -212,7 +232,7 @@ class GameApplication:
 
     def on_login_success(self, user_info: dict):
         """登录成功处理"""
-        print(f"用户登录成功: {user_info.get('username')}")
+        print(f"✅ 用户登录成功: {user_info.get('username')}")
 
         # 隐藏登录窗口
         if self.login_window:
@@ -223,7 +243,7 @@ class GameApplication:
 
     def on_user_logged_in(self, user_info: dict):
         """用户登录状态变更处理"""
-        print(f"状态管理器: 用户已登录 - {user_info.get('username')}")
+        print(f"📊 状态管理器: 用户已登录 - {user_info.get('username')}")
 
         # 初始化API客户端
         if self.api_client is None:
@@ -235,7 +255,7 @@ class GameApplication:
 
     def on_user_logged_out(self):
         """用户登出状态变更处理"""
-        print("状态管理器: 用户已登出")
+        print("📊 状态管理器: 用户已登出")
 
         # 清除API客户端令牌
         if self.api_client:
@@ -250,7 +270,7 @@ class GameApplication:
 
     def cleanup(self):
         """清理资源"""
-        print("正在清理应用程序资源...")
+        print("🧹 正在清理应用程序资源...")
 
         # 关闭所有窗口
         if self.login_window:
@@ -267,6 +287,10 @@ class GameApplication:
 def main():
     """主函数"""
     try:
+        print("=" * 50)
+        print("🎮 气运修仙 - 客户端启动器")
+        print("=" * 50)
+
         # 创建应用程序实例
         game_app = GameApplication()
 
@@ -276,10 +300,11 @@ def main():
         # 清理资源
         game_app.cleanup()
 
+        print("👋 客户端已退出")
         return exit_code
 
     except Exception as e:
-        print(f"应用程序运行失败: {e}")
+        print(f"❌ 应用程序运行失败: {e}")
         traceback.print_exc()
         return 1
 
