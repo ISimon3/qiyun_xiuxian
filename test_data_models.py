@@ -63,10 +63,12 @@ class GameDataModelTester:
         """测试用户认证"""
         print("\n🔐 测试用户认证...")
         
-        # 注册用户
+        # 注册用户（使用随机用户名避免冲突）
+        import random
+        random_suffix = random.randint(10000, 99999)
         register_data = {
-            "username": "testuser_data",
-            "email": "testuser_data@example.com",
+            "username": f"testuser_{random_suffix}",
+            "email": f"testuser_{random_suffix}@example.com",
             "password": "testpass123"
         }
         
@@ -78,7 +80,7 @@ class GameDataModelTester:
         
         # 登录用户
         login_data = {
-            "username": "testuser_data",
+            "username": register_data["username"],
             "password": "testpass123"
         }
         
