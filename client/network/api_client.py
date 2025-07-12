@@ -201,6 +201,88 @@ class UserAPI:
         return self.client.get('/api/v1/user/character/detail')
 
 
+class GameAPI:
+    """游戏行为相关API"""
+
+    def __init__(self, client: APIClient):
+        self.client = client
+
+    def daily_sign_in(self) -> Dict[str, Any]:
+        """
+        每日签到
+
+        Returns:
+            签到结果
+        """
+        return self.client.post('/api/v1/game/daily-sign')
+
+    def use_luck_item(self, item_id: int, quantity: int = 1) -> Dict[str, Any]:
+        """
+        使用气运道具
+
+        Args:
+            item_id: 道具ID
+            quantity: 使用数量
+
+        Returns:
+            使用结果
+        """
+        data = {
+            "item_id": item_id,
+            "quantity": quantity
+        }
+        return self.client.post('/api/v1/game/use-luck-item', data)
+
+    def get_luck_info(self) -> Dict[str, Any]:
+        """
+        获取气运系统信息
+
+        Returns:
+            气运信息
+        """
+        return self.client.get('/api/v1/game/luck-info')
+
+    def start_cultivation(self, cultivation_focus: str = "HP") -> Dict[str, Any]:
+        """
+        开始修炼
+
+        Args:
+            cultivation_focus: 修炼方向
+
+        Returns:
+            开始修炼结果
+        """
+        data = {"cultivation_focus": cultivation_focus}
+        return self.client.post('/api/v1/game/start-cultivation', data)
+
+    def manual_breakthrough(self) -> Dict[str, Any]:
+        """
+        手动突破境界
+
+        Returns:
+            突破结果
+        """
+        return self.client.post('/api/v1/game/manual-breakthrough')
+
+    def get_cultivation_status(self) -> Dict[str, Any]:
+        """
+        获取修炼状态
+
+        Returns:
+            修炼状态信息
+        """
+        return self.client.get('/api/v1/game/cultivation-status')
+
+    def force_cultivation_cycle(self) -> Dict[str, Any]:
+        """
+        强制执行修炼周期（测试用）
+
+        Returns:
+            修炼周期结果
+        """
+        return self.client.post('/api/v1/game/force-cultivation-cycle')
+
+
 class GameAPIClient(APIClient):
     """游戏API客户端，整合所有API模块"""
 
@@ -210,6 +292,7 @@ class GameAPIClient(APIClient):
         # 初始化各个API模块
         self.auth = AuthAPI(self)
         self.user = UserAPI(self)
+        self.game = GameAPI(self)
 
     def test_connection(self) -> bool:
         """

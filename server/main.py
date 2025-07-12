@@ -38,8 +38,10 @@ async def lifespan(app: FastAPI):
         await init_database()
         logger.info("数据库初始化完成")
 
-        # 这里可以添加其他启动任务
-        # 比如：初始化游戏数据、启动定时任务等
+        # 启动游戏主循环
+        from server.core.game_loop import game_loop
+        game_loop_task = asyncio.create_task(game_loop.start())
+        logger.info("游戏主循环启动完成")
 
         logger.info(f"服务器启动成功，监听 {settings.HOST}:{settings.PORT}")
         yield
@@ -51,10 +53,20 @@ async def lifespan(app: FastAPI):
     # 关闭时执行
     logger.info("正在关闭服务器...")
     try:
+        # 停止游戏主循环
+        await game_loop.stop()
+        if 'game_loop_task' in locals():
+            game_loop_task.cancel()
+            try:
+                await game_loop_task
+            except asyncio.CancelledError:
+                pass
+        logger.info("游戏主循环已停止")
+
         await close_database()
         logger.info("数据库连接已关闭")
     except Exception as e:
-        logger.error(f"关闭数据库连接失败: {e}")
+        logger.error(f"关闭服务器失败: {e}")
 
 
 # 创建FastAPI应用
@@ -156,10 +168,11 @@ async def health_check():
 
 
 # 注册API路由
-from server.api.v1 import auth, user, inventory
+from server.api.v1 import auth, user, inventory, game_actions
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["认证"])
 app.include_router(user.router, prefix="/api/v1/user", tags=["用户"])
 app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["背包装备"])
+app.include_router(game_actions.router, prefix="/api/v1/game", tags=["游戏行为"])
 
 
 def start_server():

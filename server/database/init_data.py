@@ -69,14 +69,61 @@ class DataInitializer:
                 "sell_price": 15,
                 "base_attributes": {"mp_restore": 50}
             },
+            # 气运道具系列
+            {
+                "name": "小转运丹",
+                "description": "提升少量气运值的基础丹药",
+                "item_type": "CONSUMABLE",
+                "quality": "COMMON",
+                "stack_size": 99,
+                "sell_price": 50,
+                "base_attributes": {"luck_boost": 5}
+            },
             {
                 "name": "转运丹",
-                "description": "临时提升气运值的珍贵丹药",
-                "item_type": "PILL",
+                "description": "提升气运值的珍贵丹药",
+                "item_type": "CONSUMABLE",
                 "quality": "UNCOMMON",
-                "stack_size": 10,
+                "stack_size": 50,
                 "sell_price": 100,
-                "base_attributes": {"luck_boost": 10, "duration": 3600}
+                "base_attributes": {"luck_boost": 10}
+            },
+            {
+                "name": "大转运丹",
+                "description": "大幅提升气运值的稀有丹药",
+                "item_type": "CONSUMABLE",
+                "quality": "RARE",
+                "stack_size": 20,
+                "sell_price": 300,
+                "base_attributes": {"luck_boost": 20}
+            },
+            {
+                "name": "极品转运丹",
+                "description": "极大提升气运值的传说丹药",
+                "item_type": "CONSUMABLE",
+                "quality": "LEGENDARY",
+                "stack_size": 5,
+                "sell_price": 1000,
+                "base_attributes": {"luck_boost": 50}
+            },
+            # 其他基础丹药
+            {
+                "name": "回血丹",
+                "description": "恢复少量生命值的基础丹药",
+                "item_type": "PILL",
+                "quality": "COMMON",
+                "stack_size": 99,
+                "sell_price": 10,
+                "base_attributes": {"hp_restore": 100}
+            },
+            {
+                "name": "回灵丹",
+                "description": "恢复法力的基础丹药",
+                "item_type": "PILL",
+                "quality": "COMMON",
+                "stack_size": 99,
+                "sell_price": 15,
+                "base_attributes": {"mp_restore": 50}
             },
             
             # 基础材料

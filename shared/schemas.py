@@ -329,6 +329,119 @@ class EnterDungeon(BaseModel):
     dungeon_id: int
 
 
+# 气运系统相关
+class DailySignInResult(BaseModel):
+    """每日签到结果"""
+    success: bool
+    message: str
+    old_luck: Optional[int] = None
+    new_luck: int
+    luck_change: Optional[int] = None
+    luck_level: str
+    luck_color: Optional[str] = None
+
+
+class UseLuckItemRequest(BaseModel):
+    """使用气运道具请求"""
+    item_id: int
+    quantity: int = 1
+
+
+class UseLuckItemResult(BaseModel):
+    """使用气运道具结果"""
+    success: bool
+    message: str
+    old_luck: Optional[int] = None
+    new_luck: Optional[int] = None
+    luck_bonus: Optional[int] = None
+    luck_level: Optional[str] = None
+
+
+class LuckEffectInfo(BaseModel):
+    """气运影响信息"""
+    luck_level: str
+    multiplier: float
+    special_event_chance: float
+    possible_events: List[str]
+    is_positive: bool
+
+
+class SpecialEventResult(BaseModel):
+    """特殊事件结果"""
+    success: bool
+    message: str
+    effects: Dict[str, Any]
+
+
+class LuckSystemInfo(BaseModel):
+    """气运系统信息"""
+    current_luck: int
+    luck_level: str
+    luck_color: str
+    can_sign_today: bool
+    last_sign_date: Optional[str] = None
+    cultivation_effect: LuckEffectInfo
+    breakthrough_bonus: float  # 突破成功率加成
+    drop_effects: Dict[str, Any]  # 掉落影响
+
+
+# 修炼系统相关
+class StartCultivationRequest(BaseModel):
+    """开始修炼请求"""
+    cultivation_focus: str = "HP"  # HP, PHYSICAL_ATTACK, MAGIC_ATTACK, PHYSICAL_DEFENSE, MAGIC_DEFENSE
+
+
+class StartCultivationResult(BaseModel):
+    """开始修炼结果"""
+    success: bool
+    message: str
+    cultivation_focus: Optional[str] = None
+    focus_name: Optional[str] = None
+
+
+class CultivationCycleResult(BaseModel):
+    """修炼周期结果"""
+    success: bool
+    exp_gained: int
+    attribute_gained: int
+    attribute_type: str
+    focus_name: str
+    luck_multiplier: float
+    luck_effect: Optional[str] = None
+    special_event: Optional[str] = None
+    special_event_result: Optional[Dict[str, Any]] = None
+    current_exp: int
+
+
+class BreakthroughResult(BaseModel):
+    """突破结果"""
+    success: bool
+    message: str
+    old_realm: Optional[int] = None
+    new_realm: Optional[int] = None
+    success_rate: float
+    exp_consumed: Optional[int] = None
+    exp_loss: Optional[int] = None
+
+
+class CultivationStatus(BaseModel):
+    """修炼状态信息"""
+    success: bool
+    current_realm: int
+    current_realm_name: str
+    current_exp: int
+    next_realm: int
+    next_realm_name: str
+    required_exp: int
+    exp_progress: float
+    can_breakthrough: bool
+    breakthrough_rate: float
+    cultivation_focus: str
+    focus_name: str
+    luck_effect: LuckEffectInfo
+    is_cultivating: bool
+
+
 class DungeonResult(BaseModel):
     success: bool
     rewards: List[Dict[str, Any]]
