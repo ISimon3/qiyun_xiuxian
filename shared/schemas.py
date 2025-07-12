@@ -483,19 +483,81 @@ class AlchemyResult(BaseModel):
 
 # 副本相关
 class DungeonInfo(BaseModel):
-    id: int
+    """副本信息"""
+    dungeon_id: str
     name: str
     description: str
-    required_level: int
-    energy_cost: int
-    rewards: List[Dict[str, Any]]
+    difficulty: str
+    required_realm: int
+    required_realm_name: str
+    stamina_cost: int
+    max_floors: int
+    base_exp_reward: int
+    base_gold_reward: int
+    can_enter: bool
 
     class Config:
         from_attributes = True
 
 
-class EnterDungeon(BaseModel):
-    dungeon_id: int
+class DungeonListResponse(BaseModel):
+    """副本列表响应"""
+    dungeons: List[DungeonInfo]
+    current_stamina: int
+    max_stamina: int
+
+
+class EnterDungeonRequest(BaseModel):
+    """进入副本请求"""
+    dungeon_id: str
+
+
+class EnterDungeonResult(BaseModel):
+    """进入副本结果"""
+    dungeon_instance_id: int
+    current_floor: int
+    monster_info: Dict[str, Any]
+
+
+class DungeonStatusResponse(BaseModel):
+    """副本状态响应"""
+    dungeon_instance_id: int
+    dungeon_name: str
+    current_floor: int
+    max_floors: int
+    player_hp: int
+    player_max_hp: int
+    monster_info: Dict[str, Any]
+    monster_hp: int
+    monster_max_hp: int
+    progress_data: Dict[str, Any]
+
+
+class CombatActionRequest(BaseModel):
+    """战斗行动请求"""
+    action_type: str  # NORMAL_ATTACK, HEAVY_ATTACK, MAGIC_ATTACK, HEAL, DEFEND
+
+
+class CombatResult(BaseModel):
+    """战斗结果"""
+    action_type: str
+    actor: str
+    damage: int = 0
+    heal: int = 0
+    is_critical: bool = False
+    description: str
+    player_hp_before: int
+    monster_hp_before: int
+    player_hp_after: int
+    monster_hp_after: int
+
+
+class CombatActionResult(BaseModel):
+    """战斗行动结果"""
+    combat_results: List[CombatResult]
+    player_hp: int
+    monster_hp: int
+    dungeon_status: str
 
 
 # 气运系统相关

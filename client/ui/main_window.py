@@ -533,7 +533,36 @@ class MainWindow(QMainWindow):
 
     def show_dungeon_window(self):
         """显示副本窗口"""
-        QMessageBox.information(self, "提示", "副本功能正在开发中...")
+        try:
+            from client.ui.windows.dungeon_window import DungeonWindow
+
+            # 检查是否已经打开了副本窗口
+            if hasattr(self, 'dungeon_window') and self.dungeon_window and not self.dungeon_window.isHidden():
+                # 如果已经打开，就将其置于前台
+                self.dungeon_window.raise_()
+                self.dungeon_window.activateWindow()
+                return
+
+            # 创建新的副本窗口
+            self.dungeon_window = DungeonWindow(self)
+            self.dungeon_window.dungeon_completed.connect(self.on_dungeon_completed)
+            self.dungeon_window.show()  # 使用show()而不是exec()，实现非模态
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"打开副本窗口失败: {str(e)}")
+
+    def on_dungeon_completed(self, result_data):
+        """处理副本完成事件"""
+        try:
+            # 刷新角色信息
+            if self.character_info_widget:
+                self.character_info_widget.refresh_character_info()
+
+            # 添加日志
+            if self.cultivation_log_widget:
+                self.cultivation_log_widget.add_special_event_log("完成副本探索，获得丰厚奖励！")
+
+        except Exception as e:
+            print(f"处理副本完成事件失败: {str(e)}")
 
     def show_worldboss_window(self):
         """显示世界boss窗口"""

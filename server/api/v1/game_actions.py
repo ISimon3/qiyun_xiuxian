@@ -15,7 +15,9 @@ from shared.schemas import (
     FarmInfo, PlantSeedRequest, HarvestPlotRequest, UnlockPlotRequest,
     PlantSeedResult, HarvestResult, UnlockPlotResult,
     AlchemyInfo, StartAlchemyRequest, StartAlchemyResult,
-    CollectAlchemyRequest, CollectAlchemyResult
+    CollectAlchemyRequest, CollectAlchemyResult,
+    DungeonListResponse, EnterDungeonRequest, EnterDungeonResult,
+    DungeonStatusResponse, CombatActionRequest, CombatActionResult
 )
 from shared.utils import get_luck_level_name
 from shared.constants import LUCK_LEVELS, DEFAULT_CONFIG
@@ -559,4 +561,152 @@ async def collect_alchemy_result(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"收取炼丹结果失败: {str(e)}"
+        )
+
+
+# 副本系统相关接口
+@router.get("/dungeons", response_model=BaseResponse, summary="获取可用副本列表")
+async def get_available_dungeons(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取可用副本列表
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 获取副本列表
+        from server.core.systems.dungeon_system import DungeonSystem
+        result = await DungeonSystem.get_available_dungeons(db, character)
+
+        return BaseResponse(
+            success=result["success"],
+            message="获取副本列表成功" if result["success"] else result.get("message", "获取副本列表失败"),
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取副本列表失败: {str(e)}"
+        )
+
+
+@router.post("/enter-dungeon", response_model=BaseResponse, summary="进入副本")
+async def enter_dungeon(
+    request: EnterDungeonRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    进入副本
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 进入副本
+        from server.core.systems.dungeon_system import DungeonSystem
+        result = await DungeonSystem.enter_dungeon(db, character, request.dungeon_id)
+
+        return BaseResponse(
+            success=result["success"],
+            message=result["message"],
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"进入副本失败: {str(e)}"
+        )
+
+
+@router.get("/dungeon-status", response_model=BaseResponse, summary="获取当前副本状态")
+async def get_dungeon_status(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取当前副本状态
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 获取副本状态
+        from server.core.systems.dungeon_system import DungeonSystem
+        result = await DungeonSystem.get_dungeon_status(db, character)
+
+        return BaseResponse(
+            success=result["success"],
+            message="获取副本状态成功" if result["success"] else result.get("message", "获取副本状态失败"),
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取副本状态失败: {str(e)}"
+        )
+
+
+@router.post("/combat-action", response_model=BaseResponse, summary="执行战斗行动")
+async def execute_combat_action(
+    request: CombatActionRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    执行战斗行动
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 执行战斗行动
+        from server.core.systems.dungeon_system import DungeonSystem
+        result = await DungeonSystem.execute_player_action(db, character, request.action_type)
+
+        return BaseResponse(
+            success=result["success"],
+            message=result.get("message", "执行战斗行动成功" if result["success"] else "执行战斗行动失败"),
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"执行战斗行动失败: {str(e)}"
+        )
+
+
+@router.post("/exit-dungeon", response_model=BaseResponse, summary="退出副本")
+async def exit_dungeon(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    退出副本
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 退出副本
+        from server.core.systems.dungeon_system import DungeonSystem
+        result = await DungeonSystem.exit_dungeon(db, character)
+
+        return BaseResponse(
+            success=result["success"],
+            message=result["message"],
+            data=result if result["success"] else None
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"退出副本失败: {str(e)}"
         )

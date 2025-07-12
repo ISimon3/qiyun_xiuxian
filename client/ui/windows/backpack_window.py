@@ -13,6 +13,281 @@ from client.network.api_client import GameAPIClient
 from shared.constants import ITEM_QUALITY, EQUIPMENT_SLOTS, ITEM_TYPES
 
 
+class CharacterAttributesWidget(QFrame):
+    """角色属性显示组件"""
+
+    def __init__(self, api_client=None):
+        super().__init__()
+        self.character_data = None
+        self.api_client = api_client
+        self.setup_ui()
+
+    def setup_ui(self):
+        """设置UI"""
+        self.setFrameStyle(QFrame.Shape.StyledPanel)
+        self.setFixedSize(220, 200)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
+
+        # 标题
+        title = QLabel("道友属性")
+        title.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet("color: #2c3e50; font-weight: bold;")
+        layout.addWidget(title)
+
+        # 属性显示区域
+        attrs_layout = QGridLayout()
+        attrs_layout.setSpacing(5)
+
+        # 创建属性标签
+        self.hp_label = QLabel("生命值: 0")
+        self.physical_attack_label = QLabel("物理攻击: 0")
+        self.magic_attack_label = QLabel("法术攻击: 0")
+        self.physical_defense_label = QLabel("物理防御: 0")
+        self.magic_defense_label = QLabel("法术防御: 0")
+        self.critical_rate_label = QLabel("暴击率: 0%")
+        self.critical_damage_label = QLabel("暴击伤害: 0%")
+
+        # 设置标签样式
+        labels = [
+            self.hp_label, self.physical_attack_label, self.magic_attack_label,
+            self.physical_defense_label, self.magic_defense_label,
+            self.critical_rate_label, self.critical_damage_label
+        ]
+
+        for label in labels:
+            label.setStyleSheet("""
+                QLabel {
+                    color: #333;
+                    font-size: 11px;
+                    font-weight: bold;
+                    padding: 2px;
+                }
+            """)
+
+        # 布局属性标签（2列）
+        attrs_layout.addWidget(self.hp_label, 0, 0)
+        attrs_layout.addWidget(self.physical_attack_label, 1, 0)
+        attrs_layout.addWidget(self.magic_attack_label, 2, 0)
+        attrs_layout.addWidget(self.physical_defense_label, 0, 1)
+        attrs_layout.addWidget(self.magic_defense_label, 1, 1)
+        attrs_layout.addWidget(self.critical_rate_label, 3, 0)
+        attrs_layout.addWidget(self.critical_damage_label, 3, 1)
+
+        layout.addLayout(attrs_layout)
+        layout.addStretch()
+
+        self.setLayout(layout)
+
+    def update_attributes(self, character_data: Dict[str, Any]):
+        """更新属性显示"""
+        self.character_data = character_data
+
+        if not character_data:
+            return
+
+        # 获取属性数据
+        attributes = character_data.get('attributes', {})
+
+        # 更新显示（不使用千位分隔符）
+        self.hp_label.setText(f"生命值: {attributes.get('hp', 0)}")
+        self.physical_attack_label.setText(f"物理攻击: {attributes.get('physical_attack', 0)}")
+        self.magic_attack_label.setText(f"法术攻击: {attributes.get('magic_attack', 0)}")
+        self.physical_defense_label.setText(f"物理防御: {attributes.get('physical_defense', 0)}")
+        self.magic_defense_label.setText(f"法术防御: {attributes.get('magic_defense', 0)}")
+        self.critical_rate_label.setText(f"暴击率: {attributes.get('critical_rate', 0):.1f}%")
+        self.critical_damage_label.setText(f"暴击伤害: {attributes.get('critical_damage', 0):.1f}%")
+
+    def refresh_attributes_only(self):
+        """仅刷新属性显示，不刷新其他数据"""
+        if not self.api_client:
+            print("刷新属性失败: API客户端未设置")
+            return
+
+        try:
+            character_response = self.api_client.user.get_character_detail()
+            if character_response.get('success'):
+                self.character_data = character_response['data']
+                self.update_attributes(self.character_data)
+        except Exception as e:
+            print(f"刷新属性失败: {str(e)}")
+
+
+class CompactEquipmentSlotWidget(QFrame):
+    """紧凑型装备槽位组件"""
+
+    # 信号
+    equipment_clicked = pyqtSignal(dict, str)  # 装备点击信号
+    equipment_right_clicked = pyqtSignal(dict, QPoint, str)  # 装备右键信号
+
+    def __init__(self, slot_key: str, slot_name: str):
+        super().__init__()
+        self.slot_key = slot_key
+        self.slot_name = slot_name
+        self.equipment_data = None
+        self.setup_ui()
+
+    def setup_ui(self):
+        """设置UI"""
+        self.setFixedSize(200, 50)  # 更紧凑的尺寸
+        self.setFrameStyle(QFrame.Shape.Box)
+        self.setStyleSheet("""
+            QFrame {
+                background-color: #f8f8f8;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+            }
+        """)
+
+        # 使用水平布局
+        layout = QHBoxLayout()
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
+
+        # 装备图标区域（较小）
+        self.equipment_icon = QLabel()
+        self.equipment_icon.setFixedSize(40, 40)
+        self.equipment_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.equipment_icon.setStyleSheet("""
+            QLabel {
+                background-color: #fff;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+                font-size: 20px;
+            }
+        """)
+        layout.addWidget(self.equipment_icon)
+
+        # 装备信息区域
+        info_layout = QVBoxLayout()
+        info_layout.setSpacing(1)
+
+        # 槽位名称
+        self.slot_label = QLabel(self.slot_name)
+        self.slot_label.setStyleSheet("font-weight: bold; color: #333; font-size: 10px;")
+        info_layout.addWidget(self.slot_label)
+
+        # 装备名称
+        self.equipment_name = QLabel("无装备")
+        self.equipment_name.setStyleSheet("color: #666; font-size: 9px;")
+        self.equipment_name.setWordWrap(True)
+        info_layout.addWidget(self.equipment_name)
+
+        info_layout.addStretch()
+        layout.addLayout(info_layout)
+
+        self.setLayout(layout)
+        self.update_display()
+
+    def set_equipment(self, equipment_data: Optional[Dict]):
+        """设置装备数据"""
+        self.equipment_data = equipment_data
+        self.update_display()
+
+    def update_display(self):
+        """更新显示"""
+        if self.equipment_data:
+            item_info = self.equipment_data.get('item_info', {})
+            name = item_info.get('name', '未知装备')
+            quality = item_info.get('quality', 'COMMON')
+            equipment_slot = item_info.get('equipment_slot', '')
+
+            # 根据装备类型设置不同图标
+            slot_icons = {
+                'WEAPON': '⚔️',
+                'ARMOR': '🛡️',
+                'HELMET': '⛑️',
+                'BOOTS': '👢',
+                'BRACELET': '📿',
+                'MAGIC_WEAPON': '🔮'
+            }
+            icon = slot_icons.get(equipment_slot, '⚔️')
+            self.equipment_icon.setText(icon)
+
+            # 设置装备名称，使用更明显的颜色
+            quality_colors = {
+                'COMMON': '#666666',      # 深灰色
+                'UNCOMMON': '#00AA00',    # 绿色
+                'RARE': '#0066CC',        # 蓝色
+                'EPIC': '#AA00AA',        # 紫色
+                'LEGENDARY': '#FF8800',   # 橙色
+                'MYTHIC': '#FF0066'       # 红色
+            }
+            color = quality_colors.get(quality, '#666666')
+            self.equipment_name.setText(name)
+            self.equipment_name.setStyleSheet(f"color: {color}; font-size: 9px; font-weight: bold;")
+
+            # 设置工具提示
+            tooltip = self.build_tooltip(item_info)
+            self.setToolTip(tooltip)
+        else:
+            # 无装备 - 显示空图标
+            self.equipment_icon.setText("")
+            self.equipment_name.setText("无装备")
+            self.equipment_name.setStyleSheet("color: #666; font-size: 9px;")
+            self.setToolTip("")
+
+    def build_tooltip(self, item_info: Dict) -> str:
+        """构建工具提示"""
+        name = item_info.get('name', '未知装备')
+        description = item_info.get('description', '')
+        quality = item_info.get('quality', 'COMMON')
+        required_realm = item_info.get('required_realm', 0)
+
+        quality_name = ITEM_QUALITY.get(quality, {}).get('name', '普通')
+
+        tooltip = f"""
+        <b>{name}</b><br>
+        品质: <span style="color: {ITEM_QUALITY.get(quality, {}).get('color', '#FFFFFF')}">{quality_name}</span><br>
+        需求境界: {required_realm}<br>
+        """
+
+        if self.equipment_data:
+            actual_attrs = self.equipment_data.get('actual_attributes', {})
+            if actual_attrs:
+                tooltip += "<br><b>属性加成:</b><br>"
+                for attr_name, value in actual_attrs.items():
+                    if value > 0:
+                        attr_display = {
+                            'hp': '生命值',
+                            'physical_attack': '物理攻击',
+                            'magic_attack': '法术攻击',
+                            'physical_defense': '物理防御',
+                            'magic_defense': '法术防御',
+                            'critical_rate': '暴击率',
+                            'critical_damage': '暴击伤害',
+                            'cultivation_speed': '修炼速度',
+                            'luck_bonus': '气运加成'
+                        }.get(attr_name, attr_name)
+
+                        if attr_name in ['critical_rate', 'critical_damage']:
+                            tooltip += f"{attr_display}: +{value:.1f}%<br>"
+                        elif attr_name == 'cultivation_speed':
+                            tooltip += f"{attr_display}: +{value:.2f}x<br>"
+                        else:
+                            tooltip += f"{attr_display}: +{value}<br>"
+
+        if description:
+            tooltip += f"<br>{description}"
+
+        return tooltip.strip()
+
+    def mousePressEvent(self, event):
+        """鼠标点击事件"""
+        if event.button() == Qt.MouseButton.RightButton and self.equipment_data:
+            self.equipment_right_clicked.emit(self.equipment_data, event.globalPosition().toPoint(), self.slot_key)
+        super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        """鼠标双击事件 - 卸下装备"""
+        if event.button() == Qt.MouseButton.LeftButton and self.equipment_data:
+            self.equipment_clicked.emit(self.equipment_data, self.slot_key)
+        super().mouseDoubleClickEvent(event)
+
+
 class EquipmentSlotWidget(QFrame):
     """装备槽位组件"""
 
@@ -521,10 +796,11 @@ class BackpackWindow(QDialog):
         self.state_manager = get_state_manager()
         self.inventory_items = []
         self.equipment_items = {}
+        self.character_data = {}
 
         # 翻页相关属性
         self.current_page = 0
-        self.items_per_page = 48  # 8x6 = 48个格子
+        self.items_per_page = 36  # 6x6 = 36个格子
         self.max_unlocked_pages = 2  # 默认解锁2页
         self.total_pages = 5  # 总共5页
 
@@ -534,7 +810,7 @@ class BackpackWindow(QDialog):
     def setup_ui(self):
         """设置UI"""
         self.setWindowTitle("背包")
-        self.setFixedSize(950, 800)  # 增大窗口以容纳更高的格子
+        self.setFixedSize(950, 800)  # 保持窗口大小
         self.setModal(False)  # 改为非模态窗口
 
         # 主布局
@@ -564,9 +840,9 @@ class BackpackWindow(QDialog):
         # 内容区域
         content_layout = QHBoxLayout()
 
-        # 左侧：装备栏
-        equipment_frame = self.create_equipment_frame()
-        content_layout.addWidget(equipment_frame)
+        # 左侧：属性和装备区域
+        left_panel = self.create_left_panel()
+        content_layout.addWidget(left_panel)
 
         # 右侧：背包格子
         inventory_frame = self.create_inventory_frame()
@@ -586,27 +862,51 @@ class BackpackWindow(QDialog):
 
         self.setLayout(main_layout)
 
+        # 设置属性组件的API客户端
+        self.attributes_widget.api_client = self.api_client
+
+    def create_left_panel(self) -> QFrame:
+        """创建左侧面板（属性+装备）"""
+        panel = QFrame()
+        panel.setFixedWidth(240)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(10)
+
+        # 上部：角色属性
+        self.attributes_widget = CharacterAttributesWidget()
+        layout.addWidget(self.attributes_widget)
+
+        # 下部：装备栏
+        equipment_frame = self.create_equipment_frame()
+        layout.addWidget(equipment_frame)
+
+        panel.setLayout(layout)
+        return panel
+
     def create_equipment_frame(self) -> QFrame:
         """创建装备栏框架"""
         frame = QFrame()
         frame.setFrameStyle(QFrame.Shape.StyledPanel)
-        frame.setFixedWidth(220)  # 增加宽度以容纳新的装备槽位
+        frame.setFixedSize(220, 380)  # 固定大小，更紧凑
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(5)  # 减少间距
 
         # 标题
         title = QLabel("装备栏")
-        title.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        title.setFont(QFont("Arial", 11, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet("color: #2c3e50; font-weight: bold;")
         layout.addWidget(title)
 
         # 装备槽位
         self.equipment_slots = {}
 
         for slot_key, slot_name in EQUIPMENT_SLOTS.items():
-            equipment_slot = EquipmentSlotWidget(slot_key, slot_name)
+            equipment_slot = CompactEquipmentSlotWidget(slot_key, slot_name)
             equipment_slot.equipment_clicked.connect(self.on_equipment_clicked)
             equipment_slot.equipment_right_clicked.connect(self.on_equipment_right_clicked)
 
@@ -646,11 +946,11 @@ class BackpackWindow(QDialog):
         self.inventory_layout.setSpacing(8)  # 增加间距以适应更高的格子
         self.inventory_layout.setContentsMargins(5, 5, 5, 5)
 
-        # 创建背包格子（8x6 = 48个格子）
+        # 创建背包格子（6x6 = 36个格子）
         self.inventory_slots = []
         self.selected_slots = []  # 记录选中的格子
         for row in range(6):
-            for col in range(8):
+            for col in range(6):
                 item_widget = ItemWidget()
                 item_widget.item_clicked.connect(self.on_item_clicked)
                 item_widget.item_right_clicked.connect(self.on_item_right_clicked)
@@ -693,6 +993,12 @@ class BackpackWindow(QDialog):
     def load_data(self):
         """加载数据"""
         try:
+            # 加载角色属性数据
+            character_response = self.api_client.user.get_character_detail()
+            if character_response.get('success'):
+                self.character_data = character_response['data']
+                self.attributes_widget.update_attributes(self.character_data)
+
             # 加载背包数据
             inventory_response = self.api_client.inventory.get_inventory()
             if inventory_response.get('success'):
@@ -708,6 +1014,25 @@ class BackpackWindow(QDialog):
 
         except Exception as e:
             QMessageBox.warning(self, "错误", f"加载数据失败: {str(e)}")
+
+    def load_equipment_and_inventory(self):
+        """仅加载装备和背包数据，不加载角色属性"""
+        try:
+            # 加载背包数据
+            inventory_response = self.api_client.inventory.get_inventory()
+            if inventory_response.get('success'):
+                self.inventory_items = inventory_response['data']['items']
+                self.update_inventory_display()
+
+            # 加载装备数据
+            equipment_response = self.api_client.inventory.get_equipment()
+            if equipment_response.get('success'):
+                equipment_data = equipment_response['data'].get('equipment', {}) or {}
+                self.equipment_items = equipment_data
+                self.update_equipment_display()
+
+        except Exception as e:
+            print(f"加载装备和背包数据失败: {str(e)}")
 
     def update_inventory_display(self):
         """更新背包显示"""
@@ -951,8 +1276,11 @@ class BackpackWindow(QDialog):
 
             response = self.api_client.inventory.equip_item(item_id, equipment_slot)
             if response.get('success'):
+                # 立即刷新属性显示
+                self.attributes_widget.refresh_attributes_only()
+                # 然后刷新装备和背包数据
+                self.load_equipment_and_inventory()
                 QMessageBox.information(self, "成功", response.get('message', '装备成功'))
-                self.load_data()  # 刷新数据
             else:
                 QMessageBox.warning(self, "失败", response.get('message', '装备失败'))
 
@@ -964,8 +1292,11 @@ class BackpackWindow(QDialog):
         try:
             response = self.api_client.inventory.unequip_item(slot)
             if response.get('success'):
+                # 立即刷新属性显示
+                self.attributes_widget.refresh_attributes_only()
+                # 然后刷新装备和背包数据
+                self.load_equipment_and_inventory()
                 QMessageBox.information(self, "成功", f"成功卸下{equipment_name}")
-                self.load_data()  # 刷新数据
             else:
                 QMessageBox.warning(self, "失败", response.get('message', '卸下失败'))
 

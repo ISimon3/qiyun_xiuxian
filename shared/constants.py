@@ -880,3 +880,336 @@ DEFAULT_CONFIG = {
     "DAILY_LUCK_MIN": 30,             # 每日随机气运最小值
     "DAILY_LUCK_MAX": 80,             # 每日随机气运最大值
 }
+
+# 副本系统配置
+DUNGEON_SYSTEM_CONFIG = {
+    # 基础配置
+    "MAX_CONCURRENT_DUNGEONS": 1,  # 最大同时进行的副本数量
+    "STAMINA_REGEN_RATE": 1,  # 体力恢复速度（每分钟）
+    "MAX_STAMINA": 100,  # 最大体力值
+
+    # 副本难度配置
+    "DIFFICULTY_MULTIPLIERS": {
+        "EASY": {
+            "monster_hp_multiplier": 0.8,
+            "monster_attack_multiplier": 0.8,
+            "exp_multiplier": 1.0,
+            "gold_multiplier": 1.0,
+            "drop_rate_multiplier": 1.0
+        },
+        "NORMAL": {
+            "monster_hp_multiplier": 1.0,
+            "monster_attack_multiplier": 1.0,
+            "exp_multiplier": 1.2,
+            "gold_multiplier": 1.2,
+            "drop_rate_multiplier": 1.1
+        },
+        "HARD": {
+            "monster_hp_multiplier": 1.5,
+            "monster_attack_multiplier": 1.3,
+            "exp_multiplier": 1.5,
+            "gold_multiplier": 1.5,
+            "drop_rate_multiplier": 1.3
+        },
+        "HELL": {
+            "monster_hp_multiplier": 2.0,
+            "monster_attack_multiplier": 1.8,
+            "exp_multiplier": 2.0,
+            "gold_multiplier": 2.0,
+            "drop_rate_multiplier": 1.5
+        }
+    },
+
+    # 怪物类型配置
+    "MONSTER_TYPE_MULTIPLIERS": {
+        "NORMAL": {
+            "hp_multiplier": 1.0,
+            "attack_multiplier": 1.0,
+            "defense_multiplier": 1.0,
+            "exp_multiplier": 1.0,
+            "gold_multiplier": 1.0
+        },
+        "ELITE": {
+            "hp_multiplier": 2.0,
+            "attack_multiplier": 1.5,
+            "defense_multiplier": 1.3,
+            "exp_multiplier": 2.0,
+            "gold_multiplier": 2.0
+        },
+        "BOSS": {
+            "hp_multiplier": 5.0,
+            "attack_multiplier": 2.0,
+            "defense_multiplier": 1.8,
+            "exp_multiplier": 5.0,
+            "gold_multiplier": 5.0
+        }
+    }
+}
+
+# 战斗系统配置
+COMBAT_SYSTEM_CONFIG = {
+    # 基础战斗配置
+    "BASE_CRITICAL_RATE": 0.05,  # 基础暴击率 5%
+    "BASE_CRITICAL_DAMAGE": 1.5,  # 基础暴击倍数 150%
+    "DODGE_RATE": 0.05,  # 基础闪避率 5%
+
+    # 伤害计算配置
+    "DAMAGE_VARIANCE": 0.1,  # 伤害浮动范围 ±10%
+    "DEFENSE_REDUCTION_FACTOR": 0.5,  # 防御减伤系数
+    "MIN_DAMAGE": 1,  # 最小伤害
+
+    # 技能配置
+    "SKILL_COOLDOWNS": {
+        "NORMAL_ATTACK": 0,  # 普通攻击无冷却
+        "HEAVY_ATTACK": 3,  # 重击3回合冷却
+        "MAGIC_ATTACK": 2,  # 法术攻击2回合冷却
+        "HEAL": 5,  # 治疗5回合冷却
+        "DEFEND": 1  # 防御1回合冷却
+    },
+
+    # 技能效果配置
+    "SKILL_EFFECTS": {
+        "NORMAL_ATTACK": {
+            "damage_multiplier": 1.0,
+            "type": "PHYSICAL"
+        },
+        "HEAVY_ATTACK": {
+            "damage_multiplier": 1.8,
+            "type": "PHYSICAL",
+            "critical_rate_bonus": 0.2
+        },
+        "MAGIC_ATTACK": {
+            "damage_multiplier": 1.5,
+            "type": "MAGIC"
+        },
+        "HEAL": {
+            "heal_multiplier": 0.3,  # 恢复30%最大生命值
+            "type": "HEAL"
+        },
+        "DEFEND": {
+            "damage_reduction": 0.5,  # 减少50%伤害
+            "type": "DEFEND"
+        }
+    }
+}
+
+# 副本配置数据
+DUNGEON_CONFIGS = {
+    "beginner_cave": {
+        "name": "初心者洞穴",
+        "description": "适合新手修士探索的洞穴，里面有一些低级妖兽",
+        "difficulty": "EASY",
+        "required_realm": 0,  # 凡人即可进入
+        "stamina_cost": 10,
+        "max_floors": 3,
+        "base_exp_reward": 100,
+        "base_gold_reward": 50,
+        "monster_config": {
+            "floor_1": [
+                {"monster_id": "cave_rat", "count": 2},
+                {"monster_id": "cave_spider", "count": 1}
+            ],
+            "floor_2": [
+                {"monster_id": "cave_spider", "count": 2},
+                {"monster_id": "cave_bat", "count": 1}
+            ],
+            "floor_3": [
+                {"monster_id": "cave_guardian", "count": 1, "type": "BOSS"}
+            ]
+        },
+        "drop_table": {
+            "common_drops": [
+                {"item": "灵草", "rate": 0.3, "quantity": [1, 2]},
+                {"item": "铜币", "rate": 0.5, "quantity": [10, 30]}
+            ],
+            "rare_drops": [
+                {"item": "初级丹药", "rate": 0.1, "quantity": [1, 1]},
+                {"item": "普通装备", "rate": 0.05, "quantity": [1, 1]}
+            ]
+        }
+    },
+    "forest_ruins": {
+        "name": "森林遗迹",
+        "description": "古老的修士遗迹，隐藏着珍贵的宝物",
+        "difficulty": "NORMAL",
+        "required_realm": 3,  # 练气后期
+        "stamina_cost": 20,
+        "max_floors": 5,
+        "base_exp_reward": 300,
+        "base_gold_reward": 150,
+        "monster_config": {
+            "floor_1": [
+                {"monster_id": "forest_wolf", "count": 2}
+            ],
+            "floor_2": [
+                {"monster_id": "forest_wolf", "count": 1},
+                {"monster_id": "tree_spirit", "count": 1}
+            ],
+            "floor_3": [
+                {"monster_id": "tree_spirit", "count": 2}
+            ],
+            "floor_4": [
+                {"monster_id": "forest_guardian", "count": 1, "type": "ELITE"}
+            ],
+            "floor_5": [
+                {"monster_id": "ancient_treant", "count": 1, "type": "BOSS"}
+            ]
+        },
+        "drop_table": {
+            "common_drops": [
+                {"item": "灵芝", "rate": 0.4, "quantity": [1, 3]},
+                {"item": "木灵石", "rate": 0.3, "quantity": [1, 2]}
+            ],
+            "rare_drops": [
+                {"item": "中级丹药", "rate": 0.2, "quantity": [1, 2]},
+                {"item": "精良装备", "rate": 0.1, "quantity": [1, 1]}
+            ],
+            "epic_drops": [
+                {"item": "森林之心", "rate": 0.02, "quantity": [1, 1]}
+            ]
+        }
+    }
+}
+
+# 怪物配置数据
+MONSTER_CONFIGS = {
+    # 初心者洞穴怪物
+    "cave_rat": {
+        "name": "洞穴鼠",
+        "description": "生活在洞穴中的普通老鼠",
+        "monster_type": "NORMAL",
+        "level": 1,
+        "base_hp": 50,
+        "base_physical_attack": 15,
+        "base_magic_attack": 5,
+        "base_physical_defense": 8,
+        "base_magic_defense": 5,
+        "critical_rate": 0.02,
+        "critical_damage": 1.3,
+        "skills": ["NORMAL_ATTACK"],
+        "ai_pattern": {"aggressive": 0.7, "defensive": 0.3},
+        "exp_reward": 20,
+        "gold_reward": 5
+    },
+    "cave_spider": {
+        "name": "洞穴蜘蛛",
+        "description": "有毒的洞穴蜘蛛",
+        "monster_type": "NORMAL",
+        "level": 2,
+        "base_hp": 80,
+        "base_physical_attack": 25,
+        "base_magic_attack": 10,
+        "base_physical_defense": 12,
+        "base_magic_defense": 8,
+        "critical_rate": 0.05,
+        "critical_damage": 1.4,
+        "skills": ["NORMAL_ATTACK", "POISON_BITE"],
+        "ai_pattern": {"aggressive": 0.8, "defensive": 0.2},
+        "exp_reward": 35,
+        "gold_reward": 8
+    },
+    "cave_bat": {
+        "name": "洞穴蝙蝠",
+        "description": "敏捷的洞穴蝙蝠",
+        "monster_type": "NORMAL",
+        "level": 3,
+        "base_hp": 60,
+        "base_physical_attack": 30,
+        "base_magic_attack": 15,
+        "base_physical_defense": 10,
+        "base_magic_defense": 12,
+        "critical_rate": 0.08,
+        "critical_damage": 1.5,
+        "skills": ["NORMAL_ATTACK", "SWIFT_STRIKE"],
+        "ai_pattern": {"aggressive": 0.9, "defensive": 0.1},
+        "exp_reward": 40,
+        "gold_reward": 10
+    },
+    "cave_guardian": {
+        "name": "洞穴守护者",
+        "description": "守护洞穴的强大石像",
+        "monster_type": "BOSS",
+        "level": 5,
+        "base_hp": 300,
+        "base_physical_attack": 50,
+        "base_magic_attack": 30,
+        "base_physical_defense": 25,
+        "base_magic_defense": 20,
+        "critical_rate": 0.1,
+        "critical_damage": 1.8,
+        "skills": ["NORMAL_ATTACK", "HEAVY_ATTACK", "STONE_SHIELD"],
+        "ai_pattern": {"aggressive": 0.6, "defensive": 0.4},
+        "exp_reward": 150,
+        "gold_reward": 50
+    },
+
+    # 森林遗迹怪物
+    "forest_wolf": {
+        "name": "森林狼",
+        "description": "凶猛的森林狼",
+        "monster_type": "NORMAL",
+        "level": 8,
+        "base_hp": 150,
+        "base_physical_attack": 45,
+        "base_magic_attack": 20,
+        "base_physical_defense": 20,
+        "base_magic_defense": 15,
+        "critical_rate": 0.1,
+        "critical_damage": 1.6,
+        "skills": ["NORMAL_ATTACK", "BITE", "HOWL"],
+        "ai_pattern": {"aggressive": 0.8, "defensive": 0.2},
+        "exp_reward": 80,
+        "gold_reward": 20
+    },
+    "tree_spirit": {
+        "name": "树灵",
+        "description": "古老的树木精灵",
+        "monster_type": "NORMAL",
+        "level": 10,
+        "base_hp": 200,
+        "base_physical_attack": 35,
+        "base_magic_attack": 60,
+        "base_physical_defense": 25,
+        "base_magic_defense": 30,
+        "critical_rate": 0.05,
+        "critical_damage": 1.4,
+        "skills": ["NORMAL_ATTACK", "MAGIC_ATTACK", "HEAL"],
+        "ai_pattern": {"aggressive": 0.5, "defensive": 0.5},
+        "exp_reward": 120,
+        "gold_reward": 30
+    },
+    "forest_guardian": {
+        "name": "森林守护者",
+        "description": "保护森林的强大精灵",
+        "monster_type": "ELITE",
+        "level": 12,
+        "base_hp": 400,
+        "base_physical_attack": 60,
+        "base_magic_attack": 80,
+        "base_physical_defense": 35,
+        "base_magic_defense": 40,
+        "critical_rate": 0.12,
+        "critical_damage": 1.7,
+        "skills": ["NORMAL_ATTACK", "MAGIC_ATTACK", "NATURE_BLESSING", "ENTANGLE"],
+        "ai_pattern": {"aggressive": 0.7, "defensive": 0.3},
+        "exp_reward": 250,
+        "gold_reward": 80
+    },
+    "ancient_treant": {
+        "name": "远古树人",
+        "description": "森林中最古老最强大的存在",
+        "monster_type": "BOSS",
+        "level": 15,
+        "base_hp": 800,
+        "base_physical_attack": 80,
+        "base_magic_attack": 100,
+        "base_physical_defense": 50,
+        "base_magic_defense": 60,
+        "critical_rate": 0.15,
+        "critical_damage": 2.0,
+        "skills": ["NORMAL_ATTACK", "HEAVY_ATTACK", "MAGIC_ATTACK", "HEAL", "FOREST_RAGE"],
+        "ai_pattern": {"aggressive": 0.6, "defensive": 0.4},
+        "exp_reward": 500,
+        "gold_reward": 200
+    }
+}

@@ -55,6 +55,15 @@ class Character(Base):
     gold: Mapped[int] = mapped_column(BigInteger, default=0)
     spirit_stone: Mapped[int] = mapped_column(BigInteger, default=0)
 
+    # 战斗相关
+    current_hp: Mapped[int] = mapped_column(Integer, default=100)  # 当前生命值
+    max_stamina: Mapped[int] = mapped_column(Integer, default=100)  # 最大体力值
+    current_stamina: Mapped[int] = mapped_column(Integer, default=100)  # 当前体力值
+
+    # 副本相关
+    current_dungeon_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)  # 当前所在副本ID
+    dungeon_progress: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # 副本进度
+
     # 挂机修炼设置
     cultivation_focus: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # HP, PHYSICAL_ATTACK等
 
@@ -85,6 +94,8 @@ class Character(Base):
     game_logs: Mapped[List["GameLog"]] = relationship("GameLog", back_populates="character", cascade="all, delete-orphan")
     farm_plots: Mapped[List["FarmPlot"]] = relationship("FarmPlot", back_populates="character", cascade="all, delete-orphan")
     alchemy_sessions: Mapped[List["AlchemySession"]] = relationship("AlchemySession", cascade="all, delete-orphan")
+    dungeon_instances: Mapped[List["DungeonInstance"]] = relationship("DungeonInstance", cascade="all, delete-orphan")
+    combat_logs: Mapped[List["CombatLog"]] = relationship("CombatLog", cascade="all, delete-orphan")
 
     # 索引 - 每个用户只能有一个角色
     __table_args__ = (
@@ -348,3 +359,158 @@ class AlchemySession(Base):
 
     def __repr__(self):
         return f"<AlchemySession(id={self.id}, character_id={self.character_id}, recipe_id='{self.recipe_id}', status='{self.status}')>"
+
+
+class Dungeon(Base):
+    """副本表"""
+    __tablename__ = "dungeons"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    dungeon_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)  # 副本ID
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # 副本属性
+    difficulty: Mapped[str] = mapped_column(String(20), nullable=False)  # EASY, NORMAL, HARD, HELL
+    required_realm: Mapped[int] = mapped_column(Integer, default=0)  # 需要境界
+    stamina_cost: Mapped[int] = mapped_column(Integer, default=10)  # 体力消耗
+    max_floors: Mapped[int] = mapped_column(Integer, default=1)  # 最大层数
+
+    # 奖励配置
+    base_exp_reward: Mapped[int] = mapped_column(Integer, default=100)  # 基础经验奖励
+    base_gold_reward: Mapped[int] = mapped_column(Integer, default=50)  # 基础金币奖励
+    drop_table: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # 掉落表配置
+
+    # 怪物配置
+    monster_config: Mapped[dict] = mapped_column(JSON, nullable=False)  # 怪物配置
+
+    # 时间戳
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<Dungeon(id={self.id}, dungeon_id='{self.dungeon_id}', name='{self.name}')>"
+
+
+class DungeonInstance(Base):
+    """副本实例表"""
+    __tablename__ = "dungeon_instances"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    character_id: Mapped[int] = mapped_column(Integer, ForeignKey("characters.id"), nullable=False)
+    dungeon_id: Mapped[str] = mapped_column(String(50), nullable=False)  # 副本ID
+
+    # 实例状态
+    status: Mapped[str] = mapped_column(String(20), default="IN_PROGRESS")  # IN_PROGRESS, COMPLETED, FAILED
+    current_floor: Mapped[int] = mapped_column(Integer, default=1)  # 当前层数
+    current_monster_index: Mapped[int] = mapped_column(Integer, default=0)  # 当前怪物索引
+
+    # 战斗状态
+    player_hp: Mapped[int] = mapped_column(Integer, nullable=False)  # 玩家当前血量
+    monster_hp: Mapped[int] = mapped_column(Integer, default=0)  # 当前怪物血量
+    monster_max_hp: Mapped[int] = mapped_column(Integer, default=0)  # 当前怪物最大血量
+    monster_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # 当前怪物数据
+
+    # 进度数据
+    progress_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # 进度数据
+    rewards_collected: Mapped[bool] = mapped_column(Boolean, default=False)  # 是否已收取奖励
+
+    # 时间戳
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # 关系
+    character: Mapped["Character"] = relationship("Character", overlaps="dungeon_instances")
+
+    # 索引
+    __table_args__ = (
+        Index('ix_dungeon_instance_character_status', 'character_id', 'status'),
+    )
+
+    def __repr__(self):
+        return f"<DungeonInstance(id={self.id}, character_id={self.character_id}, dungeon_id='{self.dungeon_id}', status='{self.status}')>"
+
+
+class Monster(Base):
+    """怪物表"""
+    __tablename__ = "monsters"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    monster_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)  # 怪物ID
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # 怪物属性
+    monster_type: Mapped[str] = mapped_column(String(20), nullable=False)  # NORMAL, ELITE, BOSS
+    level: Mapped[int] = mapped_column(Integer, default=1)  # 怪物等级
+
+    # 基础属性
+    base_hp: Mapped[int] = mapped_column(Integer, nullable=False)
+    base_physical_attack: Mapped[int] = mapped_column(Integer, nullable=False)
+    base_magic_attack: Mapped[int] = mapped_column(Integer, nullable=False)
+    base_physical_defense: Mapped[int] = mapped_column(Integer, nullable=False)
+    base_magic_defense: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # 特殊属性
+    critical_rate: Mapped[float] = mapped_column(Float, default=0.05)  # 暴击率
+    critical_damage: Mapped[float] = mapped_column(Float, default=1.5)  # 暴击倍数
+
+    # 技能和AI
+    skills: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # 技能配置
+    ai_pattern: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # AI行为模式
+
+    # 掉落配置
+    drop_table: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # 掉落表
+    exp_reward: Mapped[int] = mapped_column(Integer, default=50)  # 经验奖励
+    gold_reward: Mapped[int] = mapped_column(Integer, default=20)  # 金币奖励
+
+    # 时间戳
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<Monster(id={self.id}, monster_id='{self.monster_id}', name='{self.name}')>"
+
+
+class CombatLog(Base):
+    """战斗日志表"""
+    __tablename__ = "combat_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    dungeon_instance_id: Mapped[int] = mapped_column(Integer, ForeignKey("dungeon_instances.id"), nullable=False)
+    character_id: Mapped[int] = mapped_column(Integer, ForeignKey("characters.id"), nullable=False)
+
+    # 战斗信息
+    action_type: Mapped[str] = mapped_column(String(20), nullable=False)  # ATTACK, SKILL, DEFEND等
+    actor: Mapped[str] = mapped_column(String(20), nullable=False)  # PLAYER, MONSTER
+    target: Mapped[str] = mapped_column(String(20), nullable=False)  # PLAYER, MONSTER
+
+    # 伤害信息
+    damage: Mapped[int] = mapped_column(Integer, default=0)
+    is_critical: Mapped[bool] = mapped_column(Boolean, default=False)
+    damage_type: Mapped[str] = mapped_column(String(20), nullable=True)  # PHYSICAL, MAGIC
+
+    # 状态信息
+    player_hp_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    player_hp_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    monster_hp_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    monster_hp_after: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # 描述信息
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    details: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    # 时间戳
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # 关系
+    dungeon_instance: Mapped["DungeonInstance"] = relationship("DungeonInstance")
+    character: Mapped["Character"] = relationship("Character", overlaps="combat_logs")
+
+    # 索引
+    __table_args__ = (
+        Index('ix_combat_log_instance_time', 'dungeon_instance_id', 'created_at'),
+    )
+
+    def __repr__(self):
+        return f"<CombatLog(id={self.id}, dungeon_instance_id={self.dungeon_instance_id}, action_type='{self.action_type}')>"
