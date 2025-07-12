@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from passlib.context import CryptContext
 
 from server.database.models import User, Character, Item, InventoryItem, EquippedItem, GameLog, UserSession
-from shared.schemas import UserRegister, CharacterCreate, CharacterUpdate
+from shared.schemas import UserRegister, CharacterUpdate
 
 # 密码加密上下文
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -86,18 +86,60 @@ class CharacterCRUD:
     """角色相关CRUD操作"""
 
     @staticmethod
-    async def create_character(db: AsyncSession, user_id: int, character_data: CharacterCreate) -> Character:
-        """创建角色"""
-        db_character = Character(
-            user_id=user_id,
-            name=character_data.name,
-            spiritual_root=character_data.spiritual_root
-        )
+    async def get_or_create_character(db: AsyncSession, user_id: int, username: str) -> Character:
+        """获取或创建用户角色（每个用户只有一个角色）"""
+        try:
+            # 先尝试获取现有角色
+            result = await db.execute(
+                select(Character).where(Character.user_id == user_id).limit(1)
+            )
+            existing_character = result.scalar_one_or_none()
 
-        db.add(db_character)
-        await db.commit()
-        await db.refresh(db_character)
-        return db_character
+            if existing_character:
+                return existing_character
+
+            # 如果不存在，创建新角色
+            # 使用简单的默认灵根，避免复杂的随机选择
+            selected_root = "单灵根"
+
+            # 创建角色，使用用户名作为角色名
+            db_character = Character(
+                user_id=user_id,
+                name=username,
+                spiritual_root=selected_root
+            )
+
+            db.add(db_character)
+            await db.commit()
+            await db.refresh(db_character)
+
+            return db_character
+
+        except Exception as e:
+            await db.rollback()
+            raise e
+
+    @staticmethod
+    def _get_random_spiritual_root() -> str:
+        """随机选择灵根类型（根据稀有度权重）"""
+        from shared.constants import SPIRITUAL_ROOTS
+        import random
+
+        # 随机分配灵根（根据稀有度权重）
+        spiritual_roots = list(SPIRITUAL_ROOTS.keys())
+        weights = []
+        for root_name in spiritual_roots:
+            root_info = SPIRITUAL_ROOTS[root_name]
+            rarity_weights = {
+                "common": 40,
+                "uncommon": 20,
+                "rare": 10,
+                "epic": 3,
+                "legendary": 1
+            }
+            weights.append(rarity_weights.get(root_info["rarity"], 10))
+
+        return random.choices(spiritual_roots, weights=weights)[0]
 
     @staticmethod
     async def get_character_by_id(db: AsyncSession, character_id: int) -> Optional[Character]:
@@ -106,18 +148,20 @@ class CharacterCRUD:
             select(Character)
             .options(selectinload(Character.equipped_items).selectinload(EquippedItem.item))
             .where(Character.id == character_id)
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_characters_by_user(db: AsyncSession, user_id: int) -> List[Character]:
-        """获取用户的所有角色"""
+    async def get_user_character(db: AsyncSession, user_id: int) -> Optional[Character]:
+        """获取用户角色（每个用户只有一个角色）"""
         result = await db.execute(
             select(Character)
+            .options(selectinload(Character.equipped_items).selectinload(EquippedItem.item))
             .where(Character.user_id == user_id)
-            .order_by(Character.created_at)
+            .limit(1)
         )
-        return result.scalars().all()
+        return result.scalar_one_or_none()
 
     @staticmethod
     async def update_character(db: AsyncSession, character_id: int, update_data: CharacterUpdate) -> Optional[Character]:

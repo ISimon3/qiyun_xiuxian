@@ -41,10 +41,7 @@ class Token(BaseModel):
     expires_in: int = 3600
 
 
-# 角色相关
-class CharacterCreate(BaseModel):
-    name: str = Field(..., min_length=2, max_length=20, description="角色名")
-    spiritual_root: str = Field(..., description="灵根类型")
+# 角色相关 - 移除角色创建模型，每个用户自动拥有一个角色
 
 
 class CharacterAttributes(BaseModel):

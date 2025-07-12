@@ -108,7 +108,7 @@ def calculate_final_attributes(
     equipment_list: list[EquipmentAttributes]
 ) -> CharacterAttributes:
     """计算最终属性（基础属性 + 修习属性 + 装备加成）"""
-    final_attrs = CharacterAttributes(**base_attrs.dict())
+    final_attrs = CharacterAttributes(**base_attrs.model_dump())
 
     # 加上修习获得的属性
     final_attrs.hp += training_attrs.hp_training

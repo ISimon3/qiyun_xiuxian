@@ -156,9 +156,10 @@ async def health_check():
 
 
 # 注册API路由
-from server.api.v1 import auth, user
+from server.api.v1 import auth, user, inventory
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["认证"])
 app.include_router(user.router, prefix="/api/v1/user", tags=["用户"])
+app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["背包装备"])
 
 
 def start_server():

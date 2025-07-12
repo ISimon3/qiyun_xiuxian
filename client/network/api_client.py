@@ -192,26 +192,13 @@ class UserAPI:
         """获取当前用户信息"""
         return self.client.get('/api/v1/user/me')
 
-    def get_characters(self) -> Dict[str, Any]:
-        """获取用户角色列表"""
-        return self.client.get('/api/v1/user/characters')
+    def get_character(self) -> Dict[str, Any]:
+        """获取用户角色信息（自动创建如果不存在）"""
+        return self.client.get('/api/v1/user/character')
 
-    def create_character(self, name: str, spiritual_root: str) -> Dict[str, Any]:
-        """
-        创建角色
-
-        Args:
-            name: 角色名
-            spiritual_root: 灵根类型
-
-        Returns:
-            创建结果
-        """
-        data = {
-            "name": name,
-            "spiritual_root": spiritual_root
-        }
-        return self.client.post('/api/v1/user/characters', data)
+    def get_character_detail(self) -> Dict[str, Any]:
+        """获取用户角色详细信息（包含装备）"""
+        return self.client.get('/api/v1/user/character/detail')
 
 
 class GameAPIClient(APIClient):

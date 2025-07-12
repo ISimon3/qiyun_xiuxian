@@ -76,9 +76,9 @@ class Character(Base):
     equipped_items: Mapped[List["EquippedItem"]] = relationship("EquippedItem", back_populates="character", cascade="all, delete-orphan")
     game_logs: Mapped[List["GameLog"]] = relationship("GameLog", back_populates="character", cascade="all, delete-orphan")
 
-    # 索引
+    # 索引 - 每个用户只能有一个角色
     __table_args__ = (
-        Index('ix_character_user_name', 'user_id', 'name', unique=True),
+        Index('ix_character_user_unique', 'user_id', unique=True),
     )
 
     def __repr__(self):

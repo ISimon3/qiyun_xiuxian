@@ -11,7 +11,7 @@ from server.core.dependencies import get_current_user, get_current_active_user
 from server.core.character_service import CharacterService
 from server.config import settings
 from shared.schemas import (
-    BaseResponse, UserInfo, CharacterCreate, CharacterInfo
+    BaseResponse, UserInfo, CharacterInfo
 )
 
 router = APIRouter()
@@ -42,133 +42,135 @@ async def get_current_user_info(
         )
 
 
-@router.get("/characters", response_model=BaseResponse, summary="获取用户角色列表")
-async def get_user_characters(
+@router.get("/character", response_model=BaseResponse, summary="获取用户角色")
+async def get_user_character(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    获取当前用户的所有角色
+    获取当前用户的角色信息
 
-    返回角色基本信息列表
+    如果角色不存在，会自动创建一个新角色
     """
     try:
-        characters = await CharacterCRUD.get_characters_by_user(db, current_user.id)
+        # 获取或创建角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
 
-        character_list = []
-        for char in characters:
-            char_info = CharacterService.build_character_info(char)
-            character_list.append(char_info.model_dump())
+        # 简化角色信息构建，避免复杂的装备处理
+        from shared.utils import calculate_base_attributes
+        base_attributes = calculate_base_attributes(character.cultivation_realm)
 
-        return BaseResponse(
-            success=True,
-            message=f"获取角色列表成功，共{len(character_list)}个角色",
-            data={
-                "characters": character_list,
-                "total": len(character_list),
-                "max_characters": settings.MAX_CHARACTERS_PER_USER
-            }
-        )
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"获取角色列表失败: {str(e)}"
-        )
-
-
-@router.post("/characters", response_model=BaseResponse, summary="创建新角色")
-async def create_character(
-    character_data: CharacterCreate,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    创建新角色
-
-    - **name**: 角色名称 (2-20字符)
-    - **spiritual_root**: 灵根类型
-
-    每个用户最多可创建3个角色
-    """
-    try:
-        # 检查角色数量限制
-        existing_characters = await CharacterCRUD.get_characters_by_user(db, current_user.id)
-        if len(existing_characters) >= settings.MAX_CHARACTERS_PER_USER:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"每个用户最多只能创建{settings.MAX_CHARACTERS_PER_USER}个角色"
-            )
-
-        # 检查角色名是否重复（同一用户下）
-        for char in existing_characters:
-            if char.name == character_data.name:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="角色名已存在"
-                )
-
-        # 创建角色
-        character = await CharacterCRUD.create_character(db, current_user.id, character_data)
-
-        # 构造响应数据
-        char_info = CharacterService.build_character_info(character)
-
-        return BaseResponse(
-            success=True,
-            message="角色创建成功",
-            data=char_info.model_dump()
-        )
-
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"创建角色失败: {str(e)}"
-        )
-
-
-@router.get("/characters/{character_id}", response_model=BaseResponse, summary="获取角色详细信息")
-async def get_character_detail(
-    character_id: int,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    获取指定角色的详细信息
-
-    只能获取属于当前用户的角色信息
-    """
-    try:
-        character = await CharacterCRUD.get_character_by_id(db, character_id)
-
-        if not character:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="角色不存在"
-            )
-
-        # 验证角色所有权
-        if character.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="无权访问该角色信息"
-            )
-
-        # 构造详细信息
-        char_info = CharacterService.build_character_info(character)
+        # 构建简单的角色信息
+        char_data = {
+            "id": character.id,
+            "name": character.name,
+            "cultivation_exp": character.cultivation_exp,
+            "cultivation_realm": character.cultivation_realm,
+            "spiritual_root": character.spiritual_root,
+            "luck_value": character.luck_value,
+            "gold": character.gold,
+            "spirit_stone": character.spirit_stone,
+            "created_at": character.created_at.isoformat(),
+            "last_active": character.last_active.isoformat() if character.last_active else None,
+            "cultivation_focus": character.cultivation_focus,
+            "attributes": {
+                "hp": base_attributes.hp + character.hp_training,
+                "physical_attack": base_attributes.physical_attack + character.physical_attack_training,
+                "magic_attack": base_attributes.magic_attack + character.magic_attack_training,
+                "physical_defense": base_attributes.physical_defense + character.physical_defense_training,
+                "magic_defense": base_attributes.magic_defense + character.magic_defense_training,
+                "critical_rate": base_attributes.critical_rate,
+                "critical_damage": base_attributes.critical_damage,
+                "cultivation_speed": base_attributes.cultivation_speed,
+                "luck_bonus": base_attributes.luck_bonus
+            },
+            "training_attributes": {
+                "hp_training": character.hp_training,
+                "physical_attack_training": character.physical_attack_training,
+                "magic_attack_training": character.magic_attack_training,
+                "physical_defense_training": character.physical_defense_training,
+                "magic_defense_training": character.magic_defense_training
+            },
+            "equipment": None
+        }
 
         return BaseResponse(
             success=True,
             message="获取角色信息成功",
-            data=char_info.model_dump()
+            data=char_data
         )
 
-    except HTTPException as e:
-        raise e
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取角色信息失败: {str(e)}"
+        )
+
+
+# 移除角色创建接口 - 每个用户只有一个角色，自动创建
+
+
+@router.get("/character/detail", response_model=BaseResponse, summary="获取角色详细信息")
+async def get_character_detail(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取当前用户角色的详细信息（包含装备信息）
+    """
+    try:
+        # 获取或创建角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 简化详细信息，暂时不包含复杂的装备处理
+        from shared.utils import calculate_base_attributes
+        base_attributes = calculate_base_attributes(character.cultivation_realm)
+
+        char_data = {
+            "id": character.id,
+            "name": character.name,
+            "cultivation_exp": character.cultivation_exp,
+            "cultivation_realm": character.cultivation_realm,
+            "spiritual_root": character.spiritual_root,
+            "luck_value": character.luck_value,
+            "gold": character.gold,
+            "spirit_stone": character.spirit_stone,
+            "created_at": character.created_at.isoformat(),
+            "last_active": character.last_active.isoformat() if character.last_active else None,
+            "cultivation_focus": character.cultivation_focus,
+            "attributes": {
+                "hp": base_attributes.hp + character.hp_training,
+                "physical_attack": base_attributes.physical_attack + character.physical_attack_training,
+                "magic_attack": base_attributes.magic_attack + character.magic_attack_training,
+                "physical_defense": base_attributes.physical_defense + character.physical_defense_training,
+                "magic_defense": base_attributes.magic_defense + character.magic_defense_training,
+                "critical_rate": base_attributes.critical_rate,
+                "critical_damage": base_attributes.critical_damage,
+                "cultivation_speed": base_attributes.cultivation_speed,
+                "luck_bonus": base_attributes.luck_bonus
+            },
+            "training_attributes": {
+                "hp_training": character.hp_training,
+                "physical_attack_training": character.physical_attack_training,
+                "magic_attack_training": character.magic_attack_training,
+                "physical_defense_training": character.physical_defense_training,
+                "magic_defense_training": character.magic_defense_training
+            },
+            "equipment": None  # 暂时不包含装备信息
+        }
+
+        return BaseResponse(
+            success=True,
+            message="获取角色详细信息成功",
+            data=char_data
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取角色详细信息失败: {str(e)}"
         )
