@@ -585,3 +585,38 @@ class PlayerTrade(Base):
 
     def __repr__(self):
         return f"<PlayerTrade(id={self.id}, seller_id={self.seller_id}, item_id={self.item_id}, status='{self.status}')>"
+
+
+class ChatMessage(Base):
+    """聊天消息表"""
+    __tablename__ = "chat_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    character_id: Mapped[int] = mapped_column(Integer, ForeignKey("characters.id"), nullable=False)
+
+    # 消息内容
+    channel: Mapped[str] = mapped_column(String(20), nullable=False, index=True)  # WORLD, SYSTEM, PRIVATE等
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    message_type: Mapped[str] = mapped_column(String(20), default="NORMAL")  # NORMAL, SYSTEM, ANNOUNCEMENT
+
+    # 私聊相关 (可选)
+    target_character_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("characters.id"), nullable=True)
+
+    # 消息状态
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # 时间戳
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    # 关系
+    character: Mapped["Character"] = relationship("Character", foreign_keys=[character_id])
+    target_character: Mapped[Optional["Character"]] = relationship("Character", foreign_keys=[target_character_id])
+
+    # 索引
+    __table_args__ = (
+        Index('ix_chat_message_channel_time', 'channel', 'created_at'),
+        Index('ix_chat_message_character_time', 'character_id', 'created_at'),
+    )
+
+    def __repr__(self):
+        return f"<ChatMessage(id={self.id}, channel='{self.channel}', character_id={self.character_id})>"

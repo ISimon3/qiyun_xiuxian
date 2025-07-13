@@ -168,12 +168,13 @@ async def health_check():
 
 
 # 注册API路由
-from server.api.v1 import auth, user, inventory, game_actions, shop
+from server.api.v1 import auth, user, inventory, game_actions, shop, websocket
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["认证"])
 app.include_router(user.router, prefix="/api/v1/user", tags=["用户"])
 app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["背包装备"])
 app.include_router(game_actions.router, prefix="/api/v1/game", tags=["游戏行为"])
 app.include_router(shop.router, prefix="/api/v1/shop", tags=["商城交易"])
+app.include_router(websocket.router, prefix="/api/v1/websocket", tags=["实时通信"])
 
 
 def start_server():

@@ -14,6 +14,7 @@ try:
     from PyQt6.QtWidgets import QApplication, QMessageBox, QWidget
     from PyQt6.QtCore import Qt, QTimer
     from PyQt6.QtGui import QIcon
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
     PYQT_AVAILABLE = True
 except ImportError as e:
     PYQT_AVAILABLE = False
@@ -34,6 +35,9 @@ class GameApplication:
     """游戏应用程序主类"""
     
     def __init__(self):
+        # 为WebEngine设置必要的属性
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+
         # 初始化Qt应用程序
         self.app = QApplication(sys.argv)
         self.setup_application()

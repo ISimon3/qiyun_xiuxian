@@ -7,7 +7,7 @@ from sqlalchemy import select, update, delete, and_, or_, desc, asc
 from sqlalchemy.orm import selectinload
 from passlib.context import CryptContext
 
-from server.database.models import User, Character, Item, InventoryItem, EquippedItem, GameLog, UserSession
+from server.database.models import User, Character, Item, InventoryItem, EquippedItem, GameLog, UserSession, ChatMessage
 from shared.schemas import UserRegister, CharacterUpdate
 
 # 密码加密上下文
@@ -472,6 +472,124 @@ class SessionCRUD:
             update(UserSession)
             .where(UserSession.expires_at < current_time)
             .values(is_active=False)
+        )
+        await db.commit()
+        return result.rowcount
+
+
+class ChatCRUD:
+    """聊天消息相关CRUD操作"""
+
+    @staticmethod
+    async def create_message(
+        db: AsyncSession,
+        character_id: int,
+        channel: str,
+        content: str,
+        message_type: str = "NORMAL",
+        target_character_id: Optional[int] = None
+    ) -> ChatMessage:
+        """创建聊天消息"""
+        db_message = ChatMessage(
+            character_id=character_id,
+            channel=channel,
+            content=content,
+            message_type=message_type,
+            target_character_id=target_character_id
+        )
+
+        db.add(db_message)
+        await db.commit()
+        await db.refresh(db_message)
+        return db_message
+
+    @staticmethod
+    async def get_recent_messages(
+        db: AsyncSession,
+        channel: str,
+        limit: int = 50,
+        before_time: Optional[datetime] = None
+    ) -> List[ChatMessage]:
+        """获取最近的聊天消息"""
+        query = (
+            select(ChatMessage)
+            .where(
+                and_(
+                    ChatMessage.channel == channel,
+                    ChatMessage.is_deleted == False
+                )
+            )
+            .options(selectinload(ChatMessage.character))
+            .order_by(desc(ChatMessage.created_at))
+            .limit(limit)
+        )
+
+        if before_time:
+            query = query.where(ChatMessage.created_at < before_time)
+
+        result = await db.execute(query)
+        messages = result.scalars().all()
+        return list(reversed(messages))  # 返回时间正序
+
+    @staticmethod
+    async def get_private_messages(
+        db: AsyncSession,
+        character_id: int,
+        target_character_id: int,
+        limit: int = 50
+    ) -> List[ChatMessage]:
+        """获取私聊消息"""
+        query = (
+            select(ChatMessage)
+            .where(
+                and_(
+                    ChatMessage.channel == "PRIVATE",
+                    ChatMessage.is_deleted == False,
+                    or_(
+                        and_(
+                            ChatMessage.character_id == character_id,
+                            ChatMessage.target_character_id == target_character_id
+                        ),
+                        and_(
+                            ChatMessage.character_id == target_character_id,
+                            ChatMessage.target_character_id == character_id
+                        )
+                    )
+                )
+            )
+            .options(selectinload(ChatMessage.character))
+            .order_by(desc(ChatMessage.created_at))
+            .limit(limit)
+        )
+
+        result = await db.execute(query)
+        messages = result.scalars().all()
+        return list(reversed(messages))  # 返回时间正序
+
+    @staticmethod
+    async def delete_message(db: AsyncSession, message_id: int, character_id: int) -> bool:
+        """删除消息（软删除）"""
+        result = await db.execute(
+            update(ChatMessage)
+            .where(
+                and_(
+                    ChatMessage.id == message_id,
+                    ChatMessage.character_id == character_id
+                )
+            )
+            .values(is_deleted=True)
+        )
+        await db.commit()
+        return result.rowcount > 0
+
+    @staticmethod
+    async def cleanup_old_messages(db: AsyncSession, days: int = 30) -> int:
+        """清理旧消息"""
+        cutoff_time = datetime.utcnow() - timedelta(days=days)
+
+        result = await db.execute(
+            delete(ChatMessage)
+            .where(ChatMessage.created_at < cutoff_time)
         )
         await db.commit()
         return result.rowcount

@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 from PyQt6.QtGui import QFont, QIcon, QAction
 
 from client.network.api_client import GameAPIClient, APIException
+from client.network.websocket_client import websocket_manager
 from client.state_manager import get_state_manager
 from client.ui.widgets.character_info_widget import CharacterInfoWidget
 from client.ui.widgets.cultivation_log_widget import CultivationLogWidget
@@ -170,6 +171,15 @@ class MainWindow(QMainWindow):
         # 设置API客户端的token
         if self.state_manager.access_token:
             self.api_client.set_token(self.state_manager.access_token)
+
+        # 初始化WebSocket客户端
+        self.websocket_client = websocket_manager.get_client(server_url)
+        if self.state_manager.access_token:
+            self.websocket_client.set_token(self.state_manager.access_token)
+        self.setup_websocket_connections()
+
+        # 消息去重：存储最近发送的消息内容和时间戳
+        self.recent_sent_messages = []  # 存储最近发送的消息，用于去重
 
         # 数据更新线程
         self.update_worker = DataUpdateWorker(self.api_client)
@@ -357,6 +367,35 @@ class MainWindow(QMainWindow):
         self.update_worker.cultivation_status_updated.connect(self.on_cultivation_status_updated)
         self.update_worker.luck_info_updated.connect(self.on_luck_info_updated)
         self.update_worker.update_failed.connect(self.on_update_failed)
+
+    def setup_websocket_connections(self):
+        """设置WebSocket连接"""
+        # 连接WebSocket信号
+        self.websocket_client.connected.connect(self.on_websocket_connected)
+        self.websocket_client.disconnected.connect(self.on_websocket_disconnected)
+        self.websocket_client.message_received.connect(self.on_websocket_message)
+        self.websocket_client.error_occurred.connect(self.on_websocket_error)
+
+        # 注册消息回调
+        self.websocket_client.register_message_callback("chat", self.on_chat_message)
+        self.websocket_client.register_message_callback("system", self.on_system_message)
+        self.websocket_client.register_message_callback("history", self.on_history_message)
+
+        # 启动WebSocket连接 - 延迟更长时间确保界面完全初始化
+        QTimer.singleShot(5000, self.safe_connect_websocket)  # 延迟5秒连接
+
+    def safe_connect_websocket(self):
+        """安全地连接WebSocket"""
+        try:
+            if hasattr(self, 'websocket_client') and self.websocket_client:
+                print("🔗 开始连接WebSocket...")
+                self.websocket_client.connect()
+            else:
+                print("❌ WebSocket客户端未初始化")
+        except Exception as e:
+            print(f"❌ WebSocket连接失败: {e}")
+            import traceback
+            traceback.print_exc()
 
     def load_initial_data(self):
         """加载初始数据"""
@@ -712,8 +751,19 @@ class MainWindow(QMainWindow):
         return self.create_simple_chat_widget()
 
     def create_simple_chat_widget(self):
-        """创建简单的聊天组件"""
-        from PyQt6.QtWidgets import QTextEdit, QLineEdit, QVBoxLayout, QHBoxLayout, QPushButton
+        """创建聊天组件（自动选择HTML或QTextEdit）"""
+        # 检查WebEngine是否可用
+        try:
+            from PyQt6.QtWebEngineWidgets import QWebEngineView
+            return self.create_html_chat_widget()
+        except ImportError:
+            print("⚠️ WebEngine不可用，使用QTextEdit聊天界面")
+            return self.create_textedit_chat_widget()
+
+    def create_html_chat_widget(self):
+        """创建基于HTML的聊天组件"""
+        from PyQt6.QtWebEngineWidgets import QWebEngineView
+        from PyQt6.QtWidgets import QLineEdit, QVBoxLayout, QHBoxLayout, QPushButton
 
         chat_widget = QWidget()
         layout = QVBoxLayout()
@@ -741,61 +791,19 @@ class MainWindow(QMainWindow):
         line.setStyleSheet("color: #bdc3c7;")
         layout.addWidget(line)
 
-        # 聊天显示区域
-        self.chat_display = QTextEdit()
-        self.chat_display.setReadOnly(True)
+        # 聊天显示区域 - 使用HTML渲染
+        self.chat_display = QWebEngineView()
         self.chat_display.setMinimumHeight(350)
 
-        # 设置聊天样式
-        chat_font = QFont("Microsoft YaHei", 10)
-        self.chat_display.setFont(chat_font)
-        self.chat_display.setStyleSheet("""
-            QTextEdit {
-                background-color: #f8f9fa;
-                color: #333;
-                border: 1px solid #dee2e6;
-                border-radius: 5px;
-                padding: 10px;
-                line-height: 1.4;
-            }
-            QScrollBar:vertical {
-                background-color: #e9ecef;
-                width: 12px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background-color: #adb5bd;
-                border-radius: 6px;
-                min-height: 20px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: #6c757d;
-            }
-        """)
+        # 初始化聊天消息列表
+        self.chat_messages = []
 
-        # 添加一些示例聊天内容
-        self.chat_display.setHtml("""
-        <div style="margin-bottom: 10px;">
-            <span style="color: #007bff; font-weight: bold;">[世界] 修仙者001:</span>
-            <span style="color: #333;">大家好，有人一起组队刷副本吗？</span>
-            <span style="color: #6c757d; font-size: 10px;">[15:30]</span>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <span style="color: #28a745; font-weight: bold;">[世界] 仙道至尊:</span>
-            <span style="color: #333;">刚突破到筑基期，感谢大家的指导！</span>
-            <span style="color: #6c757d; font-size: 10px;">[15:32]</span>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <span style="color: #dc3545; font-weight: bold;">[世界] 逆天改命:</span>
-            <span style="color: #333;">有没有人知道哪里能买到筑基丹？</span>
-            <span style="color: #6c757d; font-size: 10px;">[15:35]</span>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <span style="color: #6f42c1; font-weight: bold;">[系统]:</span>
-            <span style="color: #333;">恭喜玩家"道法自然"成功突破到金丹期！</span>
-            <span style="color: #6c757d; font-size: 10px;">[15:36]</span>
-        </div>
-        """)
+        # 设置初始HTML内容
+        self.init_chat_html()
+
+        # 延迟添加欢迎消息，等待HTML加载完成
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(500, self.add_welcome_message)
 
         layout.addWidget(self.chat_display)
 
@@ -803,40 +811,56 @@ class MainWindow(QMainWindow):
         input_layout = QHBoxLayout()
 
         self.chat_input = QLineEdit()
-        self.chat_input.setPlaceholderText("输入聊天内容...")
-        self.chat_input.setMinimumHeight(30)
+        self.chat_input.setPlaceholderText("💬 输入聊天内容...")
+        self.chat_input.setMinimumHeight(36)
         self.chat_input.returnPressed.connect(self.send_chat_message)
         self.chat_input.setStyleSheet("""
             QLineEdit {
-                border: 1px solid #ced4da;
-                border-radius: 5px;
-                padding: 5px 10px;
-                font-size: 12px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #ffffff, stop:1 #f8f9fa);
+                border: 2px solid #e1e5e9;
+                border-radius: 18px;
+                padding: 8px 16px;
+                font-size: 13px;
+                font-family: "Microsoft YaHei";
+                color: #2c3e50;
             }
             QLineEdit:focus {
                 border: 2px solid #007bff;
+                background: white;
+            }
+            QLineEdit:hover {
+                border: 2px solid #adb5bd;
             }
         """)
         input_layout.addWidget(self.chat_input)
 
-        send_button = QPushButton("发送")
-        send_button.setMinimumHeight(30)
-        send_button.setMaximumWidth(60)
+        send_button = QPushButton("📤 发送")
+        send_button.setMinimumHeight(36)
+        send_button.setMaximumWidth(80)
         send_button.clicked.connect(self.send_chat_message)
         send_button.setStyleSheet("""
             QPushButton {
-                background-color: #007bff;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #007bff, stop:1 #0056b3);
                 color: white;
                 border: none;
-                border-radius: 5px;
-                font-size: 12px;
-                font-weight: bold;
+                border-radius: 18px;
+                font-size: 13px;
+                font-weight: 600;
+                font-family: "Microsoft YaHei";
+                padding: 0 12px;
             }
             QPushButton:hover {
-                background-color: #0056b3;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #0056b3, stop:1 #004085);
             }
             QPushButton:pressed {
-                background-color: #004085;
+                background: #004085;
+            }
+            QPushButton:disabled {
+                background: #6c757d;
+                color: #adb5bd;
             }
         """)
         input_layout.addWidget(send_button)
@@ -845,6 +869,154 @@ class MainWindow(QMainWindow):
 
         chat_widget.setLayout(layout)
         return chat_widget
+
+    def init_chat_html(self):
+        """初始化聊天HTML页面"""
+        html_template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>聊天频道</title>
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+
+                body {
+                    font-family: "Microsoft YaHei", Arial, sans-serif;
+                    font-size: 14px;
+                    background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
+                    color: #333;
+                    line-height: 1.0;
+                    overflow-x: hidden;
+                }
+
+                .chat-container {
+                    padding: 1px;
+                    margin: 0;
+                    width: 100%;
+                    height: 100vh;
+                    overflow-y: auto;
+                }
+
+                .welcome-message {
+                    text-align: center;
+                    margin: 0;
+                    padding: 2px 4px;
+                    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+                    border-radius: 6px;
+                    border: 1px solid #90caf9;
+                    font-size: 10px;
+                    color: #1565c0;
+                    font-weight: normal;
+                    display: none;
+                }
+
+                .message {
+                    margin: 0;
+                    padding: 0;
+                    width: 100%;
+                    word-wrap: break-word;
+                    clear: both;
+                    line-height: 1.0;
+                }
+
+                .message-left {
+                    text-align: left;
+                    float: left;
+                    clear: both;
+                    margin: 0;
+                }
+
+                .message-right {
+                    text-align: right;
+                    float: right;
+                    clear: both;
+                    margin: 0;
+                }
+
+                .message-center {
+                    text-align: center;
+                    clear: both;
+                    margin: 0;
+                }
+
+                .message-header {
+                    font-size: 14px;
+                    font-weight: 600;
+                    margin: 0;
+                    padding: 0;
+                    line-height: 1.0;
+                }
+
+                .message-content {
+                    font-size: 14px;
+                    margin: 0;
+                    padding: 0;
+                    color: #333;
+                    line-height: 1.0;
+                }
+
+                .system-message {
+                    color: #e65100;
+                    font-weight: 600;
+                    background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+                    padding: 2px 6px;
+                    border-radius: 6px;
+                    border: 1px solid #ffcc02;
+                    display: inline-block;
+                    margin: 0;
+                    font-size: 12px;
+                    line-height: 1.0;
+                }
+
+                .world-channel {
+                    color: #007bff;
+                }
+
+                .clearfix::after {
+                    content: "";
+                    display: table;
+                    clear: both;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="chat-container" id="chatContainer">
+                <!-- 动态添加消息，不要硬编码 -->
+            </div>
+
+            <script>
+                function addMessage(html) {
+                    const container = document.getElementById('chatContainer');
+                    container.insertAdjacentHTML('beforeend', html);
+                    container.scrollTop = container.scrollHeight;
+                }
+
+                function clearMessages() {
+                    const container = document.getElementById('chatContainer');
+                    container.innerHTML = '';
+                }
+            </script>
+        </body>
+        </html>
+        """
+
+        self.chat_display.setHtml(html_template)
+
+    def add_welcome_message(self):
+        """添加带当前时间的欢迎消息"""
+        try:
+            from datetime import datetime
+            current_time = datetime.now().strftime("%H:%M")
+            welcome_msg = self.create_system_message_html("欢迎进入聊天频道，祝您修炼愉快！", current_time)
+            self.add_message_to_chat_display(welcome_msg)
+        except Exception as e:
+            print(f"❌ 添加欢迎消息失败: {e}")
 
     def switch_to_chat_view(self):
         """切换到聊天界面"""
@@ -862,6 +1034,9 @@ class MainWindow(QMainWindow):
             channel_btn = self.function_menu_widget.buttons["channel"]
             channel_btn.setText("📋")
             channel_btn.setToolTip("切换到修炼日志")
+
+        # 清除新消息提示
+        self.clear_new_message_indicator()
 
         print("🔄 已切换到聊天界面")
 
@@ -882,6 +1057,9 @@ class MainWindow(QMainWindow):
             channel_btn.setText("💬")
             channel_btn.setToolTip("聊天频道")
 
+        # 清除新消息提示（如果有的话）
+        self.clear_new_message_indicator()
+
         print("🔄 已切换到修炼日志界面")
 
     def send_chat_message(self):
@@ -896,6 +1074,21 @@ class MainWindow(QMainWindow):
         # 清空输入框
         self.chat_input.clear()
 
+        # 立即显示自己的消息（乐观更新）
+        self.add_local_chat_message(message)
+
+        # 通过WebSocket发送消息
+        if hasattr(self, 'websocket_client') and self.websocket_client.is_connected:
+            success = self.websocket_client.send_chat_message(message, "WORLD")
+            if success:
+                print(f"💬 通过WebSocket发送聊天消息: {message}")
+            else:
+                print("❌ WebSocket发送消息失败")
+        else:
+            print("⚠️ WebSocket未连接，消息仅本地显示")
+
+    def add_local_chat_message(self, message: str):
+        """添加本地聊天消息（用于WebSocket未连接时的回退）"""
         # 获取当前时间
         from datetime import datetime
         current_time = datetime.now().strftime("%H:%M")
@@ -905,30 +1098,25 @@ class MainWindow(QMainWindow):
         if self.state_manager.user_info:
             username = self.state_manager.user_info.get('username', '我')
 
-        # 添加消息到聊天显示区域
-        new_message = f"""
-        <div style="margin-bottom: 10px;">
-            <span style="color: #ff6b6b; font-weight: bold;">[世界] {username}:</span>
-            <span style="color: #333;">{message}</span>
-            <span style="color: #6c757d; font-size: 10px;">[{current_time}]</span>
-        </div>
-        """
+        # 转义HTML特殊字符
+        import html
+        safe_message = html.escape(str(message))
+        safe_username = html.escape(str(username))
 
-        # 在现有内容后添加新消息
-        current_html = self.chat_display.toHtml()
-        # 在</body>标签前插入新消息
-        if "</body>" in current_html:
-            new_html = current_html.replace("</body>", new_message + "</body>")
-        else:
-            new_html = current_html + new_message
+        # 记录发送的消息用于去重
+        message_key = f"{safe_message}_{current_time}"
+        self.recent_sent_messages.append(message_key)
 
-        self.chat_display.setHtml(new_html)
+        # 只保留最近10条消息记录
+        if len(self.recent_sent_messages) > 10:
+            self.recent_sent_messages.pop(0)
 
-        # 滚动到底部
-        scrollbar = self.chat_display.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        # 创建自己的消息（右对齐）
+        new_message = self.create_chat_message_html(
+            "WORLD", safe_username, safe_message, current_time, is_own_message=True
+        )
 
-        print(f"💬 发送聊天消息: {message}")
+        self.add_message_to_chat_display(new_message)
 
     def toggle_chat_view(self):
         """切换聊天/日志界面"""
@@ -1203,10 +1391,338 @@ class MainWindow(QMainWindow):
             if self.state_manager.access_token:
                 self.api_client.set_token(self.state_manager.access_token)
 
+    # WebSocket事件处理方法
+    def on_websocket_connected(self):
+        """WebSocket连接成功"""
+        print("✅ WebSocket连接成功")
+
+    def on_websocket_disconnected(self):
+        """WebSocket连接断开"""
+        print("🔌 WebSocket连接断开")
+
+    def on_websocket_error(self, error_message: str):
+        """WebSocket错误"""
+        print(f"❌ WebSocket错误: {error_message}")
+
+    def on_websocket_message(self, message_data: dict):
+        """处理WebSocket消息"""
+        message_type = message_data.get("type", "unknown")
+        print(f"📨 收到WebSocket消息: {message_type}")
+
+    def on_chat_message(self, message_data: dict):
+        """处理聊天消息"""
+        try:
+            if not isinstance(message_data, dict):
+                print(f"⚠️ 无效的消息数据类型: {type(message_data)}")
+                return
+
+            channel = message_data.get("channel", "WORLD")
+            character_name = message_data.get("character_name", "Unknown")
+            content = message_data.get("content", "")
+            timestamp = message_data.get("timestamp", "")
+            character_id = message_data.get("character_id", 0)
+
+            # 验证必要字段
+            if not content:
+                print("⚠️ 消息内容为空，跳过处理")
+                return
+
+            # 格式化时间
+            from datetime import datetime
+            try:
+                if timestamp:
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    time_str = dt.strftime("%H:%M")
+                else:
+                    time_str = datetime.now().strftime("%H:%M")
+            except Exception as time_error:
+                print(f"⚠️ 时间格式化失败: {time_error}")
+                time_str = datetime.now().strftime("%H:%M")
+
+            # 判断是否是自己发送的消息
+            is_own_message = False
+            if hasattr(self, 'state_manager') and self.state_manager.current_character:
+                current_character_id = self.state_manager.current_character.get('id', 0)
+                is_own_message = (character_id == current_character_id)
+
+            # 转义HTML特殊字符
+            import html
+            safe_content = html.escape(str(content))
+            safe_character_name = html.escape(str(character_name))
+
+            # 如果是自己的消息，检查是否已经显示过（去重）
+            if is_own_message:
+                message_key = f"{safe_content}_{time_str}"
+                if hasattr(self, 'recent_sent_messages') and message_key in self.recent_sent_messages:
+                    print(f"⚠️ 跳过重复消息: {content}")
+                    return
+
+            # 创建消息HTML
+            new_message = self.create_chat_message_html(
+                channel, safe_character_name, safe_content, time_str, is_own_message
+            )
+
+            self.add_message_to_chat_display(new_message)
+
+        except Exception as e:
+            print(f"❌ 处理聊天消息失败: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def create_chat_message_html(self, channel: str, character_name: str, content: str, time_str: str, is_own_message: bool = False):
+        """创建聊天消息HTML - 适用于WebEngine渲染"""
+        try:
+            # 根据频道设置颜色类
+            channel_class = "world-channel" if channel == "WORLD" else "other-channel"
+
+            if is_own_message:
+                # 自己的消息：右对齐，统一12px字体
+                message_html = f"""
+                <div style="text-align: right; margin: 0; padding: 0; line-height: 12px; clear: both;">
+                    <div style="font-size: 12px; color: #007bff; font-weight: 600; margin: 0; padding: 0; line-height: 12px;">[{channel}] {character_name} {time_str}</div>
+                    <div style="font-size: 12px; color: #333; margin: 0; padding: 0; line-height: 12px;">{content}</div>
+                </div>
+                """
+            else:
+                # 他人的消息：左对齐，统一12px字体
+                message_html = f"""
+                <div style="text-align: left; margin: 0; padding: 0; line-height: 12px; clear: both;">
+                    <div style="font-size: 12px; color: #007bff; font-weight: 600; margin: 0; padding: 0; line-height: 12px;">[{channel}] {character_name} {time_str}</div>
+                    <div style="font-size: 12px; color: #333; margin: 0; padding: 0; line-height: 12px;">{content}</div>
+                </div>
+                """
+
+            return message_html
+
+        except Exception as e:
+            print(f"❌ 创建消息HTML失败: {e}")
+            # 回退到简单格式
+            return f"""
+            <div class="message clearfix">
+                <div class="message-left">
+                    <div class="message-header {channel_class}">[{channel}] {character_name} {time_str}</div>
+                    <div class="message-content">{content}</div>
+                </div>
+            </div>
+            """
+
+    def create_system_message_html(self, content: str, time_str: str):
+        """创建系统消息HTML - 适用于WebEngine渲染"""
+        try:
+            # 系统消息：统一12px字体，固定行高
+            message_html = f"""
+            <div style="text-align: center; margin: 0; padding: 0; line-height: 12px;">
+                <span style="color: #e65100; font-weight: 600; background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); padding: 1px 4px; border-radius: 4px; border: 1px solid #ffcc02; font-size: 12px; line-height: 12px; display: inline-block;">🔔 [系统] {content} · {time_str}</span>
+            </div>
+            """
+            return message_html
+
+        except Exception as e:
+            print(f"❌ 创建系统消息HTML失败: {e}")
+            # 回退到简单格式
+            return f"""
+            <div style="margin: 8px 0; padding: 0; text-align: center;">
+                <span style="color: #bf360c; font-weight: bold; font-size: 12px;">🔔 [系统]:</span>
+                <span style="color: #856404; margin: 0 6px; font-size: 12px;">{content}</span>
+                <span style="color: #8d6e63; font-size: 10px;">[{time_str}]</span>
+            </div>
+            """
+
+    def on_system_message(self, message_data: dict):
+        """处理系统消息"""
+        try:
+            if not isinstance(message_data, dict):
+                print(f"⚠️ 无效的系统消息数据类型: {type(message_data)}")
+                return
+
+            content = message_data.get("content", "")
+            timestamp = message_data.get("timestamp", "")
+
+            # 验证消息内容
+            if not content:
+                print("⚠️ 系统消息内容为空，跳过处理")
+                return
+
+            # 格式化时间
+            from datetime import datetime
+            try:
+                if timestamp:
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    time_str = dt.strftime("%H:%M")
+                else:
+                    time_str = datetime.now().strftime("%H:%M")
+            except Exception as time_error:
+                print(f"⚠️ 系统消息时间格式化失败: {time_error}")
+                time_str = datetime.now().strftime("%H:%M")
+
+            # 转义HTML特殊字符
+            import html
+            safe_content = html.escape(str(content))
+
+            # 创建系统消息HTML（居中显示）
+            new_message = self.create_system_message_html(safe_content, time_str)
+
+            self.add_message_to_chat_display(new_message)
+
+        except Exception as e:
+            print(f"❌ 处理系统消息失败: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def on_history_message(self, message_data: dict):
+        """处理历史消息"""
+        try:
+            messages = message_data.get("messages", [])
+            channel = message_data.get("channel", "WORLD")
+
+            print(f"📜 收到历史消息: {len(messages)} 条")
+
+            # 清空当前聊天显示
+            if hasattr(self, 'chat_display'):
+                self.chat_display.clear()
+
+                # 添加历史消息
+                for msg in messages:
+                    character_name = msg.get("character_name", "Unknown")
+                    content = msg.get("content", "")
+                    timestamp = msg.get("timestamp", "")
+                    character_id = msg.get("character_id", 0)
+                    message_type = msg.get("message_type", "NORMAL")
+
+                    # 格式化时间
+                    from datetime import datetime
+                    try:
+                        dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                        time_str = dt.strftime("%H:%M")
+                    except:
+                        time_str = datetime.now().strftime("%H:%M")
+
+                    # 转义HTML特殊字符
+                    import html
+                    safe_content = html.escape(str(content))
+                    safe_character_name = html.escape(str(character_name))
+
+                    # 根据消息类型创建不同样式的消息
+                    if message_type == "SYSTEM":
+                        new_message = self.create_system_message_html(safe_content, time_str)
+                    else:
+                        # 判断是否是自己发送的消息
+                        is_own_message = False
+                        if hasattr(self, 'state_manager') and self.state_manager.current_character:
+                            current_character_id = self.state_manager.current_character.get('id', 0)
+                            is_own_message = (character_id == current_character_id)
+
+                        new_message = self.create_chat_message_html(
+                            channel, safe_character_name, safe_content, time_str, is_own_message
+                        )
+
+                    self.add_message_to_chat_display(new_message)
+
+        except Exception as e:
+            print(f"❌ 处理历史消息失败: {e}")
+
+    def add_message_to_chat_display(self, message_html: str):
+        """添加消息到HTML聊天显示区域"""
+        try:
+            # 检查聊天显示组件是否存在
+            if not hasattr(self, 'chat_display') or self.chat_display is None:
+                print("⚠️ 聊天显示组件不存在，跳过消息添加")
+                return
+
+            # 检查消息内容
+            if not message_html or not isinstance(message_html, str):
+                print("⚠️ 无效的消息HTML内容")
+                return
+
+            # 使用JavaScript添加消息到HTML页面
+            try:
+                # 转义JavaScript字符串中的特殊字符
+                escaped_html = message_html.replace('\\', '\\\\').replace("'", "\\'").replace('\n', '\\n').replace('\r', '\\r')
+
+                # 执行JavaScript添加消息
+                js_code = f"addMessage('{escaped_html}');"
+                self.chat_display.page().runJavaScript(js_code)
+
+                # 如果当前不在聊天视图，显示提示
+                if not hasattr(self, 'current_lower_view') or self.current_lower_view != "chat":
+                    print("💬 收到新消息！点击'频道'按钮查看聊天")
+                    # 可以在这里添加视觉提示，比如让频道按钮闪烁
+                    self.show_new_message_indicator()
+
+            except Exception as js_error:
+                print(f"❌ JavaScript执行失败: {js_error}")
+
+        except Exception as e:
+            print(f"❌ 添加消息到聊天显示失败: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def show_new_message_indicator(self):
+        """显示新消息提示"""
+        try:
+            # 查找频道按钮并添加视觉提示
+            if hasattr(self, 'function_menu_widget') and hasattr(self.function_menu_widget, 'buttons'):
+                if "channel" in self.function_menu_widget.buttons:
+                    channel_btn = self.function_menu_widget.buttons["channel"]
+                    # 改变按钮样式以显示有新消息
+                    channel_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #ff6b6b;
+                            color: white;
+                            border: 2px solid #ff4757;
+                            border-radius: 8px;
+                            font-size: 16px;
+                            font-weight: bold;
+                        }
+                        QPushButton:hover {
+                            background-color: #ff5252;
+                        }
+                    """)
+                    channel_btn.setToolTip("💬 有新消息！点击查看聊天")
+
+            print("🔔 新消息提示：有新的聊天消息，请点击'频道'按钮查看")
+        except Exception as e:
+            print(f"❌ 显示新消息提示失败: {e}")
+
+    def clear_new_message_indicator(self):
+        """清除新消息提示"""
+        try:
+            # 恢复频道按钮的正常样式
+            if hasattr(self, 'function_menu_widget') and hasattr(self.function_menu_widget, 'buttons'):
+                if "channel" in self.function_menu_widget.buttons:
+                    channel_btn = self.function_menu_widget.buttons["channel"]
+                    # 恢复正常样式
+                    channel_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #f8f9fa;
+                            border: 1px solid #dee2e6;
+                            border-radius: 8px;
+                            padding: 8px;
+                            font-size: 16px;
+                        }
+                        QPushButton:hover {
+                            background-color: #e9ecef;
+                        }
+                        QPushButton:pressed {
+                            background-color: #dee2e6;
+                        }
+                    """)
+                    if self.current_lower_view == "chat":
+                        channel_btn.setToolTip("切换到修炼日志")
+                    else:
+                        channel_btn.setToolTip("切换到聊天频道")
+        except Exception as e:
+            print(f"❌ 清除新消息提示失败: {e}")
+
     def closeEvent(self, event):
         """窗口关闭事件"""
         try:
             print("🔄 正在关闭主窗口...")
+
+            # 断开WebSocket连接
+            if hasattr(self, 'websocket_client'):
+                print("🔌 正在断开WebSocket连接...")
+                self.websocket_client.disconnect()
 
             # 停止数据更新线程
             if hasattr(self, 'update_worker') and self.update_worker.isRunning():
