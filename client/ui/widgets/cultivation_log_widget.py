@@ -12,6 +12,13 @@ from PyQt6.QtGui import QFont, QTextCursor, QColor
 from shared.constants import CULTIVATION_FOCUS_TYPES
 from shared.utils import get_realm_name, get_luck_level_name
 
+# 尝试导入WebEngine，如果失败则使用QTextEdit
+try:
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+    WEBENGINE_AVAILABLE = True
+except ImportError:
+    WEBENGINE_AVAILABLE = False
+
 
 class CultivationLogWidget(QWidget):
     """修炼日志组件"""
@@ -42,49 +49,65 @@ class CultivationLogWidget(QWidget):
         """初始化界面"""
         # 主布局
         main_layout = QVBoxLayout()
-        main_layout.setSpacing(5)
-        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.setSpacing(1)  # 减少间距
+        main_layout.setContentsMargins(5, 0, 5, 3)  # 减少边距
 
         # 标题栏
         self.create_title_bar(main_layout)
 
-        # 日志显示区域
-        self.create_log_area(main_layout)
+        # 日志显示区域 - 根据WebEngine可用性选择实现
+        if WEBENGINE_AVAILABLE:
+            self.create_html_log_area(main_layout)
+        else:
+            self.create_log_area(main_layout)
 
         self.setLayout(main_layout)
 
-        # 添加初始欢迎消息
-        self.add_system_log("欢迎来到气运修仙世界！", "system")
-        self.add_system_log("开始您的修仙之路吧！", "system")
+        # 延迟添加初始欢迎消息
+        if WEBENGINE_AVAILABLE:
+            QTimer.singleShot(500, self.add_initial_messages)
+        else:
+            self.add_initial_messages()
 
     def create_title_bar(self, parent_layout: QVBoxLayout):
-        """创建标题栏"""
+        """创建标题栏 - 与聊天界面保持一致的紧凑风格"""
         title_layout = QHBoxLayout()
-        title_layout.setSpacing(10)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(0)
 
         # 标题
-        title_label = QLabel("修炼日志")
+        title_label = QLabel("📜 修炼日志")
         title_font = QFont()
-        title_font.setPointSize(14)
+        title_font.setPointSize(10)  # 与聊天界面一致
         title_font.setBold(True)
         title_label.setFont(title_font)
-        title_label.setStyleSheet("color: #2c3e50;")
+        title_label.setFixedHeight(16)  # 设置固定高度
+        title_label.setStyleSheet("""
+            color: #2c3e50;
+            margin: 0px;
+            padding: 0px;
+            line-height: 1.0;
+            border: none;
+        """)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         title_layout.addWidget(title_label)
 
         title_layout.addStretch()
 
-        # 清空日志按钮
-        self.clear_button = QPushButton("清空日志")
-        self.clear_button.setMaximumWidth(80)
-        self.clear_button.setMinimumHeight(25)
+        # 清空日志按钮 - 更紧凑的样式
+        self.clear_button = QPushButton("清空")
+        self.clear_button.setMaximumWidth(50)
+        self.clear_button.setMaximumHeight(16)
         self.clear_button.clicked.connect(self.clear_log)
         self.clear_button.setStyleSheet("""
             QPushButton {
                 background-color: #e74c3c;
                 color: white;
                 border: none;
-                border-radius: 5px;
-                font-size: 11px;
+                border-radius: 8px;
+                padding: 2px 6px;
+                font-size: 10px;
+                font-weight: 600;
             }
             QPushButton:hover {
                 background-color: #c0392b;
@@ -97,12 +120,24 @@ class CultivationLogWidget(QWidget):
 
         parent_layout.addLayout(title_layout)
 
-        # 分割线
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("color: #bdc3c7;")
-        parent_layout.addWidget(line)
+    def create_html_log_area(self, parent_layout: QVBoxLayout):
+        """创建HTML版本的日志显示区域"""
+        # 日志显示区域 - 使用HTML渲染
+        self.log_display = QWebEngineView()
+        self.log_display.setMinimumHeight(400)
+        # 为日志区域添加边框样式
+        self.log_display.setStyleSheet("""
+            QWebEngineView {
+                border: 2px solid #e1e5e9;
+                border-radius: 8px;
+                background-color: #ffffff;
+            }
+        """)
+
+        # 设置初始HTML内容
+        self.init_log_html()
+
+        parent_layout.addWidget(self.log_display)
 
     def create_log_area(self, parent_layout: QVBoxLayout):
         """创建日志显示区域"""
@@ -144,6 +179,162 @@ class CultivationLogWidget(QWidget):
 
         parent_layout.addWidget(self.log_text_edit)
 
+    def init_log_html(self):
+        """初始化日志HTML页面"""
+        html_template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>修炼日志</title>
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+
+                body {
+                    font-family: "Microsoft YaHei", Arial, sans-serif;
+                    font-size: 12px;
+                    background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
+                    color: #333;
+                    line-height: 1.4;
+                    overflow-x: hidden;
+                }
+
+                .log-container {
+                    padding: 8px;
+                    margin: 0;
+                    width: 100%;
+                    height: 100vh;
+                    overflow-y: auto;
+                    border: 1px solid #e1e5e9;
+                    border-radius: 6px;
+                    background-color: #fafbfc;
+                    box-sizing: border-box;
+                }
+
+                .log-entry {
+                    margin: 2px 0;
+                    padding: 3px 6px;
+                    border-radius: 4px;
+                    word-wrap: break-word;
+                    font-family: "Consolas", "Courier New", monospace;
+                    font-size: 11px;
+                    line-height: 1.3;
+                    transition: background-color 0.2s ease;
+                }
+
+                .log-entry:hover {
+                    background-color: rgba(0, 0, 0, 0.05);
+                }
+
+                .log-timestamp {
+                    color: #6c757d;
+                    font-weight: normal;
+                    margin-right: 8px;
+                }
+
+                .log-content {
+                    display: inline;
+                }
+
+                /* 不同类型日志的颜色 - 适配浅色背景 */
+                .log-system {
+                    color: #8e44ad;
+                    background-color: rgba(142, 68, 173, 0.1);
+                }
+
+                .log-cultivation {
+                    color: #2980b9;
+                    background-color: rgba(41, 128, 185, 0.1);
+                }
+
+                .log-breakthrough {
+                    color: #d68910;
+                    background-color: rgba(214, 137, 16, 0.1);
+                    font-weight: 600;
+                }
+
+                .log-luck {
+                    color: #229954;
+                    background-color: rgba(34, 153, 84, 0.1);
+                }
+
+                .log-luck.negative {
+                    color: #cb4335;
+                    background-color: rgba(203, 67, 53, 0.1);
+                }
+
+                .log-special {
+                    color: #d35400;
+                    background-color: rgba(211, 84, 0, 0.1);
+                    font-weight: 600;
+                }
+
+                .log-info {
+                    color: #333;
+                }
+
+                /* 滚动条样式 - 适配浅色主题 */
+                .log-container::-webkit-scrollbar {
+                    width: 8px;
+                }
+
+                .log-container::-webkit-scrollbar-track {
+                    background: #f1f3f4;
+                    border-radius: 4px;
+                }
+
+                .log-container::-webkit-scrollbar-thumb {
+                    background: #c1c8cd;
+                    border-radius: 4px;
+                }
+
+                .log-container::-webkit-scrollbar-thumb:hover {
+                    background: #a8b2ba;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="log-container" id="logContainer">
+                <!-- 动态添加日志条目 -->
+            </div>
+
+            <script>
+                function addLogEntry(timestamp, message, logType, color) {
+                    const container = document.getElementById('logContainer');
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry log-' + logType;
+
+                    if (color && logType === 'luck' && color === '#e74c3c') {
+                        entry.classList.add('negative');
+                    }
+
+                    entry.innerHTML = '<span class="log-timestamp">[' + timestamp + ']</span><span class="log-content">' + message + '</span>';
+
+                    container.appendChild(entry);
+                    container.scrollTop = container.scrollHeight;
+                }
+
+                function clearLog() {
+                    const container = document.getElementById('logContainer');
+                    container.innerHTML = '';
+                }
+            </script>
+        </body>
+        </html>
+        """
+
+        self.log_display.setHtml(html_template)
+
+    def add_initial_messages(self):
+        """添加初始欢迎消息"""
+        self.add_system_log("欢迎来到气运修仙世界！", "system")
+        self.add_system_log("开始您的修仙之路吧！", "system")
+
     def add_log_entry(self, message: str, log_type: str = "info", color: str = "#ecf0f1"):
         """添加日志条目"""
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -163,8 +354,29 @@ class CultivationLogWidget(QWidget):
         if len(self.log_entries) > self.max_log_entries:
             self.log_entries = self.log_entries[-self.max_log_entries:]
 
-        # 更新显示
-        self.update_log_display()
+        # 根据渲染方式更新显示
+        if WEBENGINE_AVAILABLE and hasattr(self, 'log_display'):
+            self.add_log_to_html(timestamp, message, log_type, color)
+        else:
+            self.update_log_display()
+
+    def add_log_to_html(self, timestamp: str, message: str, log_type: str, color: str):
+        """添加日志到HTML显示区域"""
+        try:
+            # 检查日志显示组件是否存在
+            if not hasattr(self, 'log_display') or self.log_display is None:
+                return
+
+            # 转义HTML特殊字符
+            import html
+            safe_message = html.escape(str(message))
+
+            # 执行JavaScript添加日志
+            js_code = f"addLogEntry('{timestamp}', '{safe_message}', '{log_type}', '{color}');"
+            self.log_display.page().runJavaScript(js_code)
+
+        except Exception as e:
+            print(f"❌ 添加HTML日志失败: {e}")
 
     def add_cultivation_log(self, exp_gained: int, attribute_gained: int,
                           attribute_type: str, luck_effect: str):
@@ -237,7 +449,15 @@ class CultivationLogWidget(QWidget):
     def clear_log(self):
         """清空日志"""
         self.log_entries.clear()
-        self.log_text_edit.clear()
+
+        # 根据渲染方式清空显示
+        if WEBENGINE_AVAILABLE and hasattr(self, 'log_display'):
+            # HTML版本清空
+            self.log_display.page().runJavaScript("clearLog();")
+        else:
+            # QTextEdit版本清空
+            self.log_text_edit.clear()
+
         self.add_system_log("日志已清空")
         self.clear_log_requested.emit()
 

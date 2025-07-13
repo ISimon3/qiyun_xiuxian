@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QSplitter, QFrame, QLabel, QPushButton, QMessageBox,
-    QApplication, QSystemTrayIcon, QMenu
+    QApplication, QSystemTrayIcon, QMenu, QLineEdit
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 from PyQt6.QtGui import QFont, QIcon, QAction
@@ -767,33 +767,43 @@ class MainWindow(QMainWindow):
 
         chat_widget = QWidget()
         layout = QVBoxLayout()
-        layout.setSpacing(5)
-        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(0)  # 完全移除组件间距
+        layout.setContentsMargins(5, 0, 5, 3)  # 移除上边距
 
-        # 标题栏
+        # 标题栏 - 极度紧凑
         title_layout = QHBoxLayout()
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(0)
         title_label = QLabel("💬 聊天频道")
         title_font = QFont()
-        title_font.setPointSize(14)
+        title_font.setPointSize(10)  # 再次减小字体大小
         title_font.setBold(True)
         title_label.setFont(title_font)
-        title_label.setStyleSheet("color: #2c3e50;")
+        # 设置固定高度和移除所有内外边距
+        title_label.setFixedHeight(16)  # 设置固定高度
+        title_label.setStyleSheet("""
+            color: #2c3e50;
+            margin: 0px;
+            padding: 0px;
+            line-height: 1.0;
+            border: none;
+        """)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         title_layout.addWidget(title_label)
-
         title_layout.addStretch()
-
         layout.addLayout(title_layout)
 
-        # 分割线
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setStyleSheet("color: #bdc3c7;")
-        layout.addWidget(line)
-
-        # 聊天显示区域 - 使用HTML渲染
+        # 聊天显示区域 - 使用HTML渲染，添加边框
         self.chat_display = QWebEngineView()
         self.chat_display.setMinimumHeight(350)
+        # 为聊天区域添加边框样式
+        self.chat_display.setStyleSheet("""
+            QWebEngineView {
+                border: 2px solid #e1e5e9;
+                border-radius: 8px;
+                background-color: #ffffff;
+            }
+        """)
 
         # 初始化聊天消息列表
         self.chat_messages = []
@@ -807,21 +817,24 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self.chat_display)
 
-        # 输入区域
+        # 输入区域 - 更紧凑的布局
         input_layout = QHBoxLayout()
+        input_layout.setSpacing(6)  # 减少输入框和按钮之间的间距
+        input_layout.setContentsMargins(0, 2, 0, 0)  # 减少输入区域的边距
 
         self.chat_input = QLineEdit()
         self.chat_input.setPlaceholderText("💬 输入聊天内容...")
-        self.chat_input.setMinimumHeight(36)
+        self.chat_input.setMinimumHeight(32)  # 减少输入框高度
+        self.chat_input.setMaximumHeight(32)  # 限制最大高度
         self.chat_input.returnPressed.connect(self.send_chat_message)
         self.chat_input.setStyleSheet("""
             QLineEdit {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #ffffff, stop:1 #f8f9fa);
                 border: 2px solid #e1e5e9;
-                border-radius: 18px;
-                padding: 8px 16px;
-                font-size: 13px;
+                border-radius: 16px;
+                padding: 6px 14px;
+                font-size: 12px;
                 font-family: "Microsoft YaHei";
                 color: #2c3e50;
             }
@@ -836,8 +849,9 @@ class MainWindow(QMainWindow):
         input_layout.addWidget(self.chat_input)
 
         send_button = QPushButton("📤 发送")
-        send_button.setMinimumHeight(36)
-        send_button.setMaximumWidth(80)
+        send_button.setMinimumHeight(32)  # 与输入框高度匹配
+        send_button.setMaximumHeight(32)
+        send_button.setMaximumWidth(75)  # 稍微减小宽度
         send_button.clicked.connect(self.send_chat_message)
         send_button.setStyleSheet("""
             QPushButton {
@@ -845,11 +859,11 @@ class MainWindow(QMainWindow):
                     stop:0 #007bff, stop:1 #0056b3);
                 color: white;
                 border: none;
-                border-radius: 18px;
-                font-size: 13px;
+                border-radius: 16px;
+                font-size: 12px;
                 font-weight: 600;
                 font-family: "Microsoft YaHei";
-                padding: 0 12px;
+                padding: 0 10px;
             }
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
@@ -896,11 +910,15 @@ class MainWindow(QMainWindow):
                 }
 
                 .chat-container {
-                    padding: 1px;
+                    padding: 8px;
                     margin: 0;
                     width: 100%;
                     height: 100vh;
                     overflow-y: auto;
+                    border: 1px solid #e1e5e9;
+                    border-radius: 6px;
+                    background-color: #fafbfc;
+                    box-sizing: border-box;
                 }
 
                 .welcome-message {
@@ -1009,7 +1027,7 @@ class MainWindow(QMainWindow):
         self.chat_display.setHtml(html_template)
 
     def add_welcome_message(self):
-        """添加带当前时间的欢迎消息"""
+        """添加带当前时间的欢迎消息 - 优化为更简洁的版本"""
         try:
             from datetime import datetime
             current_time = datetime.now().strftime("%H:%M")
@@ -1509,9 +1527,9 @@ class MainWindow(QMainWindow):
     def create_system_message_html(self, content: str, time_str: str):
         """创建系统消息HTML - 适用于WebEngine渲染"""
         try:
-            # 系统消息：统一12px字体，固定行高
+            # 系统消息：统一12px字体，固定行高，增加底部间距
             message_html = f"""
-            <div style="text-align: center; margin: 0; padding: 0; line-height: 12px;">
+            <div style="text-align: center; margin: 0 0 8px 0; padding: 0; line-height: 12px;">
                 <span style="color: #e65100; font-weight: 600; background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); padding: 1px 4px; border-radius: 4px; border: 1px solid #ffcc02; font-size: 12px; line-height: 12px; display: inline-block;">🔔 [系统] {content} · {time_str}</span>
             </div>
             """
