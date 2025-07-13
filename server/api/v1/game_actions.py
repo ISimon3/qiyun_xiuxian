@@ -1,8 +1,11 @@
 # 游戏行为接口 (炼丹、突破等)
 
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from server.database.database import get_db
 from server.database.crud import CharacterCRUD
@@ -265,6 +268,46 @@ async def get_cultivation_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取修炼状态失败: {str(e)}"
+        )
+
+
+@router.get("/next-cultivation-time", response_model=BaseResponse, summary="获取下次修炼时间")
+async def get_next_cultivation_time(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取角色下次修炼时间
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 获取下次修炼时间
+        from server.core.game_loop import game_loop
+        next_time = game_loop.get_character_next_cultivation_time(character.id)
+
+        # 计算剩余时间（秒）
+        from datetime import datetime
+        current_time = datetime.now()
+        remaining_seconds = max(0, (next_time - current_time).total_seconds())
+
+        logger.info(f"🕐 角色 {character.name} 下次修炼时间: {next_time}, 当前时间: {current_time}, 剩余: {remaining_seconds}秒")
+
+        return BaseResponse(
+            success=True,
+            message="获取下次修炼时间成功",
+            data={
+                "next_cultivation_time": next_time.isoformat(),
+                "remaining_seconds": int(remaining_seconds),
+                "cultivation_focus": character.cultivation_focus or "HP"
+            }
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取下次修炼时间失败: {str(e)}"
         )
 
 

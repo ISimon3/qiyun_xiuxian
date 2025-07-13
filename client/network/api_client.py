@@ -286,6 +286,15 @@ class GameAPI:
         """
         return self.client.get('/api/v1/game/cultivation-status')
 
+    def get_next_cultivation_time(self) -> Dict[str, Any]:
+        """
+        获取下次修炼时间
+
+        Returns:
+            下次修炼时间信息
+        """
+        return self.client.get('/api/v1/game/next-cultivation-time')
+
     def force_cultivation_cycle(self) -> Dict[str, Any]:
         """
         强制执行修炼周期（测试用）

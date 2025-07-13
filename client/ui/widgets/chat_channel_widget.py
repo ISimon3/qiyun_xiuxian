@@ -112,7 +112,7 @@ class ChatChannelWidget(QWidget):
         
         # 聊天显示区域 - 使用HTML渲染，添加边框
         self.chat_display = QWebEngineView()
-        self.chat_display.setMinimumHeight(430)
+        self.chat_display.setMinimumHeight(380)
         
         # 禁用右键上下文菜单
         self.chat_display.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)

@@ -24,6 +24,7 @@ class UpperAreaWidget(QWidget):
     daily_sign_requested = pyqtSignal()  # 每日签到请求信号
     cultivation_focus_changed = pyqtSignal(str)  # 修炼方向变更信号
     function_selected = pyqtSignal(str)  # 功能选择信号
+    cave_window_requested = pyqtSignal()  # 洞府窗口请求信号
 
     def __init__(self):
         super().__init__()
@@ -128,12 +129,19 @@ class UpperAreaWidget(QWidget):
                 /* 头像和基本信息区域 */
                 .header-section {
                     display: flex;
-                    align-items: center;
-                    gap: 12px;
-                    padding: 8px;
+                    flex-direction: column;
+                    gap: 8px;
+                    padding: 12px;
                     background: rgba(255, 255, 255, 0.8);
                     border-radius: 8px;
                     border: 1px solid #e1e5e9;
+                    min-height: 120px;
+                }
+
+                .header-top {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
                 }
 
                 .avatar-container {
@@ -202,6 +210,64 @@ class UpperAreaWidget(QWidget):
                     background: rgba(255, 255, 255, 0.2);
                 }
 
+                /* 修为进度条区域 */
+                .cultivation-progress {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin-top: 4px;
+                    position: relative;
+                }
+
+                .cultivation-progress-bar {
+                    position: relative;
+                    width: 70%;
+                    height: 18px;
+                    background: #f0f0f0;
+                    border-radius: 9px;
+                    overflow: hidden;
+                    border: 1px solid #ddd;
+                }
+
+                .cultivation-progress-fill {
+                    height: 100%;
+                    background: linear-gradient(90deg, #4CAF50 0%, #45a049 100%);
+                    border-radius: 9px;
+                    transition: width 0.3s ease;
+                    position: relative;
+                }
+
+                .cultivation-progress-text {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    font-size: 10px;
+                    font-weight: bold;
+                    color: #333;
+                    text-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
+                    z-index: 1;
+                }
+
+                /* 突破提示气泡 */
+                .breakthrough-tip {
+                    background: #FFD700;
+                    color: #8B4513;
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    border: 1px solid #FFA500;
+                    animation: pulse 2s infinite;
+                    cursor: pointer;
+                }
+
+                @keyframes pulse {
+                    0% { transform: scale(1); }
+                    50% { transform: scale(1.05); }
+                    100% { transform: scale(1); }
+                }
+
                 /* 五边形属性图表区域 */
                 .pentagon-section {
                     display: flex;
@@ -267,6 +333,39 @@ class UpperAreaWidget(QWidget):
                     color: white;
                     border-color: #e74c3c;
                     box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+                    transform: scale(1.1);
+                }
+
+                /* 修炼状态气泡 */
+                .cultivation-bubble {
+                    position: absolute;
+                    background: #2c3e50;
+                    color: white;
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    white-space: nowrap;
+                    z-index: 1000;
+                    opacity: 0;
+                    transform: translateY(-5px);
+                    transition: all 0.3s ease;
+                    pointer-events: none;
+                }
+
+                .cultivation-bubble.show {
+                    opacity: 1;
+                    transform: translateY(-10px);
+                }
+
+                .cultivation-bubble::after {
+                    content: '';
+                    position: absolute;
+                    top: 100%;
+                    left: 50%;
+                    margin-left: -4px;
+                    border: 4px solid transparent;
+                    border-top-color: #2c3e50;
                 }
 
                 .attribute-value {
@@ -394,19 +493,32 @@ class UpperAreaWidget(QWidget):
             <div class="container">
                 <!-- 头像和基本信息区域 -->
                 <div class="header-section">
-                    <div class="avatar-container">
-                        <div class="avatar" id="characterAvatar">头</div>
-                    </div>
-                    <div class="character-basic-info">
-                        <div class="character-name-line">
-                            <span class="character-name" id="characterName">道友名称</span>
-                            <span class="character-id" id="characterId">(ID: xxxxxxx)</span>
+                    <div class="header-top">
+                        <div class="avatar-container">
+                            <div class="avatar" id="characterAvatar">头</div>
                         </div>
-                        <div>
-                            <span class="character-realm" id="characterRealm">境界：筑基期</span>
+                        <div class="character-basic-info">
+                            <div class="character-name-line">
+                                <span class="character-name" id="characterName">道友名称</span>
+                                <span class="character-id" id="characterId">(ID: xxxxxxx)</span>
+                            </div>
+                            <div>
+                                <span class="character-realm" id="characterRealm">境界：筑基期</span>
+                            </div>
+                        </div>
+                        <div class="sign-icon" id="signIcon" onclick="handleDailySign()" title="每日签到">📅</div>
+                    </div>
+
+                    <!-- 修为进度条 -->
+                    <div class="cultivation-progress">
+                        <div class="cultivation-progress-bar">
+                            <div class="cultivation-progress-fill" id="cultivationProgressFill" style="width: 50%"></div>
+                            <div class="cultivation-progress-text" id="cultivationProgressText">500/1000</div>
+                        </div>
+                        <div id="breakthroughTip" class="breakthrough-tip" style="display: none;" onclick="openCaveWindow()" title="点击进入洞府进行突破">
+                            可尝试突破
                         </div>
                     </div>
-                    <div class="sign-icon" id="signIcon" onclick="handleDailySign()" title="每日签到">📅</div>
                 </div>
 
                 <!-- 五边形属性图表区域 -->
@@ -499,6 +611,14 @@ class UpperAreaWidget(QWidget):
                     physical_defense: 15,
                     magic_defense: 15
                 };
+                // 修炼获得的训练属性（用于五边形显示）
+                let trainingAttributes = {
+                    hp_training: 0,
+                    physical_attack_training: 0,
+                    magic_attack_training: 0,
+                    physical_defense_training: 0,
+                    magic_defense_training: 0
+                };
 
                 // 五边形顶点位置计算
                 function getPentagonPoints(centerX, centerY, radius) {
@@ -555,27 +675,28 @@ class UpperAreaWidget(QWidget):
                         ctx.stroke();
                     }
 
-                    // 计算属性值对应的半径
-                    const maxAttributeValue = Math.max(
-                        currentAttributes.hp / 10,  // 生命值除以10来缩放
-                        currentAttributes.physical_attack,
-                        currentAttributes.magic_attack,
-                        currentAttributes.physical_defense,
-                        currentAttributes.magic_defense
+                    // 计算修炼训练属性值对应的半径（显示修炼获得的数据）
+                    const maxTrainingValue = Math.max(
+                        trainingAttributes.hp_training,
+                        trainingAttributes.physical_attack_training,
+                        trainingAttributes.magic_attack_training,
+                        trainingAttributes.physical_defense_training,
+                        trainingAttributes.magic_defense_training,
+                        10  // 最小值，避免除零
                     );
 
-                    const attributeValues = [
-                        currentAttributes.hp / 10,  // 体修 (生命值)
-                        currentAttributes.physical_attack,  // 物修
-                        currentAttributes.magic_attack,     // 法修
-                        currentAttributes.physical_defense, // 护体
-                        currentAttributes.magic_defense     // 抗法
+                    const trainingValues = [
+                        trainingAttributes.hp_training,              // 体修训练值
+                        trainingAttributes.physical_attack_training, // 物修训练值
+                        trainingAttributes.magic_attack_training,    // 法修训练值
+                        trainingAttributes.physical_defense_training,// 护体训练值
+                        trainingAttributes.magic_defense_training    // 抗法训练值
                     ];
 
-                    // 绘制属性数据多边形
+                    // 绘制修炼训练数据多边形
                     const dataPoints = [];
                     for (let i = 0; i < 5; i++) {
-                        const ratio = Math.min(attributeValues[i] / Math.max(maxAttributeValue, 100), 1);
+                        const ratio = Math.min(trainingValues[i] / Math.max(maxTrainingValue, 10), 1);
                         const radius = maxRadius * ratio;
                         const angle = -Math.PI / 2 + i * (2 * Math.PI) / 5;
                         const x = centerX + radius * Math.cos(angle);
@@ -619,11 +740,11 @@ class UpperAreaWidget(QWidget):
                     const labelRadius = 80; // 图标距离中心的距离
 
                     const labels = [
-                        { id: 'label-hp', valueId: 'hp-value', value: currentAttributes.hp },
-                        { id: 'label-physical-attack', valueId: 'physical-attack-value', value: currentAttributes.physical_attack },
-                        { id: 'label-magic-attack', valueId: 'magic-attack-value', value: currentAttributes.magic_attack },
-                        { id: 'label-physical-defense', valueId: 'physical-defense-value', value: currentAttributes.physical_defense },
-                        { id: 'label-magic-defense', valueId: 'magic-defense-value', value: currentAttributes.magic_defense }
+                        { id: 'label-hp', valueId: 'hp-value', value: trainingAttributes.hp_training },
+                        { id: 'label-physical-attack', valueId: 'physical-attack-value', value: trainingAttributes.physical_attack_training },
+                        { id: 'label-magic-attack', valueId: 'magic-attack-value', value: trainingAttributes.magic_attack_training },
+                        { id: 'label-physical-defense', valueId: 'physical-defense-value', value: trainingAttributes.physical_defense_training },
+                        { id: 'label-magic-defense', valueId: 'magic-defense-value', value: trainingAttributes.magic_defense_training }
                     ];
 
                     for (let i = 0; i < labels.length; i++) {
@@ -634,8 +755,8 @@ class UpperAreaWidget(QWidget):
                             const angle = -Math.PI / 2 + i * (2 * Math.PI) / 5;
 
                             // 计算图标位置，添加微调偏移量让图标更好地对齐五边形顶点
-                            const offsetX = -12; // 向左偏移12像素
-                            const offsetY = -12; // 向上偏移12像素
+                            const offsetX = -15; // 向左偏移15像素
+                            const offsetY = -15; // 向上偏移15像素
                             const labelX = centerX + labelRadius * Math.cos(angle) - 16 + offsetX; // 16是图标宽度的一半
                             const labelY = centerY + labelRadius * Math.sin(angle) - 16 + offsetY; // 16是图标高度的一半
 
@@ -699,6 +820,9 @@ class UpperAreaWidget(QWidget):
                         luckElement.textContent = (data.luck_value || 50).toString();
                     }
 
+                    // 更新修为进度条
+                    updateCultivationProgress(data);
+
                     // 更新属性数据
                     if (data.attributes) {
                         currentAttributes = {
@@ -708,13 +832,83 @@ class UpperAreaWidget(QWidget):
                             physical_defense: data.attributes.physical_defense || 15,
                             magic_defense: data.attributes.magic_defense || 15
                         };
-
-                        // 重新绘制五边形图表
-                        drawPentagon();
                     }
+
+                    // 更新修炼训练属性数据（用于五边形显示）
+                    if (data.training_attributes) {
+                        trainingAttributes = {
+                            hp_training: data.training_attributes.hp_training || 0,
+                            physical_attack_training: data.training_attributes.physical_attack_training || 0,
+                            magic_attack_training: data.training_attributes.magic_attack_training || 0,
+                            physical_defense_training: data.training_attributes.physical_defense_training || 0,
+                            magic_defense_training: data.training_attributes.magic_defense_training || 0
+                        };
+                    }
+
+                    // 重新绘制五边形图表
+                    drawPentagon();
 
                     // 更新修炼方向显示
                     updateCultivationFocus(data.cultivation_focus || 'HP');
+                }
+
+                // 更新修为进度条
+                function updateCultivationProgress(data) {
+                    const currentExp = data.cultivation_exp || 0;
+                    const currentRealm = data.cultivation_realm || 0;
+
+                    // 修为需求表（与服务器端保持一致）
+                    const expRequirements = {
+                        0: 0, 1: 100, 2: 250, 3: 450, 4: 700,
+                        5: 1000, 6: 1400, 7: 1900, 8: 2500,
+                        9: 3200, 10: 4000, 11: 4900, 12: 5900,
+                        13: 7000, 14: 8200, 15: 9500, 16: 10900,
+                        17: 12400, 18: 14000, 19: 15700, 20: 17500,
+                        21: 19400, 22: 21400, 23: 23500, 24: 25700,
+                        25: 28000, 26: 30400, 27: 32900, 28: 35500,
+                        29: 38200, 30: 41000, 31: 43900, 32: 46900,
+                        33: 50000
+                    };
+
+                    // 获取下一境界的突破需求（这是玩家需要达到的总修为）
+                    const nextRealmExp = expRequirements[currentRealm + 1] || 50000;
+
+                    // 计算进度百分比（当前修为/突破需求）
+                    const progressPercent = nextRealmExp > 0 ? (currentExp / nextRealmExp) * 100 : 100;
+
+                    // 更新进度条
+                    const progressFill = document.getElementById('cultivationProgressFill');
+                    const progressText = document.getElementById('cultivationProgressText');
+                    const breakthroughTip = document.getElementById('breakthroughTip');
+
+                    if (progressFill) {
+                        progressFill.style.width = Math.max(0, Math.min(100, progressPercent)) + '%';
+                    }
+
+                    if (progressText) {
+                        // 显示格式：当前修为/突破需求
+                        progressText.textContent = `${currentExp}/${nextRealmExp}`;
+                    }
+
+                    // 显示或隐藏突破提示
+                    if (breakthroughTip) {
+                        if (currentExp >= nextRealmExp && currentRealm < 33) {
+                            breakthroughTip.style.display = 'block';
+                        } else {
+                            breakthroughTip.style.display = 'none';
+                        }
+                    }
+                }
+
+                // 打开洞府窗口（突破功能）
+                function openCaveWindow() {
+                    // 通过Qt信号通知主窗口打开洞府
+                    if (typeof qt !== 'undefined' && qt.webChannelTransport) {
+                        window.pyqtSignal('cave_window_requested');
+                    } else {
+                        // 如果webChannel不可用，使用标题变化方式
+                        document.title = 'cave_window_requested:' + Date.now();
+                    }
                 }
 
                 // 更新修炼状态
@@ -725,28 +919,59 @@ class UpperAreaWidget(QWidget):
 
                 // 更新修炼方向显示
                 function updateCultivationFocus(focusType) {
-                    // 更新标签激活状态
+                    // 移除所有气泡
+                    const existingBubbles = document.querySelectorAll('.cultivation-bubble');
+                    existingBubbles.forEach(bubble => bubble.remove());
+
+                    // 移除所有active状态
                     const labels = document.querySelectorAll('.attribute-label');
                     labels.forEach(label => {
                         label.classList.remove('active');
                     });
 
-                    const activeLabel = document.getElementById(`label-${focusType.toLowerCase().replace('_', '-')}`);
+                    const labelId = `label-${focusType.toLowerCase().replace('_', '-')}`;
+                    const activeLabel = document.getElementById(labelId);
+
                     if (activeLabel) {
+                        // 添加active类（背景色变化）
                         activeLabel.classList.add('active');
+
+                        // 创建修炼状态气泡
+                        const bubble = document.createElement('div');
+                        bubble.className = 'cultivation-bubble';
+                        bubble.textContent = '正在修炼';
+
+                        // 获取图标位置
+                        const rect = activeLabel.getBoundingClientRect();
+                        const containerRect = activeLabel.offsetParent.getBoundingClientRect();
+
+                        // 设置气泡位置（相对于容器）
+                        bubble.style.left = (rect.left - containerRect.left + rect.width / 2 - 25) + 'px';
+                        bubble.style.top = (rect.top - containerRect.top - 35) + 'px';
+
+                        // 添加到容器中
+                        activeLabel.offsetParent.appendChild(bubble);
+
+                        // 显示气泡动画
+                        setTimeout(() => {
+                            bubble.classList.add('show');
+                        }, 10);
                     }
                 }
 
                 // 设置修炼方向
                 function setCultivationFocus(focusType) {
+                    // 立即更新显示（实时背景变化）
+                    updateCultivationFocus(focusType);
+
                     // 通过Qt信号发送到Python
                     if (typeof qt !== 'undefined' && qt.webChannelTransport) {
                         // 使用webChannel发送信号
                         window.pyqtSignal('cultivation_focus_changed', focusType);
+                    } else {
+                        // 如果webChannel不可用，使用标题变化方式
+                        document.title = 'cultivation:' + focusType + ':' + Date.now();
                     }
-
-                    // 立即更新显示
-                    updateCultivationFocus(focusType);
                 }
 
                 // 每日签到
@@ -808,6 +1033,8 @@ class UpperAreaWidget(QWidget):
                     document.title = 'function:' + data + ':' + Date.now();
                 } else if (eventType === 'cultivation_focus_changed') {
                     document.title = 'cultivation:' + data + ':' + Date.now();
+                } else if (eventType === 'cave_window_requested') {
+                    document.title = 'caveWindow:' + Date.now();
                 }
             };
 
@@ -822,6 +1049,10 @@ class UpperAreaWidget(QWidget):
 
             window.setCultivationFocus = function(focusType) {
                 window.pyqtSignal('cultivation_focus_changed', focusType);
+            };
+
+            window.openCaveWindow = function() {
+                window.pyqtSignal('cave_window_requested');
             };
             """
 
@@ -848,6 +1079,8 @@ class UpperAreaWidget(QWidget):
                 if len(parts) >= 2:
                     focus_type = parts[1]
                     self.cultivation_focus_changed.emit(focus_type)
+            elif title.startswith('caveWindow:'):
+                self.cave_window_requested.emit()
         except Exception as e:
             print(f"❌ 处理标题变化失败: {e}")
 

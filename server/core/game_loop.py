@@ -22,7 +22,7 @@ class GameLoop:
 
     def __init__(self):
         self.is_running = False
-        self.cultivation_interval = 300  # 5分钟 = 300秒
+        self.cultivation_interval = 30  # 30秒（测试用）
         self.last_cultivation_time = {}  # 记录每个角色的最后修炼时间
 
     async def start(self):
@@ -54,19 +54,29 @@ class GameLoop:
     async def _process_cultivation_cycles(self):
         """处理所有角色的修炼周期"""
         try:
+            # 获取在线角色ID列表
+            from server.api.v1.websocket import manager
+            online_character_ids = list(manager.active_connections.keys())
+
+            logger.info(f"🔍 在线角色检查: {online_character_ids}")
+
+            if not online_character_ids:
+                logger.info("📵 没有在线角色，跳过修炼周期处理")
+                return
+
             async with get_db_session() as db:
-                # 获取所有活跃的角色（最近24小时内登录过的）
-                cutoff_time = datetime.now() - timedelta(hours=24)
+                # 只获取在线的角色
                 result = await db.execute(
                     select(Character).where(
-                        Character.last_active >= cutoff_time
+                        Character.id.in_(online_character_ids)
                     )
                 )
-                active_characters = result.scalars().all()
+                online_characters = result.scalars().all()
 
-                logger.debug(f"处理 {len(active_characters)} 个活跃角色的修炼周期")
+                logger.info(f"⚡ 处理 {len(online_characters)} 个在线角色的修炼周期")
 
-                for character in active_characters:
+                for character in online_characters:
+                    logger.info(f"🧘 处理角色 {character.name} (ID: {character.id}) 的修炼")
                     await self._process_character_cultivation(db, character)
 
         except Exception as e:
@@ -81,34 +91,65 @@ class GameLoop:
             # 获取角色最后修炼时间
             last_cultivation = self.last_cultivation_time.get(character_id)
 
-            # 如果是第一次处理这个角色，使用角色的最后活跃时间
+            # 如果是第一次处理这个角色，设置为当前时间（避免立即获得修炼收益）
             if last_cultivation is None:
-                last_cultivation = character.last_active or current_time
-                self.last_cultivation_time[character_id] = last_cultivation
+                logger.info(f"🆕 角色 {character.name} 首次上线，设置修炼起始时间")
+                self.last_cultivation_time[character_id] = current_time
+                return  # 首次上线不处理修炼周期
 
             # 检查是否需要进行修炼周期
             time_diff = (current_time - last_cultivation).total_seconds()
+            logger.info(f"⏰ 角色 {character.name} 距离上次修炼: {time_diff:.1f}秒")
 
             if time_diff >= self.cultivation_interval:
                 # 计算需要处理的周期数
                 cycles_to_process = int(time_diff // self.cultivation_interval)
 
-                logger.debug(f"角色 {character.name} 需要处理 {cycles_to_process} 个修炼周期")
+                logger.info(f"🔄 角色 {character.name} 需要处理 {cycles_to_process} 个修炼周期")
 
                 # 处理每个修炼周期
                 for cycle in range(cycles_to_process):
                     cultivation_result = await CultivationSystem.process_cultivation_cycle(db, character)
 
                     if cultivation_result["success"]:
-                        logger.debug(f"角色 {character.name} 修炼周期 {cycle + 1} 完成")
+                        logger.info(f"✅ 角色 {character.name} 修炼周期 {cycle + 1} 完成")
                     else:
-                        logger.warning(f"角色 {character.name} 修炼周期 {cycle + 1} 失败")
+                        logger.warning(f"❌ 角色 {character.name} 修炼周期 {cycle + 1} 失败")
 
                 # 更新最后修炼时间
                 self.last_cultivation_time[character_id] = current_time
+            else:
+                logger.info(f"⏳ 角色 {character.name} 修炼时间未到，还需等待 {self.cultivation_interval - time_diff:.1f}秒")
 
         except Exception as e:
             logger.error(f"处理角色 {character.name} 修炼失败: {e}")
+
+    def get_character_next_cultivation_time(self, character_id: int) -> datetime:
+        """获取角色下次修炼时间"""
+        current_time = datetime.now()
+        last_cultivation = self.last_cultivation_time.get(character_id)
+
+        if last_cultivation is None:
+            # 如果没有记录，返回当前时间加上修炼间隔
+            next_time = current_time + timedelta(seconds=self.cultivation_interval)
+            logger.info(f"🕐 角色 {character_id} 首次获取修炼时间: {next_time}")
+            return next_time
+        else:
+            # 计算下次修炼时间
+            next_time = last_cultivation + timedelta(seconds=self.cultivation_interval)
+
+            # 如果下次修炼时间已经过了，说明应该立即修炼
+            if next_time <= current_time:
+                next_time = current_time + timedelta(seconds=self.cultivation_interval)
+                logger.info(f"🕐 角色 {character_id} 修炼时间已到，设置新的修炼时间: {next_time}")
+
+            return next_time
+
+    def reset_character_cultivation_time(self, character_id: int):
+        """重置角色修炼时间（用于切换修炼方向时）"""
+        current_time = datetime.now()
+        self.last_cultivation_time[character_id] = current_time
+        logger.info(f"🔄 角色 {character_id} 修炼时间已重置: {current_time}")
 
     async def _process_alchemy_sessions(self):
         """处理炼丹会话状态更新"""

@@ -25,6 +25,7 @@ class CultivationLogWidget(QWidget):
 
     # 信号定义
     clear_log_requested = pyqtSignal()  # 清空日志请求信号
+    cultivation_completed = pyqtSignal()  # 修炼完成信号
 
     def __init__(self):
         super().__init__()
@@ -38,12 +39,17 @@ class CultivationLogWidget(QWidget):
         self.last_exp = 0
         self.last_realm = 0
 
+        # 修炼倒计时相关
+        self.current_cultivation_focus = "HP"
+        self.next_cultivation_time: Optional[datetime] = None
+        self.countdown_entry_id: Optional[str] = None
+
         self.init_ui()
 
-        # 移除模拟修炼日志更新，改为真实数据驱动
-        # self.update_timer = QTimer()
-        # self.update_timer.timeout.connect(self.simulate_cultivation_log)
-        # self.update_timer.start(60000)  # 每分钟更新一次
+        # 倒计时更新定时器
+        self.countdown_timer = QTimer()
+        self.countdown_timer.timeout.connect(self.update_countdown)
+        self.countdown_timer.start(1000)  # 每秒更新一次
 
     def init_ui(self):
         """初始化界面"""
@@ -124,7 +130,7 @@ class CultivationLogWidget(QWidget):
         """创建HTML版本的日志显示区域"""
         # 日志显示区域 - 使用HTML渲染
         self.log_display = QWebEngineView()
-        self.log_display.setMinimumHeight(465)
+        self.log_display.setMinimumHeight(400)
 
         # 禁用右键上下文菜单
         self.log_display.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
@@ -327,6 +333,30 @@ class CultivationLogWidget(QWidget):
                     const container = document.getElementById('logContainer');
                     container.innerHTML = '';
                 }
+
+                function updateCountdownEntry(entryId, timestamp, message) {
+                    const entry = document.getElementById(entryId);
+                    if (entry) {
+                        entry.innerHTML = '<span class="log-timestamp">[' + timestamp + ']</span><span class="log-content">' + message + '</span>';
+                    }
+                }
+
+                function addCountdownEntry(entryId, timestamp, message) {
+                    const container = document.getElementById('logContainer');
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry log-cultivation';
+                    entry.id = entryId;
+                    entry.innerHTML = '<span class="log-timestamp">[' + timestamp + ']</span><span class="log-content">' + message + '</span>';
+                    container.appendChild(entry);
+                    container.scrollTop = container.scrollHeight;
+                }
+
+                function removeCountdownEntry(entryId) {
+                    const entry = document.getElementById(entryId);
+                    if (entry) {
+                        entry.remove();
+                    }
+                }
             </script>
         </body>
         </html>
@@ -392,6 +422,25 @@ class CultivationLogWidget(QWidget):
         message = f"修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained} [{luck_effect}]"
         self.add_log_entry(message, "cultivation", "#3498db")
 
+    def add_cultivation_result_log(self, cultivation_result: Dict[str, Any]):
+        """添加修炼结果日志（使用服务器返回的完整数据）"""
+        if not cultivation_result.get('success'):
+            return
+
+        exp_gained = cultivation_result.get('exp_gained', 0)
+        attribute_gained = cultivation_result.get('attribute_gained', 0)
+        attribute_type = cultivation_result.get('attribute_type', 'HP')
+        luck_effect = cultivation_result.get('luck_effect', '气运平')
+
+        focus_info = CULTIVATION_FOCUS_TYPES.get(attribute_type, {})
+        focus_name = focus_info.get('name', '未知')
+        focus_icon = focus_info.get('icon', '❓')
+
+        message = f"修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained} [{luck_effect}]"
+        self.add_log_entry(message, "cultivation_result", "#3498db")
+
+        print(f"✨ 修炼收益: {message}")
+
     def add_breakthrough_log(self, old_realm: int, new_realm: int, success: bool):
         """添加突破日志"""
         old_realm_name = get_realm_name(old_realm)
@@ -424,11 +473,112 @@ class CultivationLogWidget(QWidget):
 
     def add_system_log(self, message: str, log_type: str = "system"):
         """添加系统日志"""
+        if log_type == "cultivation_switch":
+            # 对于修炼方向切换日志，先移除之前的同类日志，然后添加新的
+            self.remove_cultivation_switch_logs()
+
         self.add_log_entry(f"[系统] {message}", log_type, "#9b59b6")
+
+    def remove_cultivation_switch_logs(self):
+        """移除所有修炼方向切换日志"""
+        if WEBENGINE_AVAILABLE and hasattr(self, 'log_display'):
+            # 使用更具体的移除逻辑
+            js_code = """
+            // 查找所有包含"修炼方向已切换为"的日志条目
+            const allEntries = document.querySelectorAll('.log-entry');
+            const toRemove = [];
+
+            allEntries.forEach(entry => {
+                const content = entry.textContent || entry.innerText;
+                if (content.includes('修炼方向已切换为')) {
+                    toRemove.push(entry);
+                }
+            });
+
+            console.log('找到', toRemove.length, '条修炼方向切换日志');
+            toRemove.forEach(entry => {
+                console.log('移除:', entry.textContent);
+                entry.remove();
+            });
+            """
+            self.log_display.page().runJavaScript(js_code)
+
+
 
     def add_special_event_log(self, event_message: str):
         """添加特殊事件日志"""
         self.add_log_entry(f"✨ 特殊事件：{event_message}", "special", "#e67e22")
+
+    def start_cultivation_countdown(self, cultivation_focus: str, next_cultivation_time: datetime):
+        """开始修炼倒计时"""
+        self.current_cultivation_focus = cultivation_focus
+        self.next_cultivation_time = next_cultivation_time
+
+        # 生成唯一的倒计时条目ID
+        self.countdown_entry_id = f"countdown_{int(datetime.now().timestamp())}"
+
+        print(f"🕐 开始修炼倒计时: {cultivation_focus}, 下次时间: {next_cultivation_time}")
+
+        # 添加初始倒计时条目
+        self.update_countdown()
+
+    def update_countdown(self):
+        """更新倒计时显示"""
+        if not self.next_cultivation_time:
+            return
+
+        current_time = datetime.now()
+        time_diff = (self.next_cultivation_time - current_time).total_seconds()
+
+        # 获取修炼方向信息
+        focus_info = CULTIVATION_FOCUS_TYPES.get(self.current_cultivation_focus, {})
+        focus_name = focus_info.get('name', '未知')
+
+        if time_diff > 0:
+            # 计算剩余时间
+            minutes = int(time_diff // 60)
+            seconds = int(time_diff % 60)
+
+            message = f"正在进行[{focus_name}]，剩余时间{minutes}分{seconds:02d}秒..."
+            timestamp = current_time.strftime("%H:%M:%S")
+
+            # 在同一条记录上更新倒计时
+            if WEBENGINE_AVAILABLE and hasattr(self, 'log_display') and self.countdown_entry_id:
+                # 检查条目是否存在，如果不存在则添加
+                js_check = f"""
+                if (document.getElementById('{self.countdown_entry_id}')) {{
+                    updateCountdownEntry('{self.countdown_entry_id}', '{timestamp}', '{message}');
+                }} else {{
+                    addCountdownEntry('{self.countdown_entry_id}', '{timestamp}', '{message}');
+                }}
+                """
+                self.log_display.page().runJavaScript(js_check)
+        else:
+            # 倒计时结束，移除倒计时条目
+            if WEBENGINE_AVAILABLE and hasattr(self, 'log_display') and self.countdown_entry_id:
+                js_remove = f"removeCountdownEntry('{self.countdown_entry_id}');"
+                self.log_display.page().runJavaScript(js_remove)
+
+            self.countdown_entry_id = None
+            self.next_cultivation_time = None
+            print(f"⏰ 修炼倒计时结束，触发修炼完成信号")
+
+            # 触发修炼完成信号，让主窗口处理数据更新和下一轮修炼
+            self.cultivation_completed.emit()
+
+    def stop_countdown(self):
+        """停止当前倒计时"""
+        if WEBENGINE_AVAILABLE and hasattr(self, 'log_display') and self.countdown_entry_id:
+            js_remove = f"removeCountdownEntry('{self.countdown_entry_id}');"
+            self.log_display.page().runJavaScript(js_remove)
+
+        self.countdown_entry_id = None
+        self.next_cultivation_time = None
+        print(f"🛑 倒计时已停止")
+
+    def set_next_cultivation_time(self, next_time: datetime):
+        """设置下次修炼时间"""
+        self.next_cultivation_time = next_time
 
     def update_log_display(self):
         """更新日志显示"""
@@ -473,12 +623,17 @@ class CultivationLogWidget(QWidget):
         current_exp = cultivation_data.get('current_exp', 0)
         current_realm = cultivation_data.get('current_realm', 0)
 
-        # 如果修为增加，添加修炼日志
+        print(f"🔍 修炼状态更新: 当前修为={current_exp}, 上次修为={self.last_exp}")
+
+        # 检查修为变化（仅用于调试，不再自动生成日志）
         if current_exp > self.last_exp and self.last_exp > 0:
             exp_gained = current_exp - self.last_exp
-            # 这里可以根据实际情况添加更详细的修炼日志
-            # 暂时使用模拟数据
-            self.add_cultivation_log(exp_gained, 1, "HP", "气运平")
+            print(f"🔍 修炼状态更新: 修为增加 +{exp_gained} (从 {self.last_exp} 到 {current_exp})")
+        elif self.last_exp == 0:
+            # 首次设置，不显示收益
+            print(f"🔧 首次设置修为基准: {current_exp}")
+        else:
+            print(f"⚠️ 修为无变化或减少: {current_exp} vs {self.last_exp}")
 
         # 检查境界突破
         if current_realm > self.last_realm and self.last_realm > 0:

@@ -17,6 +17,9 @@ class CaveWindow(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # 保存父窗口引用
+        self.parent_window = parent
+
         # 使用父窗口的API客户端，确保token正确传递
         if hasattr(parent, 'api_client'):
             self.api_client = parent.api_client

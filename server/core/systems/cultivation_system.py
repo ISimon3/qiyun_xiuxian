@@ -51,6 +51,10 @@ class CultivationSystem:
             character.cultivation_focus = cultivation_focus
             character.last_active = datetime.now()
 
+            # 重置修炼时间，让上线后立即开始新的修炼周期
+            from server.core.game_loop import game_loop
+            game_loop.reset_character_cultivation_time(character.id)
+
             # 记录日志
             focus_name = CULTIVATION_FOCUS_TYPES[cultivation_focus]["name"]
             await GameLogCRUD.create_log(
@@ -109,6 +113,10 @@ class CultivationSystem:
             # 更新角色的修炼方向
             character.cultivation_focus = cultivation_focus
             character.last_active = datetime.now()
+
+            # 重置修炼时间，让切换后立即开始新的修炼周期
+            from server.core.game_loop import game_loop
+            game_loop.reset_character_cultivation_time(character.id)
 
             # 记录日志
             focus_name = CULTIVATION_FOCUS_TYPES[cultivation_focus]["name"]
