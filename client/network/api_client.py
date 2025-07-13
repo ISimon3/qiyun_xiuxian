@@ -503,6 +503,95 @@ class InventoryAPI:
         return self.client.post('/api/v1/inventory/sort', data)
 
 
+class ShopAPI:
+    """商城API"""
+
+    def __init__(self, client: APIClient):
+        self.client = client
+
+    def get_shop_info(self) -> Dict[str, Any]:
+        """
+        获取商城信息
+
+        Returns:
+            商城信息
+        """
+        return self.client.get('/api/v1/shop/shop-info')
+
+    def purchase_system_item(self, shop_item_id: int, quantity: int = 1) -> Dict[str, Any]:
+        """
+        购买系统商城物品
+
+        Args:
+            shop_item_id: 商城物品ID
+            quantity: 购买数量
+
+        Returns:
+            购买结果
+        """
+        data = {
+            "shop_item_id": shop_item_id,
+            "quantity": quantity
+        }
+        return self.client.post('/api/v1/shop/purchase-system-item', data)
+
+    def create_trade(self, item_id: int, quantity: int, price: int, currency_type: str = "gold") -> Dict[str, Any]:
+        """
+        创建玩家交易
+
+        Args:
+            item_id: 物品ID
+            quantity: 数量
+            price: 价格
+            currency_type: 货币类型
+
+        Returns:
+            创建结果
+        """
+        data = {
+            "item_id": item_id,
+            "quantity": quantity,
+            "price": price,
+            "currency_type": currency_type
+        }
+        return self.client.post('/api/v1/shop/create-trade', data)
+
+    def buy_trade(self, trade_id: int) -> Dict[str, Any]:
+        """
+        购买玩家交易物品
+
+        Args:
+            trade_id: 交易ID
+
+        Returns:
+            购买结果
+        """
+        data = {"trade_id": trade_id}
+        return self.client.post('/api/v1/shop/buy-trade', data)
+
+    def cancel_trade(self, trade_id: int) -> Dict[str, Any]:
+        """
+        取消玩家交易
+
+        Args:
+            trade_id: 交易ID
+
+        Returns:
+            取消结果
+        """
+        data = {"trade_id": trade_id}
+        return self.client.post('/api/v1/shop/cancel-trade', data)
+
+    def get_my_trades(self) -> Dict[str, Any]:
+        """
+        获取我的交易
+
+        Returns:
+            交易列表
+        """
+        return self.client.get('/api/v1/shop/my-trades')
+
+
 class GameAPIClient(APIClient):
     """游戏API客户端，整合所有API模块"""
 
@@ -514,6 +603,7 @@ class GameAPIClient(APIClient):
         self.user = UserAPI(self)
         self.game = GameAPI(self)
         self.inventory = InventoryAPI(self)
+        self.shop = ShopAPI(self)
 
     def test_connection(self) -> bool:
         """

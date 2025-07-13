@@ -22,11 +22,6 @@ except ImportError as e:
 if not PYQT_AVAILABLE:
     print("❌ PyQt6导入失败!")
     print(f"错误信息: {PYQT_ERROR}")
-    print("\n🔧 解决方案:")
-    print("1. 重新安装PyQt6: pip uninstall PyQt6 && pip install PyQt6")
-    print("2. 如果是DLL错误，尝试安装Visual C++运行库")
-    print("3. 或者尝试安装PyQt5: pip install PyQt5")
-    print("4. 运行诊断工具: python fix_pyqt.py")
     sys.exit(1)
 
 from client.ui.login_window import LoginWindow

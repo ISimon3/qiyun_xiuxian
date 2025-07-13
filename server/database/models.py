@@ -514,3 +514,74 @@ class CombatLog(Base):
 
     def __repr__(self):
         return f"<CombatLog(id={self.id}, dungeon_instance_id={self.dungeon_instance_id}, action_type='{self.action_type}')>"
+
+
+class ShopItem(Base):
+    """商城物品表"""
+    __tablename__ = "shop_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    item_id: Mapped[int] = mapped_column(Integer, ForeignKey("items.id"), nullable=False)
+
+    # 价格信息
+    price: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency_type: Mapped[str] = mapped_column(String(20), default="gold")  # gold, spirit_stone
+
+    # 库存信息
+    stock: Mapped[int] = mapped_column(Integer, default=-1)  # -1表示无限库存
+    sold_count: Mapped[int] = mapped_column(Integer, default=0)  # 已售数量
+
+    # 商城类型
+    shop_type: Mapped[str] = mapped_column(String(20), default="system")  # system, player
+
+    # 状态
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # 时间戳
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # 关系
+    item: Mapped["Item"] = relationship("Item")
+
+    def __repr__(self):
+        return f"<ShopItem(id={self.id}, item_id={self.item_id}, price={self.price})>"
+
+
+class PlayerTrade(Base):
+    """玩家交易表"""
+    __tablename__ = "player_trades"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    seller_id: Mapped[int] = mapped_column(Integer, ForeignKey("characters.id"), nullable=False)
+    buyer_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("characters.id"), nullable=True)
+
+    # 交易物品
+    item_id: Mapped[int] = mapped_column(Integer, ForeignKey("items.id"), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+
+    # 价格信息
+    price: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency_type: Mapped[str] = mapped_column(String(20), default="gold")  # gold, spirit_stone
+
+    # 交易状态
+    status: Mapped[str] = mapped_column(String(20), default="ACTIVE")  # ACTIVE, SOLD, CANCELLED
+
+    # 时间戳
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    sold_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    # 关系
+    seller: Mapped["Character"] = relationship("Character", foreign_keys=[seller_id])
+    buyer: Mapped[Optional["Character"]] = relationship("Character", foreign_keys=[buyer_id])
+    item: Mapped["Item"] = relationship("Item")
+
+    # 索引
+    __table_args__ = (
+        Index('ix_player_trade_seller_status', 'seller_id', 'status'),
+        Index('ix_player_trade_item_status', 'item_id', 'status'),
+    )
+
+    def __repr__(self):
+        return f"<PlayerTrade(id={self.id}, seller_id={self.seller_id}, item_id={self.item_id}, status='{self.status}')>"

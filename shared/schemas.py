@@ -698,6 +698,54 @@ class PurchaseItem(BaseModel):
     quantity: int = 1
 
 
+class ShopListResponse(BaseModel):
+    """商城物品列表响应"""
+    success: bool
+    message: str
+    system_items: List[ShopItem] = []
+    player_trades: List["PlayerTradeInfo"] = []
+
+
+class PlayerTradeInfo(BaseModel):
+    """玩家交易信息"""
+    id: int
+    seller_name: str
+    item_info: ItemInfo
+    quantity: int
+    price: int
+    currency_type: str = "gold"
+    created_at: str
+    expires_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class CreateTradeRequest(BaseModel):
+    """创建交易请求"""
+    item_id: int
+    quantity: int
+    price: int
+    currency_type: str = "gold"
+
+
+class BuyTradeRequest(BaseModel):
+    """购买交易请求"""
+    trade_id: int
+
+
+class CancelTradeRequest(BaseModel):
+    """取消交易请求"""
+    trade_id: int
+
+
+class TradeResult(BaseModel):
+    """交易结果"""
+    success: bool
+    message: str
+    trade_info: Optional[PlayerTradeInfo] = None
+
+
 # 洞府相关
 class CaveInfo(BaseModel):
     """洞府信息"""

@@ -570,7 +570,21 @@ class MainWindow(QMainWindow):
 
     def show_shop_window(self):
         """显示商城窗口"""
-        QMessageBox.information(self, "提示", "商城功能正在开发中...")
+        try:
+            from client.ui.windows.shop_window import ShopWindow
+
+            # 检查是否已经打开了商城窗口
+            if hasattr(self, 'shop_window') and self.shop_window and not self.shop_window.isHidden():
+                # 如果已经打开，就将其置于前台
+                self.shop_window.raise_()
+                self.shop_window.activateWindow()
+                return
+
+            # 创建新的商城窗口
+            self.shop_window = ShopWindow(self)
+            self.shop_window.show()  # 使用show()而不是exec()，实现非模态
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"打开商城窗口失败: {str(e)}")
 
     def show_breakthrough_dialog(self):
         """显示突破对话框"""
