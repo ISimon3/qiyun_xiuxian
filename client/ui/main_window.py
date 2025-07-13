@@ -13,7 +13,7 @@ from PyQt6.QtGui import QFont, QIcon, QAction
 from client.network.api_client import GameAPIClient, APIException
 from client.network.websocket_client import websocket_manager
 from client.state_manager import get_state_manager
-from client.ui.widgets.character_info_widget import CharacterInfoWidget
+from client.ui.widgets.upper_area_widget import UpperAreaWidget
 from client.ui.widgets.cultivation_log_widget import CultivationLogWidget
 from shared.constants import CULTIVATION_FOCUS_TYPES
 
@@ -100,62 +100,7 @@ class DataUpdateWorker(QThread):
         print("🛑 数据更新线程已停止")
 
 
-class FunctionMenuWidget(QWidget):
-    """功能菜单组件"""
 
-    # 信号定义
-    function_selected = pyqtSignal(str)  # 功能选择信号
-
-    def __init__(self):
-        super().__init__()
-        self.init_ui()
-
-    def init_ui(self):
-        """初始化界面"""
-        layout = QHBoxLayout()
-        layout.setSpacing(10)
-        layout.setContentsMargins(10, 5, 10, 5)
-
-        # 功能按钮列表（简化为图标，添加悬浮提示）
-        functions = [
-            ("背包", "backpack", "🎒", "查看背包物品"),
-            ("洞府", "cave", "🏠", "进入洞府，可进行突破"),
-            ("农场", "farm", "🌱", "管理农场种植"),
-            ("炼丹", "alchemy", "⚗️", "炼制丹药"),
-            ("副本", "dungeon", "⚔️", "挑战副本"),
-            ("世界boss", "worldboss", "👹", "挑战世界boss"),
-            ("商城", "shop", "🏪", "购买物品"),
-            ("频道", "channel", "💬", "聊天频道")
-        ]
-
-        self.buttons = {}
-        for name, key, icon, tooltip in functions:
-            btn = QPushButton(f"{icon}")
-            btn.setMinimumHeight(35)
-            btn.setMaximumWidth(50)
-            btn.setToolTip(tooltip)  # 添加悬浮提示
-            btn.clicked.connect(lambda checked, k=key: self.function_selected.emit(k))
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #f0f0f0;
-                    border: 1px solid #ccc;
-                    border-radius: 5px;
-                    font-size: 16px;
-                    padding: 5px;
-                }
-                QPushButton:hover {
-                    background-color: #e0e0e0;
-                    border: 2px solid #007acc;
-                }
-                QPushButton:pressed {
-                    background-color: #d0d0d0;
-                }
-            """)
-            self.buttons[key] = btn
-            layout.addWidget(btn)
-
-        layout.addStretch()  # 右侧留白
-        self.setLayout(layout)
 
 
 class MainWindow(QMainWindow):
@@ -186,10 +131,9 @@ class MainWindow(QMainWindow):
         self.setup_worker_connections()
 
         # 界面组件
-        self.character_info_widget = None
+        self.upper_area_widget = None
         self.cultivation_log_widget = None
         self.chat_widget = None
-        self.function_menu_widget = None
 
         # 界面状态
         self.current_lower_view = "log"  # "log" 或 "chat"
@@ -237,30 +181,16 @@ class MainWindow(QMainWindow):
         # 创建分割器
         splitter = QSplitter(Qt.Orientation.Vertical)
 
-        # 上区域 (30%) - 角色信息和功能菜单
-        upper_widget = QWidget()
-        upper_widget.setMinimumHeight(int(window_height * 0.3))
-        upper_widget.setMaximumHeight(int(window_height * 0.3))
-        upper_widget.setStyleSheet("background-color: #f8f8f8; border-bottom: 2px solid #ddd;")
+        # 上区域 - HTML版本的角色信息和功能菜单
+        self.upper_area_widget = UpperAreaWidget()
+        # 移除固定高度限制，让分割器自由调整
+        self.upper_area_widget.setStyleSheet("background-color: #f8f9fa; border-bottom: 2px solid #e1e5e9;")
 
-        upper_layout = QVBoxLayout()
-        upper_layout.setSpacing(5)
-        upper_layout.setContentsMargins(5, 5, 5, 5)
+        splitter.addWidget(self.upper_area_widget)
 
-        # 角色信息组件
-        self.character_info_widget = CharacterInfoWidget()
-        upper_layout.addWidget(self.character_info_widget)
-
-        # 功能菜单组件
-        self.function_menu_widget = FunctionMenuWidget()
-        upper_layout.addWidget(self.function_menu_widget)
-
-        upper_widget.setLayout(upper_layout)
-        splitter.addWidget(upper_widget)
-
-        # 下区域 (70%) - 修炼日志和聊天切换
+        # 下区域 - 修炼日志和聊天切换
         lower_widget = QWidget()
-        lower_widget.setMinimumHeight(int(window_height * 0.7))
+        # 移除固定高度限制，让分割器自由调整
         lower_widget.setStyleSheet("background-color: #ffffff;")
 
         self.lower_layout = QVBoxLayout()
@@ -300,14 +230,11 @@ class MainWindow(QMainWindow):
         self.state_manager.user_logged_out.connect(self.on_user_logged_out)
         self.state_manager.state_changed.connect(self.on_state_changed)
 
-        # 功能菜单信号
-        if self.function_menu_widget:
-            self.function_menu_widget.function_selected.connect(self.on_function_selected)
-
-        # 角色信息组件信号
-        if self.character_info_widget:
-            self.character_info_widget.daily_sign_requested.connect(self.on_daily_sign_requested)
-            self.character_info_widget.cultivation_focus_changed.connect(self.on_cultivation_focus_changed)
+        # 上半区域组件信号
+        if self.upper_area_widget:
+            self.upper_area_widget.function_selected.connect(self.on_function_selected)
+            self.upper_area_widget.daily_sign_requested.connect(self.on_daily_sign_requested)
+            self.upper_area_widget.cultivation_focus_changed.connect(self.on_cultivation_focus_changed)
 
     def on_daily_sign_requested(self):
         """处理每日签到请求"""
@@ -450,21 +377,21 @@ class MainWindow(QMainWindow):
 
     def on_character_updated(self, character_data: Dict[str, Any]):
         """角色数据更新处理"""
-        if self.character_info_widget:
-            self.character_info_widget.update_character_info(character_data)
+        if self.upper_area_widget:
+            self.upper_area_widget.update_character_info(character_data)
 
     def on_cultivation_status_updated(self, cultivation_data: Dict[str, Any]):
         """修炼状态更新处理"""
-        if self.character_info_widget:
-            self.character_info_widget.update_cultivation_status(cultivation_data)
+        if self.upper_area_widget:
+            self.upper_area_widget.update_cultivation_status(cultivation_data)
 
         if self.cultivation_log_widget:
             self.cultivation_log_widget.update_cultivation_status(cultivation_data)
 
     def on_luck_info_updated(self, luck_data: Dict[str, Any]):
         """气运信息更新处理"""
-        if self.character_info_widget:
-            self.character_info_widget.update_luck_info(luck_data)
+        if self.upper_area_widget:
+            self.upper_area_widget.update_luck_info(luck_data)
 
     def on_update_failed(self, error_message: str):
         """数据更新失败处理"""
@@ -593,8 +520,7 @@ class MainWindow(QMainWindow):
         """处理副本完成事件"""
         try:
             # 刷新角色信息
-            if self.character_info_widget:
-                self.character_info_widget.refresh_character_info()
+            # 注意：HTML版本的上半区域会通过数据更新自动刷新
 
             # 添加日志
             if self.cultivation_log_widget:
@@ -796,6 +722,10 @@ class MainWindow(QMainWindow):
         # 聊天显示区域 - 使用HTML渲染，添加边框
         self.chat_display = QWebEngineView()
         self.chat_display.setMinimumHeight(350)
+
+        # 禁用右键上下文菜单
+        self.chat_display.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+
         # 为聊天区域添加边框样式
         self.chat_display.setStyleSheet("""
             QWebEngineView {
@@ -1048,10 +978,8 @@ class MainWindow(QMainWindow):
         self.chat_widget.setVisible(True)
 
         # 更新频道按钮图标和提示
-        if "channel" in self.function_menu_widget.buttons:
-            channel_btn = self.function_menu_widget.buttons["channel"]
-            channel_btn.setText("📋")
-            channel_btn.setToolTip("切换到修炼日志")
+        if self.upper_area_widget:
+            self.upper_area_widget.update_channel_button("📋", "切换到修炼日志")
 
         # 清除新消息提示
         self.clear_new_message_indicator()
@@ -1070,10 +998,8 @@ class MainWindow(QMainWindow):
         self.cultivation_log_widget.setVisible(True)
 
         # 更新频道按钮图标和提示
-        if "channel" in self.function_menu_widget.buttons:
-            channel_btn = self.function_menu_widget.buttons["channel"]
-            channel_btn.setText("💬")
-            channel_btn.setToolTip("聊天频道")
+        if self.upper_area_widget:
+            self.upper_area_widget.update_channel_button("💬", "聊天频道")
 
         # 清除新消息提示（如果有的话）
         self.clear_new_message_indicator()
@@ -1678,25 +1604,8 @@ class MainWindow(QMainWindow):
     def show_new_message_indicator(self):
         """显示新消息提示"""
         try:
-            # 查找频道按钮并添加视觉提示
-            if hasattr(self, 'function_menu_widget') and hasattr(self.function_menu_widget, 'buttons'):
-                if "channel" in self.function_menu_widget.buttons:
-                    channel_btn = self.function_menu_widget.buttons["channel"]
-                    # 改变按钮样式以显示有新消息
-                    channel_btn.setStyleSheet("""
-                        QPushButton {
-                            background-color: #ff6b6b;
-                            color: white;
-                            border: 2px solid #ff4757;
-                            border-radius: 8px;
-                            font-size: 16px;
-                            font-weight: bold;
-                        }
-                        QPushButton:hover {
-                            background-color: #ff5252;
-                        }
-                    """)
-                    channel_btn.setToolTip("💬 有新消息！点击查看聊天")
+            # HTML版本的新消息提示可以通过JavaScript实现
+            # 这里只保留控制台提示
 
             print("🔔 新消息提示：有新的聊天消息，请点击'频道'按钮查看")
         except Exception as e:
@@ -1705,30 +1614,9 @@ class MainWindow(QMainWindow):
     def clear_new_message_indicator(self):
         """清除新消息提示"""
         try:
-            # 恢复频道按钮的正常样式
-            if hasattr(self, 'function_menu_widget') and hasattr(self.function_menu_widget, 'buttons'):
-                if "channel" in self.function_menu_widget.buttons:
-                    channel_btn = self.function_menu_widget.buttons["channel"]
-                    # 恢复正常样式
-                    channel_btn.setStyleSheet("""
-                        QPushButton {
-                            background-color: #f8f9fa;
-                            border: 1px solid #dee2e6;
-                            border-radius: 8px;
-                            padding: 8px;
-                            font-size: 16px;
-                        }
-                        QPushButton:hover {
-                            background-color: #e9ecef;
-                        }
-                        QPushButton:pressed {
-                            background-color: #dee2e6;
-                        }
-                    """)
-                    if self.current_lower_view == "chat":
-                        channel_btn.setToolTip("切换到修炼日志")
-                    else:
-                        channel_btn.setToolTip("切换到聊天频道")
+            # HTML版本的提示清除
+            # 这里只保留控制台提示
+            print("🔔 新消息提示已清除")
         except Exception as e:
             print(f"❌ 清除新消息提示失败: {e}")
 
