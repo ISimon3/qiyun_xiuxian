@@ -133,7 +133,9 @@ class WebSocketClient(QObject):
         QTimer.singleShot(0, lambda: self.connected.emit())
 
         # 延迟请求历史消息，确保连接完全建立
-        QTimer.singleShot(100, lambda: self.request_history())
+        QTimer.singleShot(100, self.request_history)
+
+
 
     def _on_message(self, ws, message):
         """WebSocket消息接收回调"""
@@ -149,6 +151,7 @@ class WebSocketClient(QObject):
 
         except Exception as e:
             print(f"❌ 处理WebSocket消息失败: {e}")
+            from PyQt6.QtCore import QTimer
             QTimer.singleShot(0, lambda: self.error_occurred.emit(f"处理消息失败: {str(e)}"))
 
     def _emit_message_signal(self, message_data):
@@ -192,7 +195,8 @@ class WebSocketClient(QObject):
                 import time
                 time.sleep(self.reconnect_delay)
                 if not self.is_connected:  # 确保还没有连接
-                    QTimer.singleShot(0, lambda: self.connect())
+                    from PyQt6.QtCore import QTimer
+                    QTimer.singleShot(0, self.connect)
 
             reconnect_thread = threading.Thread(target=delayed_reconnect, daemon=True)
             reconnect_thread.start()

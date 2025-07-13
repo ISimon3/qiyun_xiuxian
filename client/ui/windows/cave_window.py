@@ -449,8 +449,73 @@ class CaveWindow(QDialog):
 
     def show_breakthrough(self):
         """显示突破功能"""
-        # 调用父窗口的突破功能
-        if hasattr(self.parent(), 'show_breakthrough_dialog'):
-            self.parent().show_breakthrough_dialog()
-        else:
-            QMessageBox.information(self, "提示", "突破功能暂时不可用")
+        try:
+            # 获取当前修炼状态
+            response = self.api_client.game.get_cultivation_status()
+            if not response.get('success'):
+                QMessageBox.warning(self, "错误", "无法获取修炼状态")
+                return
+
+            cultivation_data = response['data']
+            can_breakthrough = cultivation_data.get('can_breakthrough', False)
+            breakthrough_rate = cultivation_data.get('breakthrough_rate', 0)
+            current_realm = cultivation_data.get('current_realm_name', '未知')
+
+            if not can_breakthrough:
+                QMessageBox.information(
+                    self, "无法突破",
+                    f"当前境界: {current_realm}\n修为不足，无法进行突破。\n请继续修炼积累修为。"
+                )
+                return
+
+            # 确认突破
+            reply = QMessageBox.question(
+                self, "境界突破",
+                f"当前境界: {current_realm}\n"
+                f"突破成功率: {breakthrough_rate:.1f}%\n\n"
+                f"是否尝试突破到下一境界？\n"
+                f"注意：突破失败可能会损失部分修为。",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+
+            if reply == QMessageBox.StandardButton.Yes:
+                # 执行突破
+                breakthrough_response = self.api_client.game.manual_breakthrough()
+                if breakthrough_response.get('success'):
+                    result_data = breakthrough_response['data']
+                    success = result_data.get('success', False)
+                    message = result_data.get('message', '')
+
+                    if success:
+                        QMessageBox.information(self, "突破成功！", f"🎉 {message}")
+                        # 添加突破日志到主窗口
+                        if hasattr(self.parent_window, 'lower_area_widget') and self.parent_window.lower_area_widget:
+                            cultivation_log_widget = self.parent_window.lower_area_widget.get_cultivation_log_widget()
+                            if cultivation_log_widget:
+                                cultivation_log_widget.add_breakthrough_log(
+                                    cultivation_data.get('current_realm', 0),
+                                    cultivation_data.get('current_realm', 0) + 1,
+                                    True
+                                )
+                    else:
+                        QMessageBox.warning(self, "突破失败", f"💥 {message}")
+                        # 添加失败日志到主窗口
+                        if hasattr(self.parent_window, 'lower_area_widget') and self.parent_window.lower_area_widget:
+                            cultivation_log_widget = self.parent_window.lower_area_widget.get_cultivation_log_widget()
+                            if cultivation_log_widget:
+                                cultivation_log_widget.add_breakthrough_log(
+                                    cultivation_data.get('current_realm', 0),
+                                    cultivation_data.get('current_realm', 0),
+                                    False
+                                )
+
+                    # 刷新洞府信息和主窗口数据
+                    self.load_cave_info()
+                    if hasattr(self.parent_window, 'load_initial_data'):
+                        self.parent_window.load_initial_data()
+                else:
+                    error_msg = breakthrough_response.get('message', '突破失败')
+                    QMessageBox.warning(self, "突破失败", error_msg)
+
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"突破时发生错误: {str(e)}")

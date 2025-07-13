@@ -124,7 +124,7 @@ class CultivationLogWidget(QWidget):
         """创建HTML版本的日志显示区域"""
         # 日志显示区域 - 使用HTML渲染
         self.log_display = QWebEngineView()
-        self.log_display.setMinimumHeight(400)
+        self.log_display.setMinimumHeight(465)
 
         # 禁用右键上下文菜单
         self.log_display.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)

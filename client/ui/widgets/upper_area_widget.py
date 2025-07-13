@@ -50,9 +50,9 @@ class UpperAreaWidget(QWidget):
 
         self.setLayout(main_layout)
 
-        # 延迟初始化数据
+        # 延迟初始化数据 - 只在没有真实数据时显示默认数据
         if WEBENGINE_AVAILABLE:
-            QTimer.singleShot(1000, self.init_default_data)  # 增加延迟时间
+            QTimer.singleShot(100, self.init_default_data)  # 先显示默认数据
 
     def create_html_area(self, parent_layout: QVBoxLayout):
         """创建HTML版本的上半区域"""
@@ -125,20 +125,48 @@ class UpperAreaWidget(QWidget):
                     box-sizing: border-box;
                 }
 
-                /* 角色信息区域 */
-                .character-info {
-                    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-                    border: 1px solid #e1e5e9;
+                /* 头像和基本信息区域 */
+                .header-section {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                    padding: 8px;
+                    background: rgba(255, 255, 255, 0.8);
                     border-radius: 8px;
-                    padding: 12px;
-                    flex: 1;
+                    border: 1px solid #e1e5e9;
                 }
 
-                .character-header {
+                .avatar-container {
+                    position: relative;
+                    width: 60px;
+                    height: 60px;
+                }
+
+                .avatar {
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 50%;
+                    border: 3px solid #28a745;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     display: flex;
-                    justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 8px;
+                    justify-content: center;
+                    font-size: 24px;
+                    color: white;
+                    font-weight: bold;
+                }
+
+                .character-basic-info {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 4px;
+                }
+
+                .character-name-line {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
                 }
 
                 .character-name {
@@ -147,254 +175,607 @@ class UpperAreaWidget(QWidget):
                     color: #2c3e50;
                 }
 
+                .character-id {
+                    font-size: 11px;
+                    color: #666;
+                    background: #f8f9fa;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                }
+
                 .character-realm {
                     font-size: 14px;
                     font-weight: bold;
-                    color: #27ae60;
+                    color: #e74c3c;
                 }
 
+                .sign-icon {
+                    font-size: 24px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    padding: 4px;
+                    border-radius: 50%;
+                }
+
+                .sign-icon:hover {
+                    transform: scale(1.1);
+                    background: rgba(255, 255, 255, 0.2);
+                }
+
+                /* 五边形属性图表区域 */
+                .pentagon-section {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    padding: 16px;
+                    background: rgba(255, 255, 255, 0.8);
+                    border-radius: 8px;
+                    border: 1px solid #e1e5e9;
+                    min-height: 200px;
+                }
+
+                .pentagon-container {
+                    position: relative;
+                    width: 180px;
+                    height: 180px;
+                }
+
+                #pentagonCanvas {
+                    width: 100%;
+                    height: 100%;
+                }
+
+                .attribute-labels {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    pointer-events: none;
+                }
+
+                .attribute-label {
+                    position: absolute;
+                    font-size: 18px;
+                    color: #2c3e50;
+                    text-align: center;
+                    cursor: pointer;
+                    pointer-events: auto;
+                    padding: 4px;
+                    border-radius: 50%;
+                    background: rgba(255, 255, 255, 0.9);
+                    border: 2px solid #ddd;
+                    transition: all 0.3s ease;
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+
+                .attribute-label:hover {
+                    background: #3498db;
+                    color: white;
+                    transform: scale(1.2);
+                    border-color: #3498db;
+                    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+                }
+
+                .attribute-label.active {
+                    background: #e74c3c;
+                    color: white;
+                    border-color: #e74c3c;
+                    box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
+                }
+
+                .attribute-value {
+                    position: absolute;
+                    top: -8px;
+                    right: -8px;
+                    background: #f39c12;
+                    color: white;
+                    font-size: 8px;
+                    font-weight: bold;
+                    padding: 1px 4px;
+                    border-radius: 8px;
+                    min-width: 16px;
+                    text-align: center;
+                }
+
+                /* 资源信息区域 */
+                .resources-section {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 8px 12px;
+                    background: rgba(255, 255, 255, 0.8);
+                    border-radius: 8px;
+                    border: 1px solid #e1e5e9;
+                }
+
+                .resource-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    font-size: 11px;
+                }
+
+                .resource-icon {
+                    font-size: 14px;
+                }
+
+                .resource-value {
+                    font-weight: bold;
+                    color: #f39c12;
+                }
+
+
+
+                /* 功能按钮区域 */
+                .function-buttons {
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 4px;
+                    padding: 6px;
+                    background: rgba(255, 255, 255, 0.8);
+                    border-radius: 8px;
+                    border: 1px solid #e1e5e9;
+                }
+
+                .function-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 6px;
+                    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                    border: 1px solid #dee2e6;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    text-decoration: none;
+                    color: #495057;
+                    height: 36px;
+                    width: 36px;
+                }
+
+                .function-btn:hover {
+                    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+                    color: white;
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+                }
+
+                .function-btn-icon {
+                    font-size: 16px;
+                }
+
+                /* 进度条样式 */
                 .progress-section {
-                    margin-bottom: 8px;
+                    margin: 8px 0;
                 }
 
                 .progress-bar {
                     width: 100%;
                     height: 8px;
-                    background-color: #e9ecef;
+                    background: #e9ecef;
                     border-radius: 4px;
                     overflow: hidden;
-                    margin: 4px 0;
+                    margin-bottom: 4px;
                 }
 
                 .progress-fill {
                     height: 100%;
-                    background: linear-gradient(90deg, #3498db 0%, #2980b9 100%);
-                    transition: width 0.3s ease;
+                    background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+                    border-radius: 4px;
+                    transition: width 0.5s ease;
                 }
 
                 .progress-text {
                     font-size: 10px;
-                    color: #6c757d;
+                    color: #666;
                     text-align: center;
                 }
 
-                .cultivation-status {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 8px;
-                    font-size: 11px;
-                }
+                /* 响应式设计 */
+                @media (max-width: 400px) {
+                    .function-buttons {
+                        grid-template-columns: repeat(3, 1fr);
+                    }
 
-                .cultivation-focus {
-                    color: #495057;
-                    font-weight: 600;
-                }
-
-                .cultivation-state {
-                    color: #28a745;
-                    font-weight: 600;
-                }
-
-                .resources-section {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr 1fr;
-                    gap: 8px;
-                    align-items: center;
-                    margin-bottom: 8px;
-                }
-
-                .resource-item {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    font-size: 11px;
-                }
-
-                .resource-label {
-                    color: #6c757d;
-                    margin-bottom: 2px;
-                }
-
-                .resource-value {
-                    color: #27ae60;
-                    font-weight: bold;
-                }
-
-                .luck-display {
-                    text-align: center;
-                    font-size: 11px;
-                    margin-bottom: 8px;
-                }
-
-                .daily-sign-btn {
-                    width: 100%;
-                    height: 28px;
-                    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    font-size: 11px;
-                    font-weight: bold;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                }
-
-                .daily-sign-btn:hover {
-                    background: linear-gradient(135deg, #2980b9 0%, #21618c 100%);
-                    transform: translateY(-1px);
-                }
-
-                .daily-sign-btn:disabled {
-                    background: #bdc3c7;
-                    color: #7f8c8d;
-                    cursor: not-allowed;
-                    transform: none;
-                }
-
-                /* 功能菜单区域 */
-                .function-menu {
-                    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-                    border: 1px solid #e1e5e9;
-                    border-radius: 8px;
-                    padding: 8px;
-                    height: 60px;
-                }
-
-                .menu-buttons {
-                    display: flex;
-                    gap: 6px;
-                    height: 100%;
-                    align-items: center;
-                }
-
-                .menu-btn {
-                    width: 44px;
-                    height: 44px;
-                    background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
-                    border: 1px solid #ccc;
-                    border-radius: 8px;
-                    font-size: 16px;
-                    cursor: pointer;
-                    transition: all 0.2s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-
-                .menu-btn:hover {
-                    background: linear-gradient(135deg, #e0e0e0 0%, #d0d0d0 100%);
-                    border: 2px solid #007acc;
-                    transform: translateY(-1px);
-                }
-
-                .menu-btn:active {
-                    background: linear-gradient(135deg, #d0d0d0 0%, #c0c0c0 100%);
-                    transform: translateY(0);
+                    .pentagon-container {
+                        width: 150px;
+                        height: 150px;
+                    }
                 }
             </style>
         </head>
         <body>
             <div class="container">
-                <!-- 角色信息区域 -->
-                <div class="character-info">
-                    <div class="character-header">
-                        <span class="character-name" id="characterName">角色名称</span>
-                        <span class="character-realm" id="characterRealm">凡人</span>
+                <!-- 头像和基本信息区域 -->
+                <div class="header-section">
+                    <div class="avatar-container">
+                        <div class="avatar" id="characterAvatar">头</div>
                     </div>
-                    
-                    <div class="progress-section">
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="expProgressFill" style="width: 0%"></div>
+                    <div class="character-basic-info">
+                        <div class="character-name-line">
+                            <span class="character-name" id="characterName">道友名称</span>
+                            <span class="character-id" id="characterId">(ID: xxxxxxx)</span>
                         </div>
-                        <div class="progress-text" id="expProgressText">修为: 0 / 100 (0.0%)</div>
-                    </div>
-                    
-                    <div class="cultivation-status">
-                        <span class="cultivation-focus" id="cultivationFocus">修炼方向: 体修</span>
-                        <span class="cultivation-state" id="cultivationState">修炼状态: 挂机中</span>
-                    </div>
-                    
-                    <div class="resources-section">
-                        <div class="resource-item">
-                            <span class="resource-label">金币:</span>
-                            <span class="resource-value" id="goldValue">0</span>
-                        </div>
-                        <div class="resource-item">
-                            <span class="resource-label">灵石:</span>
-                            <span class="resource-value" id="spiritStoneValue">0</span>
-                        </div>
-                        <div class="resource-item">
-                            <span class="resource-label">气运:</span>
-                            <span class="resource-value" id="luckValue">平 (50)</span>
+                        <div>
+                            <span class="character-realm" id="characterRealm">境界：筑基期</span>
                         </div>
                     </div>
-                    
-                    <button class="daily-sign-btn" id="dailySignBtn" onclick="dailySign()">每日签到</button>
+                    <div class="sign-icon" id="signIcon" onclick="handleDailySign()" title="每日签到">📅</div>
                 </div>
-                
-                <!-- 功能菜单区域 -->
-                <div class="function-menu">
-                    <div class="menu-buttons">
-                        <button class="menu-btn" onclick="selectFunction('backpack')" title="查看背包物品">🎒</button>
-                        <button class="menu-btn" onclick="selectFunction('cave')" title="进入洞府，可进行突破">🏠</button>
-                        <button class="menu-btn" onclick="selectFunction('farm')" title="管理农场种植">🌱</button>
-                        <button class="menu-btn" onclick="selectFunction('alchemy')" title="炼制丹药">⚗️</button>
-                        <button class="menu-btn" onclick="selectFunction('dungeon')" title="挑战副本">⚔️</button>
-                        <button class="menu-btn" onclick="selectFunction('worldboss')" title="挑战世界boss">👹</button>
-                        <button class="menu-btn" onclick="selectFunction('shop')" title="购买物品">🏪</button>
-                        <button class="menu-btn" id="channelBtn" onclick="selectFunction('channel')" title="聊天频道">💬</button>
+
+                <!-- 五边形属性图表区域 -->
+                <div class="pentagon-section">
+                    <div class="pentagon-container">
+                        <canvas id="pentagonCanvas" width="180" height="180"></canvas>
+                        <div class="attribute-labels">
+                            <div class="attribute-label" id="label-hp" onclick="setCultivationFocus('HP')" title="体修">
+                                💪
+                                <span class="attribute-value" id="hp-value">100</span>
+                            </div>
+                            <div class="attribute-label" id="label-physical-attack" onclick="setCultivationFocus('PHYSICAL_ATTACK')" title="力修">
+                                ⚔️
+                                <span class="attribute-value" id="physical-attack-value">20</span>
+                            </div>
+                            <div class="attribute-label" id="label-magic-attack" onclick="setCultivationFocus('MAGIC_ATTACK')" title="法修">
+                                🔮
+                                <span class="attribute-value" id="magic-attack-value">20</span>
+                            </div>
+                            <div class="attribute-label" id="label-physical-defense" onclick="setCultivationFocus('PHYSICAL_DEFENSE')" title="护体">
+                                🛡️
+                                <span class="attribute-value" id="physical-defense-value">15</span>
+                            </div>
+                            <div class="attribute-label" id="label-magic-defense" onclick="setCultivationFocus('MAGIC_DEFENSE')" title="抗法">
+                                🌟
+                                <span class="attribute-value" id="magic-defense-value">15</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 资源信息区域 -->
+                <div class="resources-section">
+                    <div class="resource-item">
+                        <span class="resource-icon">💰</span>
+                        <span>金币: </span>
+                        <span class="resource-value" id="goldValue">xxx</span>
+                    </div>
+                    <div class="resource-item">
+                        <span class="resource-icon">💎</span>
+                        <span>灵石: </span>
+                        <span class="resource-value" id="spiritStoneValue">xxx</span>
+                    </div>
+                    <div class="resource-item">
+                        <span class="resource-icon">🍀</span>
+                        <span>今日气运: </span>
+                        <span class="resource-value" id="luckValue">xxx</span>
+                    </div>
+                </div>
+
+
+
+                <!-- 功能按钮区域 -->
+                <div class="function-buttons">
+                    <div class="function-btn" onclick="selectFunction('backpack')" title="背包">
+                        <div class="function-btn-icon">🎒</div>
+                    </div>
+                    <div class="function-btn" onclick="selectFunction('cave')" title="洞府">
+                        <div class="function-btn-icon">🏠</div>
+                    </div>
+                    <div class="function-btn" onclick="selectFunction('farm')" title="农场">
+                        <div class="function-btn-icon">🌱</div>
+                    </div>
+                    <div class="function-btn" onclick="selectFunction('alchemy')" title="炼丹">
+                        <div class="function-btn-icon">⚗️</div>
+                    </div>
+                    <div class="function-btn" onclick="selectFunction('dungeon')" title="副本">
+                        <div class="function-btn-icon">⚔️</div>
+                    </div>
+                    <div class="function-btn" onclick="selectFunction('worldboss')" title="魔君">
+                        <div class="function-btn-icon">👹</div>
+                    </div>
+                    <div class="function-btn" onclick="selectFunction('shop')" title="商场">
+                        <div class="function-btn-icon">🏪</div>
+                    </div>
+                    <div class="function-btn" onclick="selectFunction('channel')" title="频道">
+                        <div class="function-btn-icon">💬</div>
                     </div>
                 </div>
             </div>
 
             <script>
-                function updateCharacterInfo(data) {
-                    document.getElementById('characterName').textContent = data.name || '角色名称';
-                    document.getElementById('characterRealm').textContent = data.realm || '凡人';
-                    
-                    // 更新修为进度
-                    const progressPercent = data.expProgress || 0;
-                    document.getElementById('expProgressFill').style.width = progressPercent + '%';
-                    document.getElementById('expProgressText').textContent = data.expText || '修为: 0 / 100 (0.0%)';
-                    
-                    // 更新修炼状态
-                    document.getElementById('cultivationFocus').textContent = '修炼方向: ' + (data.focusName || '体修');
-                    document.getElementById('cultivationState').textContent = '修炼状态: ' + (data.cultivationState || '未修炼');
-                    
-                    // 更新资源
-                    document.getElementById('goldValue').textContent = data.gold || '0';
-                    document.getElementById('spiritStoneValue').textContent = data.spiritStone || '0';
-                    document.getElementById('luckValue').textContent = data.luckDisplay || '平 (50)';
-                    
-                    // 更新签到按钮
-                    const signBtn = document.getElementById('dailySignBtn');
-                    if (data.canSignToday === false) {
-                        signBtn.textContent = '已签到';
-                        signBtn.disabled = true;
-                    } else {
-                        signBtn.textContent = '每日签到';
-                        signBtn.disabled = false;
+                // 全局变量
+                let characterData = null;
+                let cultivationStatus = null;
+                let currentAttributes = {
+                    hp: 100,
+                    physical_attack: 20,
+                    magic_attack: 20,
+                    physical_defense: 15,
+                    magic_defense: 15
+                };
+
+                // 五边形顶点位置计算
+                function getPentagonPoints(centerX, centerY, radius) {
+                    const points = [];
+                    const angleStep = (2 * Math.PI) / 5;
+                    const startAngle = -Math.PI / 2; // 从顶部开始
+
+                    for (let i = 0; i < 5; i++) {
+                        const angle = startAngle + i * angleStep;
+                        const x = centerX + radius * Math.cos(angle);
+                        const y = centerY + radius * Math.sin(angle);
+                        points.push({ x, y });
                     }
-                }
-                
-                function dailySign() {
-                    console.log('Daily sign button clicked');
-                    // 使用自定义事件通知Python
-                    document.dispatchEvent(new CustomEvent('dailySignRequested'));
+                    return points;
                 }
 
+                // 绘制五边形图表
+                function drawPentagon() {
+                    const canvas = document.getElementById('pentagonCanvas');
+                    if (!canvas) return;
+
+                    const ctx = canvas.getContext('2d');
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    const maxRadius = 70;
+
+                    // 清空画布
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    // 绘制背景网格（多层五边形）
+                    ctx.strokeStyle = '#e9ecef';
+                    ctx.lineWidth = 1;
+                    for (let i = 1; i <= 5; i++) {
+                        const radius = (maxRadius / 5) * i;
+                        const points = getPentagonPoints(centerX, centerY, radius);
+
+                        ctx.beginPath();
+                        ctx.moveTo(points[0].x, points[0].y);
+                        for (let j = 1; j < points.length; j++) {
+                            ctx.lineTo(points[j].x, points[j].y);
+                        }
+                        ctx.closePath();
+                        ctx.stroke();
+                    }
+
+                    // 绘制从中心到顶点的线
+                    ctx.strokeStyle = '#dee2e6';
+                    ctx.lineWidth = 1;
+                    const outerPoints = getPentagonPoints(centerX, centerY, maxRadius);
+                    for (const point of outerPoints) {
+                        ctx.beginPath();
+                        ctx.moveTo(centerX, centerY);
+                        ctx.lineTo(point.x, point.y);
+                        ctx.stroke();
+                    }
+
+                    // 计算属性值对应的半径
+                    const maxAttributeValue = Math.max(
+                        currentAttributes.hp / 10,  // 生命值除以10来缩放
+                        currentAttributes.physical_attack,
+                        currentAttributes.magic_attack,
+                        currentAttributes.physical_defense,
+                        currentAttributes.magic_defense
+                    );
+
+                    const attributeValues = [
+                        currentAttributes.hp / 10,  // 体修 (生命值)
+                        currentAttributes.physical_attack,  // 物修
+                        currentAttributes.magic_attack,     // 法修
+                        currentAttributes.physical_defense, // 护体
+                        currentAttributes.magic_defense     // 抗法
+                    ];
+
+                    // 绘制属性数据多边形
+                    const dataPoints = [];
+                    for (let i = 0; i < 5; i++) {
+                        const ratio = Math.min(attributeValues[i] / Math.max(maxAttributeValue, 100), 1);
+                        const radius = maxRadius * ratio;
+                        const angle = -Math.PI / 2 + i * (2 * Math.PI) / 5;
+                        const x = centerX + radius * Math.cos(angle);
+                        const y = centerY + radius * Math.sin(angle);
+                        dataPoints.push({ x, y });
+                    }
+
+                    // 填充属性区域
+                    ctx.fillStyle = 'rgba(52, 152, 219, 0.3)';
+                    ctx.strokeStyle = '#3498db';
+                    ctx.lineWidth = 2;
+
+                    ctx.beginPath();
+                    ctx.moveTo(dataPoints[0].x, dataPoints[0].y);
+                    for (let i = 1; i < dataPoints.length; i++) {
+                        ctx.lineTo(dataPoints[i].x, dataPoints[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // 绘制属性点
+                    ctx.fillStyle = '#e74c3c';
+                    for (const point of dataPoints) {
+                        ctx.beginPath();
+                        ctx.arc(point.x, point.y, 3, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }
+
+                    // 更新标签位置
+                    updateAttributeLabels();
+                }
+
+                // 更新属性标签位置
+                function updateAttributeLabels() {
+                    const canvas = document.getElementById('pentagonCanvas');
+                    if (!canvas) return;
+
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    const labelRadius = 80; // 图标距离中心的距离
+
+                    const labels = [
+                        { id: 'label-hp', valueId: 'hp-value', value: currentAttributes.hp },
+                        { id: 'label-physical-attack', valueId: 'physical-attack-value', value: currentAttributes.physical_attack },
+                        { id: 'label-magic-attack', valueId: 'magic-attack-value', value: currentAttributes.magic_attack },
+                        { id: 'label-physical-defense', valueId: 'physical-defense-value', value: currentAttributes.physical_defense },
+                        { id: 'label-magic-defense', valueId: 'magic-defense-value', value: currentAttributes.magic_defense }
+                    ];
+
+                    for (let i = 0; i < labels.length; i++) {
+                        const label = document.getElementById(labels[i].id);
+                        const valueSpan = document.getElementById(labels[i].valueId);
+                        if (label && valueSpan) {
+                            // 计算每个图标的角度，确保与五边形顶点对齐
+                            const angle = -Math.PI / 2 + i * (2 * Math.PI) / 5;
+
+                            // 计算图标位置，添加微调偏移量让图标更好地对齐五边形顶点
+                            const offsetX = -12; // 向左偏移12像素
+                            const offsetY = -12; // 向上偏移12像素
+                            const labelX = centerX + labelRadius * Math.cos(angle) - 16 + offsetX; // 16是图标宽度的一半
+                            const labelY = centerY + labelRadius * Math.sin(angle) - 16 + offsetY; // 16是图标高度的一半
+
+                            label.style.left = labelX + 'px';
+                            label.style.top = labelY + 'px';
+
+                            // 更新数值显示
+                            valueSpan.textContent = labels[i].value;
+                        }
+                    }
+                }
+
+                // 更新角色信息显示
+                function updateCharacterInfo(data) {
+                    characterData = data;
+
+                    // 更新头像（显示角色名称首字）
+                    const avatar = document.getElementById('characterAvatar');
+                    if (avatar && data.name) {
+                        avatar.textContent = data.name.charAt(0);
+                    }
+
+                    // 更新角色名称和ID
+                    const nameElement = document.getElementById('characterName');
+                    if (nameElement) {
+                        nameElement.textContent = data.name || '道友名称';
+                    }
+
+                    const idElement = document.getElementById('characterId');
+                    if (idElement) {
+                        idElement.textContent = `(ID: ${data.id || 'xxxxxxx'})`;
+                    }
+
+                    // 更新境界
+                    const realmElement = document.getElementById('characterRealm');
+                    if (realmElement) {
+                        const realmNames = [
+                            '凡人', '练气初期', '练气中期', '练气后期', '练气大圆满',
+                            '筑基初期', '筑基中期', '筑基后期', '筑基大圆满',
+                            '金丹初期', '金丹中期', '金丹后期', '金丹大圆满',
+                            '元婴初期', '元婴中期', '元婴后期', '元婴大圆满'
+                        ];
+                        const realmLevel = data.cultivation_realm || 0;
+                        const realmName = realmNames[realmLevel] || `未知境界(${realmLevel})`;
+                        realmElement.textContent = `境界：${realmName}`;
+                    }
+
+                    // 更新资源信息
+                    const goldElement = document.getElementById('goldValue');
+                    if (goldElement) {
+                        goldElement.textContent = (data.gold || 0).toString();
+                    }
+
+                    const spiritStoneElement = document.getElementById('spiritStoneValue');
+                    if (spiritStoneElement) {
+                        spiritStoneElement.textContent = (data.spirit_stone || 0).toString();
+                    }
+
+                    const luckElement = document.getElementById('luckValue');
+                    if (luckElement) {
+                        luckElement.textContent = (data.luck_value || 50).toString();
+                    }
+
+                    // 更新属性数据
+                    if (data.attributes) {
+                        currentAttributes = {
+                            hp: data.attributes.hp || 100,
+                            physical_attack: data.attributes.physical_attack || 20,
+                            magic_attack: data.attributes.magic_attack || 20,
+                            physical_defense: data.attributes.physical_defense || 15,
+                            magic_defense: data.attributes.magic_defense || 15
+                        };
+
+                        // 重新绘制五边形图表
+                        drawPentagon();
+                    }
+
+                    // 更新修炼方向显示
+                    updateCultivationFocus(data.cultivation_focus || 'HP');
+                }
+
+                // 更新修炼状态
+                function updateCultivationStatus(data) {
+                    cultivationStatus = data;
+                    // 修炼状态显示已移除，只保存数据
+                }
+
+                // 更新修炼方向显示
+                function updateCultivationFocus(focusType) {
+                    // 更新标签激活状态
+                    const labels = document.querySelectorAll('.attribute-label');
+                    labels.forEach(label => {
+                        label.classList.remove('active');
+                    });
+
+                    const activeLabel = document.getElementById(`label-${focusType.toLowerCase().replace('_', '-')}`);
+                    if (activeLabel) {
+                        activeLabel.classList.add('active');
+                    }
+                }
+
+                // 设置修炼方向
+                function setCultivationFocus(focusType) {
+                    // 通过Qt信号发送到Python
+                    if (typeof qt !== 'undefined' && qt.webChannelTransport) {
+                        // 使用webChannel发送信号
+                        window.pyqtSignal('cultivation_focus_changed', focusType);
+                    }
+
+                    // 立即更新显示
+                    updateCultivationFocus(focusType);
+                }
+
+                // 每日签到
+                function handleDailySign() {
+                    if (typeof qt !== 'undefined' && qt.webChannelTransport) {
+                        window.pyqtSignal('daily_sign_requested');
+                    }
+                }
+
+                // 功能选择
                 function selectFunction(functionKey) {
-                    console.log('Function selected:', functionKey);
-                    // 使用自定义事件通知Python
-                    document.dispatchEvent(new CustomEvent('functionSelected', {detail: functionKey}));
+                    if (typeof qt !== 'undefined' && qt.webChannelTransport) {
+                        window.pyqtSignal('function_selected', functionKey);
+                    }
                 }
-                
-                function updateChannelButton(icon, tooltip) {
-                    const channelBtn = document.getElementById('channelBtn');
-                    channelBtn.textContent = icon;
-                    channelBtn.title = tooltip;
-                }
+
+                // 页面加载完成后初始化
+                document.addEventListener('DOMContentLoaded', function() {
+                    // 初始绘制五边形
+                    drawPentagon();
+
+                    // 设置默认修炼方向
+                    updateCultivationFocus('HP');
+                });
+
+                // 窗口大小改变时重新绘制
+                window.addEventListener('resize', function() {
+                    setTimeout(drawPentagon, 100);
+                });
             </script>
         </body>
         </html>
@@ -402,30 +783,46 @@ class UpperAreaWidget(QWidget):
 
         self.html_display.setHtml(html_template)
 
+
+
+
     def setup_javascript_events(self):
         """设置JavaScript事件监听"""
         if not WEBENGINE_AVAILABLE or not hasattr(self, 'html_display'):
             return
 
         # 延迟设置事件监听，确保页面加载完成
-        QTimer.singleShot(1500, self._setup_events)
+        QTimer.singleShot(500, self._setup_events)
 
     def _setup_events(self):
         """实际设置事件监听"""
         try:
-            # 注入事件监听器
+            # 注入事件监听器和全局函数
             js_code = """
-            document.addEventListener('dailySignRequested', function() {
-                console.log('Daily sign event received');
-                // 这里需要通过其他方式通知Python，比如修改页面元素
-                document.title = 'dailySign:' + Date.now();
-            });
+            // 全局函数，供HTML中的onclick调用
+            window.pyqtSignal = function(eventType, data) {
+                console.log('PyQt Signal:', eventType, data);
+                if (eventType === 'daily_sign_requested') {
+                    document.title = 'dailySign:' + Date.now();
+                } else if (eventType === 'function_selected') {
+                    document.title = 'function:' + data + ':' + Date.now();
+                } else if (eventType === 'cultivation_focus_changed') {
+                    document.title = 'cultivation:' + data + ':' + Date.now();
+                }
+            };
 
-            document.addEventListener('functionSelected', function(event) {
-                console.log('Function selected event received:', event.detail);
-                // 通过修改页面标题来传递信息
-                document.title = 'function:' + event.detail + ':' + Date.now();
-            });
+            // 确保函数在全局作用域中可用
+            window.handleDailySign = function() {
+                window.pyqtSignal('daily_sign_requested');
+            };
+
+            window.selectFunction = function(functionKey) {
+                window.pyqtSignal('function_selected', functionKey);
+            };
+
+            window.setCultivationFocus = function(focusType) {
+                window.pyqtSignal('cultivation_focus_changed', focusType);
+            };
             """
 
             self.html_display.page().runJavaScript(js_code)
@@ -446,120 +843,103 @@ class UpperAreaWidget(QWidget):
                 if len(parts) >= 2:
                     function_key = parts[1]
                     self.function_selected.emit(function_key)
+            elif title.startswith('cultivation:'):
+                parts = title.split(':')
+                if len(parts) >= 2:
+                    focus_type = parts[1]
+                    self.cultivation_focus_changed.emit(focus_type)
         except Exception as e:
             print(f"❌ 处理标题变化失败: {e}")
 
     def init_default_data(self):
         """初始化默认数据"""
-        default_data = {
-            'name': '角色名称',
-            'realm': '凡人',
-            'expProgress': 0,
-            'expText': '修为: 0 / 100 (0.0%)',
-            'focusName': '体修',
-            'cultivationState': '未修炼',
-            'gold': '0',
-            'spiritStone': '0',
-            'luckDisplay': '平 (50)',
-            'canSignToday': True
-        }
-        self.update_character_display(default_data)
-
-    def update_character_display(self, data: Dict[str, Any]):
-        """更新角色信息显示"""
         if not WEBENGINE_AVAILABLE or not hasattr(self, 'html_display'):
             return
 
-        try:
-            # 构建JavaScript调用
-            js_data = {
-                'name': str(data.get('name', '角色名称')),
-                'realm': str(data.get('realm', '凡人')),
-                'expProgress': float(data.get('expProgress', 0)),
-                'expText': str(data.get('expText', '修为: 0 / 100 (0.0%)')),
-                'focusName': str(data.get('focusName', '体修')),
-                'cultivationState': str(data.get('cultivationState', '未修炼')),
-                'gold': str(data.get('gold', '0')),
-                'spiritStone': str(data.get('spiritStone', '0')),
-                'luckDisplay': str(data.get('luckDisplay', '平 (50)')),
-                'canSignToday': bool(data.get('canSignToday', True))
+        # 延迟初始化，确保页面完全加载
+        QTimer.singleShot(200, self._init_default_data)
+
+    def _init_default_data(self):
+        """实际初始化默认数据"""
+        default_character_data = {
+            'name': '道友名称',
+            'id': '????????',
+            'cultivation_realm': 0,
+            'gold': 0,
+            'spirit_stone': 0,
+            'luck_value': 50,
+            'cultivation_focus': 'HP',
+            'attributes': {
+                'hp': 100,
+                'physical_attack': 20,
+                'magic_attack': 20,
+                'physical_defense': 15,
+                'magic_defense': 15
             }
+        }
 
-            # 转换为JavaScript对象字符串
-            js_object = "{"
-            for key, value in js_data.items():
-                if isinstance(value, str):
-                    escaped_value = value.replace("'", "\\'")
-                    js_object += f"'{key}': '{escaped_value}', "
-                elif isinstance(value, bool):
-                    js_object += f"'{key}': {'true' if value else 'false'}, "
-                else:
-                    js_object += f"'{key}': {value}, "
-            js_object = js_object.rstrip(', ') + "}"
+        default_cultivation_status = {
+            'is_active': False
+        }
 
-            # 执行JavaScript更新，先检查函数是否存在
+        self.update_character_info(default_character_data)
+        self.update_cultivation_status(default_cultivation_status)
+    def update_character_info(self, character_data: Dict[str, Any]):
+        """更新角色信息"""
+        if not WEBENGINE_AVAILABLE or not hasattr(self, 'html_display'):
+            return
+
+        self.character_data = character_data
+
+        try:
+            # 构建JavaScript调用来更新角色信息
             js_code = f"""
             if (typeof updateCharacterInfo === 'function') {{
-                updateCharacterInfo({js_object});
+                updateCharacterInfo({character_data});
             }} else {{
                 console.log('updateCharacterInfo function not ready yet');
             }}
             """
+
+            # 将Python字典转换为JavaScript对象字符串
+            import json
+            js_data = json.dumps(character_data, ensure_ascii=False)
+            js_code = f"""
+            if (typeof updateCharacterInfo === 'function') {{
+                updateCharacterInfo({js_data});
+            }} else {{
+                console.log('updateCharacterInfo function not ready yet');
+            }}
+            """
+
             self.html_display.page().runJavaScript(js_code)
 
         except Exception as e:
-            print(f"❌ 更新角色信息显示失败: {e}")
-
-    def update_character_info(self, character_data: Dict[str, Any]):
-        """更新角色信息"""
-        self.character_data = character_data
-
-        # 处理角色基本信息
-        name = character_data.get('name', '未知角色')
-        realm_level = character_data.get('cultivation_realm', 0)
-        realm_name = get_realm_name(realm_level)
-
-        # 处理修为进度
-        current_exp = character_data.get('cultivation_exp', 0)
-        exp_progress, exp_text = self.calculate_exp_progress(current_exp, realm_level)
-
-        # 处理修炼方向
-        focus_type = character_data.get('cultivation_focus', 'HP')
-        focus_info = CULTIVATION_FOCUS_TYPES.get(focus_type, {})
-        focus_name = focus_info.get('name', '体修')
-
-        # 处理资源
-        gold = character_data.get('gold', 0)
-        spirit_stone = character_data.get('spirit_stone', 0)
-
-        # 处理气运
-        luck_value = character_data.get('luck_value', 50)
-        luck_display = self.format_luck_display(luck_value)
-
-        # 更新显示
-        display_data = {
-            'name': name,
-            'realm': realm_name,
-            'expProgress': exp_progress,
-            'expText': exp_text,
-            'focusName': focus_name,
-            'cultivationState': '挂机中' if self.cultivation_status and self.cultivation_status.get('is_cultivating') else '未修炼',
-            'gold': f"{gold:,}",
-            'spiritStone': f"{spirit_stone:,}",
-            'luckDisplay': luck_display,
-            'canSignToday': self.luck_info.get('can_sign_today', True) if self.luck_info else True
-        }
-
-        self.update_character_display(display_data)
+            print(f"❌ 更新角色信息失败: {e}")
 
     def update_cultivation_status(self, cultivation_data: Dict[str, Any]):
         """更新修炼状态"""
+        if not WEBENGINE_AVAILABLE or not hasattr(self, 'html_display'):
+            return
+
         self.cultivation_status = cultivation_data
 
-        # 如果有角色数据，重新更新显示
-        if self.character_data:
-            self.update_character_info(self.character_data)
+        try:
+            # 构建JavaScript调用来更新修炼状态
+            import json
+            js_data = json.dumps(cultivation_data, ensure_ascii=False)
+            js_code = f"""
+            if (typeof updateCultivationStatus === 'function') {{
+                updateCultivationStatus({js_data});
+            }} else {{
+                console.log('updateCultivationStatus function not ready yet');
+            }}
+            """
 
+            self.html_display.page().runJavaScript(js_code)
+
+        except Exception as e:
+            print(f"❌ 更新修炼状态失败: {e}")
     def update_luck_info(self, luck_data: Dict[str, Any]):
         """更新气运信息"""
         self.luck_info = luck_data
@@ -567,76 +947,28 @@ class UpperAreaWidget(QWidget):
         # 如果有角色数据，重新更新显示
         if self.character_data:
             self.update_character_info(self.character_data)
-
-    def calculate_exp_progress(self, current_exp: int, realm_level: int) -> tuple:
-        """计算修为进度"""
-        from shared.constants import CULTIVATION_EXP_REQUIREMENTS
-
-        # 获取当前境界和下一境界的修为需求
-        current_realm_exp = CULTIVATION_EXP_REQUIREMENTS.get(realm_level, 0)
-        next_realm_exp = CULTIVATION_EXP_REQUIREMENTS.get(realm_level + 1, current_realm_exp + 1000)
-
-        # 计算当前境界内的进度
-        if next_realm_exp > current_realm_exp:
-            progress_exp = current_exp - current_realm_exp
-            required_exp = next_realm_exp - current_realm_exp
-            progress_percent = (progress_exp / required_exp) * 100 if required_exp > 0 else 0
-        else:
-            progress_exp = 0
-            required_exp = 1
-            progress_percent = 100
-
-        # 格式化进度文本
-        exp_text = f"修为: {progress_exp:,} / {required_exp:,} ({progress_percent:.1f}%)"
-
-        return progress_percent, exp_text
-
-    def format_luck_display(self, luck_value: int) -> str:
-        """格式化气运显示"""
-        luck_level_name = get_luck_level_name(luck_value)
-        return f"{luck_level_name} ({luck_value})"
-
     def update_channel_button(self, icon: str, tooltip: str):
         """更新频道按钮"""
         if not WEBENGINE_AVAILABLE or not hasattr(self, 'html_display'):
             return
 
         try:
-            js_code = f"updateChannelButton('{icon}', '{tooltip}');"
+            # 通过JavaScript更新频道按钮的图标和提示
+            js_code = f"""
+            (function() {{
+                const channelButton = document.querySelector('[onclick*="channel"]');
+                if (channelButton) {{
+                    const iconElement = channelButton.querySelector('.function-btn-icon');
+                    if (iconElement) {{
+                        iconElement.textContent = '{icon}';
+                    }}
+                    channelButton.title = '{tooltip}';
+                }}
+            }})();
+            """
             self.html_display.page().runJavaScript(js_code)
         except Exception as e:
             print(f"❌ 更新频道按钮失败: {e}")
-
-    def setup_javascript_bridge(self):
-        """设置JavaScript桥接"""
-        if not WEBENGINE_AVAILABLE or not hasattr(self, 'html_display'):
-            return
-
-        # 注入JavaScript函数到页面
-        js_bridge = """
-        window.dailySignRequested = function() {
-            console.log('Daily sign requested');
-            // 这里会通过Qt的机制触发Python信号
-        };
-
-        window.functionSelected = function(functionKey) {
-            console.log('Function selected:', functionKey);
-            // 这里会通过Qt的机制触发Python信号
-        };
-        """
-
-        try:
-            self.html_display.page().runJavaScript(js_bridge)
-        except Exception as e:
-            print(f"❌ 设置JavaScript桥接失败: {e}")
-
-    def handle_daily_sign_click(self):
-        """处理每日签到点击"""
-        self.daily_sign_requested.emit()
-
-    def handle_function_click(self, function_key: str):
-        """处理功能按钮点击"""
-        self.function_selected.emit(function_key)
 
     def get_character_summary(self) -> Dict[str, Any]:
         """获取角色信息摘要"""
