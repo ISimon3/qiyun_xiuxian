@@ -258,11 +258,7 @@ class CultivationSystem:
                     special_event_result["effects"]
                 )
 
-                # 检查是否有修炼延迟效果
-                if special_event_result.get("effects", {}).get("next_cultivation_delay"):
-                    # 设置下一轮修炼延迟标记
-                    from server.core.game_loop import game_loop
-                    game_loop.set_cultivation_delay(character.id)
+
 
             await db.commit()
 

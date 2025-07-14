@@ -363,10 +363,7 @@ class LuckSystem:
                     result["message"] = f"与天地灵气产生共鸣，获得灵石！(+{spirit_stone_bonus})"
                     result["effects"]["spirit_stone"] = spirit_stone_bonus
 
-                elif event_type == "功法突破":
-                    result["message"] = "功法修炼有所突破，修炼效率提升！"
-                    result["effects"]["cultivation_speed_bonus"] = event_config.get("cultivation_speed_bonus", 0.5)
-                    result["effects"]["duration_minutes"] = event_config.get("duration_minutes", 60)
+
 
                 elif event_type == "天材地宝":
                     # 随机提升一个属性
@@ -392,9 +389,7 @@ class LuckSystem:
                 # 处理负面事件
                 event_config = LUCK_SPECIAL_EVENTS["NEGATIVE_EVENTS"].get(event_type, {})
 
-                if event_type == "修炼受阻":
-                    result["message"] = "修炼时心神不宁，修炼效率降低！"
-                    result["effects"]["next_cultivation_delay"] = True  # 下一轮修炼延迟
+
 
                 elif event_type == "走火入魔":
                     exp_penalty = random.randint(

@@ -167,11 +167,11 @@ CULTIVATION_FOCUS_TYPES = {
 
 # 挂机修炼配置
 CULTIVATION_CONFIG = {
-    "BASE_EXP_GAIN": 2,            # 基础修为获得/周期
-    "BASE_ATTRIBUTE_GAIN": 1,      # 基础属性获得/周期
+    "BASE_EXP_GAIN": 10,            # 基础修为获得/周期
+    "BASE_ATTRIBUTE_GAIN": 3,      # 基础属性获得/周期
     "LUCK_MULTIPLIER_MIN": 0.5,    # 气运影响最小倍率
     "LUCK_MULTIPLIER_MAX": 2.0,    # 气运影响最大倍率
-    "BASE_SPECIAL_EVENT_CHANCE": 0.25,  # 基础特殊事件概率 (25%)
+    "BASE_SPECIAL_EVENT_CHANCE": 0.05,  # 基础特殊事件概率 (5%)
 }
 
 # 气运特殊事件配置
@@ -181,8 +181,8 @@ LUCK_SPECIAL_EVENTS = {
         "顿悟": {
             "description": "修炼时突然顿悟，修为大增",
             "exp_bonus_min": 100,
-            "exp_bonus_max": 500,
-            "probability_weight": 40
+            "exp_bonus_max": 200,
+            "probability_weight": 20
         },
         "灵气共鸣": {
             "description": "与天地灵气产生共鸣，获得灵石",
@@ -190,38 +190,28 @@ LUCK_SPECIAL_EVENTS = {
             "spirit_stone_bonus_max": 50,
             "probability_weight": 30
         },
-        "功法突破": {
-            "description": "功法修炼有所突破，修炼效率提升",
-            "cultivation_speed_bonus": 0.5,
-            "duration_minutes": 60,
-            "probability_weight": 20
-        },
+
         "天材地宝": {
             "description": "偶遇天材地宝，属性永久提升",
-            "attribute_bonus": 5,
-            "probability_weight": 10
+            "attribute_bonus": 20,
+            "probability_weight": 50
         }
     },
 
     # 负面事件 (小凶、凶、大凶)
     "NEGATIVE_EVENTS": {
-        "修炼受阻": {
-            "description": "修炼时心神不宁，效率降低",
-            "cultivation_speed_penalty": 0.3,
-            "duration_minutes": 30,
-            "probability_weight": 50
-        },
+
         "走火入魔": {
             "description": "修炼时走火入魔，损失修为",
             "exp_penalty_min": 50,
-            "exp_penalty_max": 200,
-            "probability_weight": 30
+            "exp_penalty_max": 100,
+            "probability_weight": 50
         },
         "灵气紊乱": {
             "description": "周围灵气紊乱，消耗额外灵石",
             "spirit_stone_penalty_min": 5,
             "spirit_stone_penalty_max": 20,
-            "probability_weight": 20
+            "probability_weight": 50
         }
     },
 
