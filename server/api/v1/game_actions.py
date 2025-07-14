@@ -283,14 +283,23 @@ async def get_next_cultivation_time(
         # 获取角色
         character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
 
-        # 获取下次修炼时间
-        from server.core.game_loop import game_loop
-        next_time = game_loop.get_character_next_cultivation_time(character.id)
+        # 获取用户会话信息
+        from server.core.user_session_manager import user_session_manager
+        session_info = user_session_manager.get_user_session_info(current_user.id)
 
         # 计算剩余时间（秒）
-        from datetime import datetime
+        from datetime import datetime, timedelta
         current_time = datetime.now()
-        remaining_seconds = max(0, (next_time - current_time).total_seconds())
+
+        if session_info:
+            last_cultivation_time = session_info["last_cultivation_time"]
+            cultivation_interval = user_session_manager.cultivation_interval
+            next_time = last_cultivation_time + timedelta(seconds=cultivation_interval)
+            remaining_seconds = max(0, (next_time - current_time).total_seconds())
+        else:
+            # 用户未在线，返回默认值
+            next_time = current_time + timedelta(seconds=300)  # 5分钟后
+            remaining_seconds = 300
 
         logger.info(f"🕐 角色 {character.name} 下次修炼时间: {next_time}, 当前时间: {current_time}, 剩余: {remaining_seconds}秒")
 
@@ -495,15 +504,15 @@ async def force_cultivation_cycle(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    强制执行一次修炼周期（用于测试）
+    执行修炼周期（客户端在线时触发）
     """
     try:
         # 获取角色
         character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
 
-        # 强制执行修炼周期
-        from server.core.game_loop import game_loop
-        result = await game_loop.force_cultivation_cycle(character.id)
+        # 使用用户会话管理器处理修炼周期
+        from server.core.user_session_manager import user_session_manager
+        result = await user_session_manager.process_user_cultivation_cycle(current_user.id)
 
         return BaseResponse(
             success=result["success"],
@@ -514,7 +523,7 @@ async def force_cultivation_cycle(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"强制修炼周期失败: {str(e)}"
+            detail=f"修炼周期处理失败: {str(e)}"
         )
 
 

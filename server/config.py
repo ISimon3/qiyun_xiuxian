@@ -43,10 +43,14 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7天
 
     # CORS配置
-    CORS_ORIGINS: list = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CORS_ORIGINS: list = [
+        "http://localhost:3000", "http://127.0.0.1:3000",  # Web前端
+        "http://localhost:8000", "http://127.0.0.1:8000",  # 本地客户端
+        "*"  # 允许所有来源（开发环境）
+    ]
 
     # 游戏配置
-    CULTIVATION_TICK_INTERVAL: int = 60  # 挂机修炼计算间隔(秒)
+    CULTIVATION_TICK_INTERVAL: int = 30  # 挂机修炼计算间隔(秒)
     MAX_CHARACTERS_PER_USER: int = 3     # 每个用户最多角色数
 
     # 文件上传配置

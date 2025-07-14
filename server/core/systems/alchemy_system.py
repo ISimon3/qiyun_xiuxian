@@ -546,6 +546,37 @@ class AlchemySystem:
             print(f"更新炼丹会话状态失败: {e}")
 
     @staticmethod
+    async def process_offline_alchemy(db: AsyncSession, character: Character, offline_duration: float) -> Dict[str, Any]:
+        """
+        处理离线炼丹收益
+
+        Args:
+            db: 数据库会话
+            character: 角色对象
+            offline_duration: 离线时长（秒）
+
+        Returns:
+            炼丹收益信息
+        """
+        try:
+            # 暂时返回空收益，因为炼丹是手动触发的
+            # 未来可以添加自动炼丹功能
+            return {
+                "completed_sessions": 0,
+                "items_gained": {},
+                "exp_gained": 0
+            }
+
+        except Exception as e:
+            logger.error(f"处理离线炼丹失败: {e}")
+            return {
+                "completed_sessions": 0,
+                "items_gained": {},
+                "exp_gained": 0,
+                "error": str(e)
+            }
+
+    @staticmethod
     async def use_pill(db: AsyncSession, character: Character, pill_name: str, effects: Dict[str, Any]) -> Dict[str, Any]:
         """使用丹药"""
         try:

@@ -193,11 +193,11 @@ class UserAPI:
         return self.client.get('/api/v1/user/me')
 
     def get_character(self) -> Dict[str, Any]:
-        """获取用户角色信息（自动创建如果不存在）"""
+        """获取用户游戏数据（自动创建如果不存在）"""
         return self.client.get('/api/v1/user/character')
 
     def get_character_detail(self) -> Dict[str, Any]:
-        """获取用户角色详细信息（包含装备）"""
+        """获取用户详细游戏数据（包含装备）"""
         return self.client.get('/api/v1/user/character/detail')
 
 
@@ -419,7 +419,7 @@ class InventoryAPI:
 
     def get_inventory(self) -> Dict[str, Any]:
         """
-        获取角色背包
+        获取用户背包
 
         Returns:
             背包物品列表
@@ -428,7 +428,7 @@ class InventoryAPI:
 
     def get_equipment(self) -> Dict[str, Any]:
         """
-        获取角色装备
+        获取用户装备
 
         Returns:
             装备信息

@@ -38,10 +38,10 @@ async def lifespan(app: FastAPI):
         await init_database()
         logger.info("数据库初始化完成")
 
-        # 启动游戏主循环
-        from server.core.game_loop import game_loop
-        game_loop_task = asyncio.create_task(game_loop.start())
-        logger.info("游戏主循环启动完成")
+        # 启动后台任务循环（处理炼丹和农场，不包括修炼）
+        from server.core.background_tasks import background_task_manager
+        background_task = asyncio.create_task(background_task_manager.start())
+        logger.info("后台任务管理器启动完成（处理炼丹和农场收益）")
 
         logger.info(f"服务器启动成功，监听 {settings.HOST}:{settings.PORT}")
         yield
@@ -53,15 +53,15 @@ async def lifespan(app: FastAPI):
     # 关闭时执行
     logger.info("正在关闭服务器...")
     try:
-        # 停止游戏主循环
-        await game_loop.stop()
-        if 'game_loop_task' in locals():
-            game_loop_task.cancel()
+        # 停止后台任务
+        await background_task_manager.stop()
+        if 'background_task' in locals():
+            background_task.cancel()
             try:
-                await game_loop_task
+                await background_task
             except asyncio.CancelledError:
                 pass
-        logger.info("游戏主循环已停止")
+        logger.info("后台任务管理器已停止")
 
         await close_database()
         logger.info("数据库连接已关闭")

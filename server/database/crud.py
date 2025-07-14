@@ -32,7 +32,19 @@ class UserCRUD:
         """创建用户"""
         hashed_password = UserCRUD.hash_password(user_data.password)
 
+        # 生成8位随机用户ID
+        import random
+        while True:
+            random_id = random.randint(10000000, 99999999)  # 8位随机数
+            # 检查ID是否已存在
+            existing_check = await db.execute(
+                select(User).where(User.id == random_id)
+            )
+            if not existing_check.scalar_one_or_none():
+                break
+
         db_user = User(
+            id=random_id,
             username=user_data.username,
             email=user_data.email,
             hashed_password=hashed_password
@@ -60,6 +72,12 @@ class UserCRUD:
         """根据邮箱获取用户"""
         result = await db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_all_users(db: AsyncSession) -> List[User]:
+        """获取所有用户"""
+        result = await db.execute(select(User).order_by(User.id))
+        return result.scalars().all()
 
     @staticmethod
     async def update_user_login_time(db: AsyncSession, user_id: int) -> None:

@@ -593,7 +593,7 @@ class LuckEffectInfo(BaseModel):
     luck_level: str
     multiplier: float
     special_event_chance: float
-    possible_events: List[str]
+    special_events: Dict[str, Any]  # 包含positive, negative, positive_chance, negative_chance
     is_positive: bool
 
 

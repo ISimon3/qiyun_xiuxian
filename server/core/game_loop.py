@@ -22,7 +22,9 @@ class GameLoop:
 
     def __init__(self):
         self.is_running = False
-        self.cultivation_interval = 30  # 30秒（测试用）
+        # 从配置文件读取修炼间隔
+        from server.config import settings
+        self.cultivation_interval = settings.CULTIVATION_TICK_INTERVAL
         self.last_cultivation_time = {}  # 记录每个角色的最后修炼时间
 
     async def start(self):

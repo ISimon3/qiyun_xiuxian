@@ -15,7 +15,7 @@ class StateManager(QObject):
     # 信号定义
     user_logged_in = pyqtSignal(dict)  # 用户登录信号
     user_logged_out = pyqtSignal()     # 用户登出信号
-    character_selected = pyqtSignal(dict)  # 角色选择信号
+    user_data_updated = pyqtSignal(dict)  # 用户数据更新信号
     state_changed = pyqtSignal(str, object)  # 通用状态变更信号
 
     def __init__(self, config_dir: str = None):
@@ -34,10 +34,13 @@ class StateManager(QObject):
         self._user_info: Optional[Dict[str, Any]] = None
         self._access_token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
-        self._characters: List[Dict[str, Any]] = []
-        self._current_character: Optional[Dict[str, Any]] = None
+        self._user_data: Optional[Dict[str, Any]] = None  # 用户游戏数据（原角色数据）
+        self._cultivation_status: Optional[Dict[str, Any]] = None  # 修炼状态数据
+        self._luck_info: Optional[Dict[str, Any]] = None  # 气运信息数据
         self._server_url: str = "http://localhost:8000"
         self._saved_credentials: Optional[Dict[str, str]] = None
+        self._remember_login_state: bool = False  # 是否记住登录状态
+        self._remember_password: bool = False     # 是否记住密码
 
         # 加载保存的配置
         self.load_config()
@@ -58,14 +61,19 @@ class StateManager(QObject):
         return self._access_token
 
     @property
-    def characters(self) -> List[Dict[str, Any]]:
-        """获取角色列表"""
-        return self._characters.copy()
+    def user_data(self) -> Optional[Dict[str, Any]]:
+        """获取用户游戏数据"""
+        return self._user_data
 
     @property
-    def current_character(self) -> Optional[Dict[str, Any]]:
-        """获取当前选中的角色"""
-        return self._current_character
+    def cultivation_status(self) -> Optional[Dict[str, Any]]:
+        """获取修炼状态数据"""
+        return self._cultivation_status
+
+    @property
+    def luck_info(self) -> Optional[Dict[str, Any]]:
+        """获取气运信息数据"""
+        return self._luck_info
 
     @property
     def server_url(self) -> str:
@@ -78,18 +86,21 @@ class StateManager(QObject):
         self.save_config()
         self.state_changed.emit('server_url', url)
 
-    def login(self, user_info: Dict[str, Any], token_data: Dict[str, Any]) -> None:
+    def login(self, user_info: Dict[str, Any], token_data: Dict[str, Any],
+              remember_login_state: bool = False) -> None:
         """
         用户登录
 
         Args:
             user_info: 用户信息
             token_data: 令牌数据
+            remember_login_state: 是否记住登录状态
         """
         print(f"📊 状态管理器: 开始登录处理 - {user_info.get('username')}")
 
         self._user_info = user_info
         self._access_token = token_data.get('access_token')
+        self._remember_login_state = remember_login_state
 
         if not self._access_token:
             print("❌ 警告: 未获取到访问令牌")
@@ -101,6 +112,7 @@ class StateManager(QObject):
 
         print(f"✅ Token设置成功，有效期: {expires_in}秒")
         print(f"🔑 Token: {self._access_token[:20]}...")
+        print(f"💾 记住登录状态: {remember_login_state}")
 
         # 保存配置
         self.save_config()
@@ -110,13 +122,27 @@ class StateManager(QObject):
         self.user_logged_in.emit(user_info)
         self.state_changed.emit('login', user_info)
 
-    def logout(self) -> None:
-        """用户登出"""
+    def logout(self, clear_all: bool = False) -> None:
+        """
+        用户登出
+
+        Args:
+            clear_all: 是否清除所有数据（包括保存的凭据）
+        """
         self._user_info = None
         self._access_token = None
         self._token_expires_at = None
-        self._characters = []
-        self._current_character = None
+        self._user_data = None
+        self._cultivation_status = None
+        self._luck_info = None
+
+        # 登出时总是清除记住登录状态标志，除非明确要求保留
+        self._remember_login_state = False
+
+        # 如果明确要求清除所有数据，则也清除凭据和记住密码设置
+        if clear_all:
+            self._saved_credentials = None
+            self._remember_password = False
 
         # 保存配置
         self.save_config()
@@ -125,20 +151,33 @@ class StateManager(QObject):
         self.user_logged_out.emit()
         self.state_changed.emit('logout', None)
 
-    def save_credentials(self, username: str, encoded_password: str) -> None:
+    def save_credentials(self, username: str, encoded_password: str,
+                        remember_password: bool = False) -> None:
         """
         保存用户凭据
 
         Args:
             username: 用户名
             encoded_password: 编码后的密码
+            remember_password: 是否记住密码
         """
-        self._saved_credentials = {
-            'username': username,
-            'password': encoded_password
-        }
+        self._remember_password = remember_password
+
+        if remember_password:
+            self._saved_credentials = {
+                'username': username,
+                'password': encoded_password
+            }
+            print(f"📝 状态管理器: 已保存用户 {username} 的凭据")
+        else:
+            # 只保存用户名，不保存密码
+            self._saved_credentials = {
+                'username': username,
+                'password': ''
+            }
+            print(f"📝 状态管理器: 已保存用户名 {username}（未保存密码）")
+
         self.save_config()
-        print(f"📝 状态管理器: 已保存用户 {username} 的凭据")
 
     def get_saved_credentials(self) -> Optional[Dict[str, str]]:
         """
@@ -148,6 +187,18 @@ class StateManager(QObject):
             保存的凭据字典，包含username和password字段
         """
         return self._saved_credentials
+
+    def get_remember_settings(self) -> Dict[str, bool]:
+        """
+        获取记住设置
+
+        Returns:
+            包含remember_login_state和remember_password的字典
+        """
+        return {
+            'remember_login_state': self._remember_login_state,
+            'remember_password': self._remember_password
+        }
 
     def clear_saved_password(self) -> None:
         """清除保存的密码，但保留用户名"""
@@ -173,51 +224,50 @@ class StateManager(QObject):
         buffer_time = 300  # 5分钟
         return datetime.now().timestamp() >= (self._token_expires_at - buffer_time)
 
-    def update_characters(self, characters: List[Dict[str, Any]]) -> None:
+    def update_user_data(self, user_data: Dict[str, Any]) -> None:
         """
-        更新角色列表
+        更新用户游戏数据
 
         Args:
-            characters: 角色列表
+            user_data: 用户游戏数据
         """
-        self._characters = characters
+        self._user_data = user_data
         self.save_config()
-        self.state_changed.emit('characters', characters)
+        self.user_data_updated.emit(user_data)
+        self.state_changed.emit('user_data', user_data)
 
-    def select_character(self, character: Dict[str, Any]) -> None:
+    def update_cultivation_status(self, cultivation_status: Dict[str, Any]) -> None:
         """
-        选择当前角色
+        更新修炼状态数据
 
         Args:
-            character: 角色信息
+            cultivation_status: 修炼状态数据
         """
-        self._current_character = character
-        self.save_config()
-        self.character_selected.emit(character)
-        self.state_changed.emit('current_character', character)
+        self._cultivation_status = cultivation_status
+        # 修炼状态不需要持久化保存，只在内存中保持
 
-    def add_character(self, character: Dict[str, Any]) -> None:
+    def update_luck_info(self, luck_info: Dict[str, Any]) -> None:
         """
-        添加新角色到列表
+        更新气运信息数据
 
         Args:
-            character: 角色信息
+            luck_info: 气运信息数据
         """
-        self._characters.append(character)
-        self.save_config()
-        self.state_changed.emit('characters', self._characters)
+        self._luck_info = luck_info
+        # 气运信息不需要持久化保存，只在内存中保持
 
     def save_config(self) -> None:
         """保存配置到文件"""
         try:
             config_data = {
                 'server_url': self._server_url,
-                'user_info': self._user_info,
-                'access_token': self._access_token,
-                'token_expires_at': self._token_expires_at,
-                'characters': self._characters,
-                'current_character': self._current_character,
+                'user_info': self._user_info if self._remember_login_state else None,
+                'access_token': self._access_token if self._remember_login_state else None,
+                'token_expires_at': self._token_expires_at if self._remember_login_state else None,
+                'user_data': self._user_data if self._remember_login_state else None,
                 'saved_credentials': self._saved_credentials,
+                'remember_login_state': self._remember_login_state,
+                'remember_password': self._remember_password,
                 'last_updated': datetime.now().isoformat()
             }
 
@@ -231,6 +281,16 @@ class StateManager(QObject):
         """从文件加载配置"""
         try:
             if not os.path.exists(self.config_file):
+                # 配置文件不存在时，重置所有状态为默认值
+                print("配置文件不存在，重置为默认状态")
+                self._server_url = 'http://localhost:8000'
+                self._user_info = None
+                self._access_token = None
+                self._token_expires_at = None
+                self._user_data = None
+                self._saved_credentials = None
+                self._remember_login_state = False
+                self._remember_password = False
                 return
 
             with open(self.config_file, 'r', encoding='utf-8') as f:
@@ -241,9 +301,10 @@ class StateManager(QObject):
             self._user_info = config_data.get('user_info')
             self._access_token = config_data.get('access_token')
             self._token_expires_at = config_data.get('token_expires_at')
-            self._characters = config_data.get('characters', [])
-            self._current_character = config_data.get('current_character')
+            self._user_data = config_data.get('user_data')
             self._saved_credentials = config_data.get('saved_credentials')
+            self._remember_login_state = config_data.get('remember_login_state', False)
+            self._remember_password = config_data.get('remember_password', False)
 
             # 检查token是否过期
             if self._access_token and self.is_token_expired():
@@ -252,6 +313,15 @@ class StateManager(QObject):
 
         except Exception as e:
             print(f"加载配置失败: {e}")
+            # 加载失败时也重置为默认状态
+            self._server_url = 'http://localhost:8000'
+            self._user_info = None
+            self._access_token = None
+            self._token_expires_at = None
+            self._user_data = None
+            self._saved_credentials = None
+            self._remember_login_state = False
+            self._remember_password = False
 
     def clear_config(self) -> None:
         """清除所有配置"""
@@ -264,13 +334,18 @@ class StateManager(QObject):
         # 重置状态
         self.logout()
 
+    def reload_config(self) -> None:
+        """重新加载配置文件"""
+        print("🔄 重新加载配置文件...")
+        self.load_config()
+
     def get_config_summary(self) -> Dict[str, Any]:
         """获取配置摘要信息"""
         return {
             'is_logged_in': self.is_logged_in,
             'username': self._user_info.get('username') if self._user_info else None,
-            'character_count': len(self._characters),
-            'current_character_name': self._current_character.get('name') if self._current_character else None,
+            'has_game_data': self._user_data is not None,
+            'user_name': self._user_data.get('name') if self._user_data else None,
             'server_url': self._server_url,
             'token_expired': self.is_token_expired() if self._access_token else None
         }

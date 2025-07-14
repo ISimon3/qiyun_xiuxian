@@ -22,7 +22,7 @@ class DataUpdateWorker(QThread):
     """数据更新工作线程"""
 
     # 信号定义
-    character_updated = pyqtSignal(dict)  # 角色数据更新信号
+    user_data_updated = pyqtSignal(dict)  # 用户数据更新信号
     cultivation_status_updated = pyqtSignal(dict)  # 修炼状态更新信号
     luck_info_updated = pyqtSignal(dict)  # 气运信息更新信号
     update_failed = pyqtSignal(str)  # 更新失败信号
@@ -58,13 +58,13 @@ class DataUpdateWorker(QThread):
                     self.update_failed.emit("未设置访问令牌，请重新登录")
                     break
 
-                # 获取角色信息
-                character_response = self.api_client.user.get_character_detail()
-                if character_response.get('success'):
-                    self.character_updated.emit(character_response['data'])
+                # 获取用户游戏数据
+                user_data_response = self.api_client.user.get_character_detail()
+                if user_data_response.get('success'):
+                    self.user_data_updated.emit(user_data_response['data'])
                 else:
-                    error_msg = character_response.get('message', '获取角色信息失败')
-                    self.update_failed.emit(f"角色信息: {error_msg}")
+                    error_msg = user_data_response.get('message', '获取用户数据失败')
+                    self.update_failed.emit(f"用户数据: {error_msg}")
 
                 # 获取修炼状态
                 cultivation_response = self.api_client.game.get_cultivation_status()
@@ -143,14 +143,29 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(100, self.state_manager.logout)
             return
 
-        # 启动数据更新
-        self.update_worker.start_updates()
-
-        # 延迟加载初始数据，确保界面已完全初始化，在默认数据显示后加载真实数据
-        QTimer.singleShot(500, self.load_initial_data)
+        # 检查是否有预加载数据
+        if self.state_manager.user_data:
+            print(f"✅ 主窗口发现预加载数据: {self.state_manager.user_data.get('name')} (ID: {self.state_manager.user_data.get('user_id')})")
+            # 立即加载预加载数据，但给界面一点时间完成初始化
+            QTimer.singleShot(200, self.load_initial_data)
+            # 延迟启动数据更新线程，避免与初始加载冲突
+            QTimer.singleShot(2000, self.start_data_updates)
+        else:
+            print("📡 主窗口没有预加载数据，延迟加载")
+            QTimer.singleShot(500, self.load_initial_data)  # 延迟加载
+            # 延迟启动数据更新线程
+            QTimer.singleShot(3000, self.start_data_updates)
 
         # 延迟启动自动修炼
         QTimer.singleShot(800, self.start_auto_cultivation)
+
+    def start_data_updates(self):
+        """启动数据更新线程"""
+        if not self.update_worker.isRunning():
+            print("🚀 启动数据更新线程")
+            self.update_worker.start_updates()
+        else:
+            print("⚠️ 数据更新线程已在运行")
 
     def init_ui(self):
         """初始化界面"""
@@ -392,7 +407,7 @@ class MainWindow(QMainWindow):
 
     def setup_worker_connections(self):
         """设置工作线程信号连接"""
-        self.update_worker.character_updated.connect(self.on_character_updated)
+        self.update_worker.user_data_updated.connect(self.on_user_data_updated)
         self.update_worker.cultivation_status_updated.connect(self.on_cultivation_status_updated)
         self.update_worker.luck_info_updated.connect(self.on_luck_info_updated)
         self.update_worker.update_failed.connect(self.on_update_failed)
@@ -441,29 +456,49 @@ class MainWindow(QMainWindow):
                     self.state_manager.logout()  # 触发登出，会自动关闭窗口
                     return
 
-            # 获取角色信息
-            character_response = self.api_client.user.get_character_detail()
-            if character_response.get('success'):
-                self.on_character_updated(character_response['data'])
-            else:
-                error_msg = character_response.get('message', '获取角色信息失败')
-                print(f"⚠️ 角色信息加载失败: {error_msg}")
+            # 优先使用预加载的数据
+            has_preloaded_data = False
 
-            # 获取修炼状态
-            cultivation_response = self.api_client.game.get_cultivation_status()
-            if cultivation_response.get('success'):
-                self.on_cultivation_status_updated(cultivation_response['data'])
-            else:
-                error_msg = cultivation_response.get('message', '获取修炼状态失败')
-                print(f"⚠️ 修炼状态加载失败: {error_msg}")
+            if self.state_manager.user_data:
+                print("✅ 使用预加载的用户数据")
+                self.on_user_data_updated(self.state_manager.user_data)
+                has_preloaded_data = True
 
-            # 获取气运信息
-            luck_response = self.api_client.game.get_luck_info()
-            if luck_response.get('success'):
-                self.on_luck_info_updated(luck_response['data'])
-            else:
-                error_msg = luck_response.get('message', '获取气运信息失败')
-                print(f"⚠️ 气运信息加载失败: {error_msg}")
+            if self.state_manager.cultivation_status:
+                print("✅ 使用预加载的修炼状态")
+                self.on_cultivation_status_updated(self.state_manager.cultivation_status)
+            elif not has_preloaded_data:
+                # 只有在没有预加载数据时才重新获取
+                cultivation_response = self.api_client.game.get_cultivation_status()
+                if cultivation_response.get('success'):
+                    self.on_cultivation_status_updated(cultivation_response['data'])
+                else:
+                    error_msg = cultivation_response.get('message', '获取修炼状态失败')
+                    print(f"⚠️ 修炼状态加载失败: {error_msg}")
+
+            if self.state_manager.luck_info:
+                print("✅ 使用预加载的气运信息")
+                self.on_luck_info_updated(self.state_manager.luck_info)
+            elif not has_preloaded_data:
+                # 只有在没有预加载数据时才重新获取
+                luck_response = self.api_client.game.get_luck_info()
+                if luck_response.get('success'):
+                    self.on_luck_info_updated(luck_response['data'])
+                else:
+                    error_msg = luck_response.get('message', '获取气运信息失败')
+                    print(f"⚠️ 气运信息加载失败: {error_msg}")
+
+            # 如果没有任何预加载数据，则重新获取所有数据
+            if not has_preloaded_data:
+                print("📡 重新获取所有游戏数据")
+                user_data_response = self.api_client.user.get_character_detail()
+                if user_data_response.get('success'):
+                    self.on_user_data_updated(user_data_response['data'])
+                else:
+                    error_msg = user_data_response.get('message', '获取用户数据失败')
+                    print(f"⚠️ 用户数据加载失败: {error_msg}")
+
+            print("✅ 初始数据加载完成")
 
         except APIException as e:
             if "401" in str(e):
@@ -474,10 +509,14 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "错误", f"发生未知错误: {str(e)}")
 
-    def on_character_updated(self, character_data: Dict[str, Any]):
-        """角色数据更新处理"""
+    def on_user_data_updated(self, user_data: Dict[str, Any]):
+        """用户数据更新处理"""
+        # 更新状态管理器中的用户数据
+        self.state_manager.update_user_data(user_data)
+
+        # 更新界面显示
         if self.upper_area_widget:
-            self.upper_area_widget.update_character_info(character_data)
+            self.upper_area_widget.update_character_info(user_data)
 
     def on_cultivation_status_updated(self, cultivation_data: Dict[str, Any]):
         """修炼状态更新处理"""

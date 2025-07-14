@@ -13,7 +13,7 @@ from shared.utils import get_realm_name, get_luck_level_name
 
 
 class CharacterInfoWidget(QWidget):
-    """角色信息面板组件"""
+    """用户信息面板组件"""
 
     # 信号定义
     daily_sign_requested = pyqtSignal()  # 每日签到请求信号
@@ -73,11 +73,11 @@ class CharacterInfoWidget(QWidget):
 
     def create_basic_info_section(self, parent_layout: QVBoxLayout):
         """创建基本信息区域"""
-        # 角色名称和境界
+        # 修仙者名称和境界
         info_layout = QHBoxLayout()
 
-        # 角色名称
-        self.name_label = QLabel("角色名称")
+        # 修仙者名称
+        self.name_label = QLabel("修仙者名称")
         self.name_label.setProperty("class", "title-label")
         font = QFont()
         font.setPointSize(14)
@@ -265,11 +265,11 @@ class CharacterInfoWidget(QWidget):
         parent_layout.addLayout(resources_layout)
 
     def update_character_info(self, character_data: Dict[str, Any]):
-        """更新角色信息"""
+        """更新用户信息"""
         self.character_data = character_data
 
-        # 更新角色名称
-        name = character_data.get('name', '未知角色')
+        # 更新修仙者名称
+        name = character_data.get('name', '未知修仙者')
         self.name_label.setText(name)
 
         # 更新境界
@@ -386,7 +386,7 @@ class CharacterInfoWidget(QWidget):
             self.cultivation_focus_changed.emit(current_focus)
 
     def get_character_summary(self) -> Dict[str, Any]:
-        """获取角色信息摘要"""
+        """获取用户信息摘要"""
         if not self.character_data:
             return {}
 

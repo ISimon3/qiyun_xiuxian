@@ -167,11 +167,74 @@ CULTIVATION_FOCUS_TYPES = {
 
 # 挂机修炼配置
 CULTIVATION_CONFIG = {
-    "BASE_EXP_GAIN": 10,           # 基础修为获得/分钟
-    "BASE_ATTRIBUTE_GAIN": 1,      # 基础属性获得/分钟
+    "BASE_EXP_GAIN": 2,            # 基础修为获得/30秒周期 (相当于每分钟4点修为)
+    "BASE_ATTRIBUTE_GAIN": 1,      # 基础属性获得/30秒周期 (相当于每分钟2点属性)
     "LUCK_MULTIPLIER_MIN": 0.5,    # 气运影响最小倍率
     "LUCK_MULTIPLIER_MAX": 2.0,    # 气运影响最大倍率
-    "SPECIAL_EVENT_CHANCE": 0.05,  # 特殊事件概率 (5%)
+    "BASE_SPECIAL_EVENT_CHANCE": 0.05,  # 基础特殊事件概率 (5%)
+}
+
+# 气运特殊事件配置
+LUCK_SPECIAL_EVENTS = {
+    # 正面事件 (小吉、吉、大吉)
+    "POSITIVE_EVENTS": {
+        "顿悟": {
+            "description": "修炼时突然顿悟，修为大增",
+            "exp_bonus_min": 100,
+            "exp_bonus_max": 500,
+            "probability_weight": 40
+        },
+        "灵气共鸣": {
+            "description": "与天地灵气产生共鸣，获得灵石",
+            "spirit_stone_bonus_min": 10,
+            "spirit_stone_bonus_max": 50,
+            "probability_weight": 30
+        },
+        "功法突破": {
+            "description": "功法修炼有所突破，修炼效率提升",
+            "cultivation_speed_bonus": 0.5,
+            "duration_minutes": 60,
+            "probability_weight": 20
+        },
+        "天材地宝": {
+            "description": "偶遇天材地宝，属性永久提升",
+            "attribute_bonus": 5,
+            "probability_weight": 10
+        }
+    },
+
+    # 负面事件 (小凶、凶、大凶)
+    "NEGATIVE_EVENTS": {
+        "修炼受阻": {
+            "description": "修炼时心神不宁，效率降低",
+            "cultivation_speed_penalty": 0.3,
+            "duration_minutes": 30,
+            "probability_weight": 50
+        },
+        "走火入魔": {
+            "description": "修炼时走火入魔，损失修为",
+            "exp_penalty_min": 50,
+            "exp_penalty_max": 200,
+            "probability_weight": 30
+        },
+        "灵气紊乱": {
+            "description": "周围灵气紊乱，消耗额外灵石",
+            "spirit_stone_penalty_min": 5,
+            "spirit_stone_penalty_max": 20,
+            "probability_weight": 20
+        }
+    },
+
+    # 气运等级对应的事件概率倍率
+    "LUCK_LEVEL_MULTIPLIERS": {
+        "大凶": {"positive": 0.1, "negative": 4.0},  # 负面事件概率x4，正面事件概率x0.1
+        "凶": {"positive": 0.3, "negative": 2.5},    # 负面事件概率x2.5，正面事件概率x0.3
+        "小凶": {"positive": 0.6, "negative": 1.5},  # 负面事件概率x1.5，正面事件概率x0.6
+        "平": {"positive": 1.0, "negative": 1.0},    # 正常概率
+        "小吉": {"positive": 1.5, "negative": 0.6},  # 正面事件概率x1.5，负面事件概率x0.6
+        "吉": {"positive": 2.5, "negative": 0.3},    # 正面事件概率x2.5，负面事件概率x0.3
+        "大吉": {"positive": 4.0, "negative": 0.1}   # 正面事件概率x4，负面事件概率x0.1
+    }
 }
 
 # 境界对应的基础战斗属性 - 完整属性表
@@ -873,7 +936,6 @@ ALCHEMY_MATERIALS = {
 
 # 默认配置
 DEFAULT_CONFIG = {
-    "CULTIVATION_BASE_EXP": 10,       # 基础修炼经验/分钟
     "MAX_LUCK_VALUE": 100,            # 最大气运值
     "MIN_LUCK_VALUE": 0,              # 最小气运值
     "BREAKTHROUGH_BASE_CHANCE": 0.5,  # 基础突破成功率

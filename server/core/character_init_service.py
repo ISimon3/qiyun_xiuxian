@@ -1,4 +1,4 @@
-# 角色初始化服务
+# 用户游戏数据初始化服务
 
 import random
 from typing import List, Optional
@@ -12,7 +12,7 @@ from shared.utils import generate_equipment_attributes
 
 
 class CharacterInitService:
-    """角色初始化服务"""
+    """用户游戏数据初始化服务"""
     
     @staticmethod
     async def initialize_new_character(db: AsyncSession, character: Character) -> None:
@@ -156,31 +156,31 @@ class CharacterInitService:
         return True, ""
     
     @staticmethod
-    def get_character_creation_suggestions() -> dict:
-        """获取角色创建建议"""
+    def get_spiritual_root_info() -> dict:
+        """获取灵根信息（用于参考）"""
         from shared.constants import SPIRITUAL_ROOTS
 
-        # 推荐的灵根类型（按推荐程度排序）
-        recommended_roots = []
-        for root_name, root_info in SPIRITUAL_ROOTS.items():
-            recommended_roots.append({
+        # 灵根类型信息（按修炼速度排序）
+        root_info = []
+        for root_name, root_data in SPIRITUAL_ROOTS.items():
+            root_info.append({
                 "name": root_name,
-                "multiplier": root_info["multiplier"],
-                "rarity": root_info["rarity"],
-                "description": f"修炼速度: {root_info['multiplier']}x"
+                "multiplier": root_data["multiplier"],
+                "rarity": root_data["rarity"],
+                "description": f"修炼速度: {root_data['multiplier']}x"
             })
 
         # 按修炼速度倍率排序
-        recommended_roots.sort(key=lambda x: x["multiplier"], reverse=True)
+        root_info.sort(key=lambda x: x["multiplier"], reverse=True)
 
         return {
-            "spiritual_roots": recommended_roots,
-            "random_suggestion": CharacterInitService.get_random_spiritual_root(),
-            "tips": [
+            "spiritual_roots": root_info,
+            "default_root": "单灵根",  # 新用户默认灵根
+            "info": [
+                "系统会为新用户自动分配单灵根",
                 "天灵根和变异灵根极其稀有，修炼速度最快",
                 "单灵根比较稀有，修炼速度较快",
                 "双灵根和三灵根比较常见，修炼速度适中",
-                "废灵根修炼速度最慢，但也有逆天改命的可能",
-                "灵根类型一旦选择无法更改，请慎重考虑"
+                "废灵根修炼速度最慢，但也有逆天改命的可能"
             ]
         }

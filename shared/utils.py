@@ -3,11 +3,12 @@
 import random
 from typing import Dict, Any
 from .constants import (
-    CULTIVATION_REALMS, 
-    REALM_BASE_ATTRIBUTES, 
+    CULTIVATION_REALMS,
+    REALM_BASE_ATTRIBUTES,
     EQUIPMENT_QUALITY_MULTIPLIERS,
     EQUIPMENT_ATTRIBUTE_VARIATION,
-    LUCK_LEVELS
+    LUCK_LEVELS,
+    LUCK_SPECIAL_EVENTS
 )
 from .schemas import CharacterAttributes, EquipmentAttributes, CharacterTrainingAttributes
 
@@ -155,7 +156,7 @@ def simulate_cultivation_session(
     cultivation_speed: float = 1.0
 ) -> dict:
     """
-    模拟一次挂机修炼（1分钟）
+    模拟一次挂机修炼（30秒周期）
     返回修炼结果
     """
     from .constants import CULTIVATION_CONFIG, CULTIVATION_FOCUS_TYPES
@@ -178,20 +179,45 @@ def simulate_cultivation_session(
     final_exp = max(1, int(final_exp * exp_variation))
     final_attr = max(1, int(final_attr * attr_variation))
 
-    # 检查特殊事件
+    # 检查特殊事件 - 使用新的气运影响系统
     special_event = None
-    if random.random() < CULTIVATION_CONFIG["SPECIAL_EVENT_CHANCE"]:
-        events = [
-            "顿悟：修为额外增加50%",
-            "心境突破：属性额外增加100%",
-            "天人感应：获得额外气运+5"
-        ]
-        special_event = random.choice(events)
+    luck_level = get_luck_level_name(luck_value)
 
-        if "修为" in special_event:
-            final_exp = int(final_exp * 1.5)
-        elif "属性" in special_event:
-            final_attr = int(final_attr * 2)
+    # 获取基础特殊事件概率
+    base_chance = CULTIVATION_CONFIG["BASE_SPECIAL_EVENT_CHANCE"]
+    luck_multipliers = LUCK_SPECIAL_EVENTS["LUCK_LEVEL_MULTIPLIERS"].get(luck_level, {"positive": 1.0, "negative": 1.0})
+
+    # 计算正面和负面事件概率
+    positive_chance = base_chance * luck_multipliers["positive"]
+    negative_chance = base_chance * luck_multipliers["negative"]
+
+    # 检查是否触发特殊事件
+    event_roll = random.random()
+    if event_roll < positive_chance:
+        # 触发正面事件
+        positive_events = LUCK_SPECIAL_EVENTS["POSITIVE_EVENTS"]
+        # 根据权重选择事件
+        events = []
+        weights = []
+        for event_name, event_config in positive_events.items():
+            events.append(event_name)
+            weights.append(event_config.get("probability_weight", 1))
+
+        chosen_event = random.choices(events, weights=weights)[0]
+        special_event = {"event_type": chosen_event, "is_positive": True}
+
+    elif event_roll < positive_chance + negative_chance:
+        # 触发负面事件
+        negative_events = LUCK_SPECIAL_EVENTS["NEGATIVE_EVENTS"]
+        # 根据权重选择事件
+        events = []
+        weights = []
+        for event_name, event_config in negative_events.items():
+            events.append(event_name)
+            weights.append(event_config.get("probability_weight", 1))
+
+        chosen_event = random.choices(events, weights=weights)[0]
+        special_event = {"event_type": chosen_event, "is_positive": False}
 
     # 获取修习方向信息
     focus_info = CULTIVATION_FOCUS_TYPES.get(cultivation_focus, CULTIVATION_FOCUS_TYPES["HP"])

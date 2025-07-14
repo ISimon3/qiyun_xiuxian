@@ -42,27 +42,28 @@ async def get_current_user_info(
         )
 
 
-@router.get("/character", response_model=BaseResponse, summary="获取用户角色")
-async def get_user_character(
+@router.get("/character", response_model=BaseResponse, summary="获取用户游戏数据")
+async def get_user_game_data(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    获取当前用户的角色信息
+    获取当前用户的游戏数据
 
-    如果角色不存在，会自动创建一个新角色
+    如果用户数据不存在，会自动创建
     """
     try:
-        # 获取或创建角色
+        # 获取或创建用户游戏数据
         character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
 
-        # 简化角色信息构建，避免复杂的装备处理
+        # 简化数据构建，避免复杂的装备处理
         from shared.utils import calculate_base_attributes
         base_attributes = calculate_base_attributes(character.cultivation_realm)
 
-        # 构建简单的角色信息
+        # 构建用户游戏数据
         char_data = {
             "id": character.id,
+            "user_id": character.user_id,  # 添加用户ID
             "name": character.name,
             "cultivation_exp": character.cultivation_exp,
             "cultivation_realm": character.cultivation_realm,
@@ -112,16 +113,16 @@ async def get_user_character(
 # 移除角色创建接口 - 每个用户只有一个角色，自动创建
 
 
-@router.get("/character/detail", response_model=BaseResponse, summary="获取角色详细信息")
-async def get_character_detail(
+@router.get("/character/detail", response_model=BaseResponse, summary="获取用户详细游戏数据")
+async def get_user_game_data_detail(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    获取当前用户角色的详细信息（包含装备加成）
+    获取当前用户的详细游戏数据（包含装备加成）
     """
     try:
-        # 获取或创建角色（包含装备信息）
+        # 获取或创建用户游戏数据（包含装备信息）
         character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
 
         # 获取角色装备
@@ -155,6 +156,7 @@ async def get_character_detail(
 
         char_data = {
             "id": character.id,
+            "user_id": character.user_id,  # 添加用户ID
             "name": character.name,
             "cultivation_exp": character.cultivation_exp,
             "cultivation_realm": character.cultivation_realm,

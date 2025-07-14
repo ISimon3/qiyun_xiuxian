@@ -186,12 +186,17 @@ class GameApplication:
         try:
             print("🎮 正在启动气运修仙客户端...")
             
-            # 检查是否已有登录状态
-            if self.state_manager.is_logged_in and not self.state_manager.is_token_expired():
-                print(f"✅ 检测到已登录用户: {self.state_manager.user_info.get('username')}")
+            # 检查是否需要自动登录
+            remember_settings = self.state_manager.get_remember_settings()
+            if (remember_settings.get('remember_login_state', False) and
+                self.state_manager.is_logged_in and
+                not self.state_manager.is_token_expired()):
+                print(f"✅ 自动登录用户: {self.state_manager.user_info.get('username')}")
                 # 直接进入主界面
                 self.show_main_window()
             else:
+                if self.state_manager.is_logged_in and self.state_manager.is_token_expired():
+                    print("⚠️ 登录状态已过期")
                 print("📝 显示登录窗口")
                 # 显示登录窗口
                 self.show_login_window()
@@ -236,8 +241,16 @@ class GameApplication:
             self.show_login_window()
             return
 
+        # 检查是否有用户数据，如果没有则等待
+        if not self.state_manager.user_data:
+            print("⚠️ 用户数据尚未加载，等待数据加载完成...")
+            # 延迟重试显示主窗口
+            QTimer.singleShot(1000, self.show_main_window)
+            return
+
         if self.main_window is None:
             server_url = self.state_manager.server_url
+            print(f"🏗️ 创建主窗口，用户数据已准备: {self.state_manager.user_data.get('name')}")
             self.main_window = MainWindow(server_url)
 
             # 连接主窗口信号

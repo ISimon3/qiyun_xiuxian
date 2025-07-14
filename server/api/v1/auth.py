@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from server.database.database import get_db
 from server.database.crud import UserCRUD
+from server.database.models import User
 from server.core.auth import AuthService, AuthenticationError
 from server.core.dependencies import get_current_user, get_client_ip, get_user_agent
 from shared.schemas import (
@@ -58,6 +59,9 @@ async def register(
             }
         )
 
+    except HTTPException:
+        # 重新抛出HTTP异常，不要包装
+        raise
     except IntegrityError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -112,12 +116,29 @@ async def login(
             expires_in=int((expires_at - user.last_login).total_seconds()) if user.last_login else 3600
         )
 
+        # 启动用户会话管理
+        from server.core.user_session_manager import user_session_manager
+        from server.database.crud import CharacterCRUD
+
+        # 获取或创建角色
+        character = await CharacterCRUD.get_or_create_character(db, user.id, user.username)
+
+        # 启动用户会话（计算离线收益）
+        session_result = await user_session_manager.user_login(user.id, character.id)
+
         return BaseResponse(
             success=True,
             message="登录成功",
             data={
                 "token": token_data.model_dump(),
-                "user": UserInfo.model_validate(user).model_dump()
+                "user": UserInfo.model_validate(user).model_dump(),
+                "character": {
+                    "id": character.id,
+                    "name": character.name,
+                    "cultivation_realm": character.cultivation_realm,
+                    "luck_value": character.luck_value
+                },
+                "session_info": session_result
             }
         )
 
@@ -127,6 +148,34 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"登录失败: {str(e)}"
+        )
+
+
+@router.post("/logout", response_model=BaseResponse, summary="用户登出")
+async def logout(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    用户登出
+
+    需要在请求头中提供有效的JWT令牌
+    """
+    try:
+        # 处理用户会话登出
+        from server.core.user_session_manager import user_session_manager
+        session_result = await user_session_manager.user_logout(current_user.id)
+
+        return BaseResponse(
+            success=True,
+            message="登出成功",
+            data=session_result
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"登出失败: {str(e)}"
         )
 
 

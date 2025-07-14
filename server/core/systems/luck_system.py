@@ -10,7 +10,7 @@ from server.database.models import Character, GameLog, InventoryItem, Item
 from server.database.crud import CharacterCRUD, GameLogCRUD, InventoryCRUD
 from shared.constants import (
     LUCK_LEVELS, DEFAULT_CONFIG, CULTIVATION_CONFIG,
-    ITEM_TYPES, ITEM_QUALITY
+    ITEM_TYPES, ITEM_QUALITY, LUCK_SPECIAL_EVENTS
 )
 from shared.utils import get_luck_level_name, generate_daily_luck
 
@@ -216,34 +216,34 @@ class LuckSystem:
         from shared.utils import calculate_luck_multiplier
         multiplier = calculate_luck_multiplier(luck_value)
 
-        # 特殊事件概率
-        special_event_chance = 0.0
-        special_events = []
+        # 计算特殊事件概率
+        luck_level = get_luck_level_name(luck_value)
+        base_chance = CULTIVATION_CONFIG["BASE_SPECIAL_EVENT_CHANCE"]
 
-        if luck_value >= 80:  # 大吉
-            special_event_chance = 0.15  # 15%概率触发特殊事件
-            special_events = ["顿悟", "灵气共鸣", "功法突破"]
-        elif luck_value >= 61:  # 小吉
-            special_event_chance = 0.08  # 8%概率
-            special_events = ["顿悟", "灵气共鸣"]
-        elif luck_value >= 41:  # 平
-            special_event_chance = 0.03  # 3%概率
-            special_events = ["顿悟"]
-        elif luck_value >= 26:  # 小凶
-            special_event_chance = 0.05  # 5%概率负面事件
-            special_events = ["修炼受阻"]
-        elif luck_value >= 11:  # 凶
-            special_event_chance = 0.10  # 10%概率负面事件
-            special_events = ["修炼受阻", "走火入魔"]
-        else:  # 大凶
-            special_event_chance = 0.20  # 20%概率负面事件
-            special_events = ["修炼受阻", "走火入魔"]
+        # 获取气运等级对应的概率倍率
+        luck_multipliers = LUCK_SPECIAL_EVENTS["LUCK_LEVEL_MULTIPLIERS"].get(luck_level, {"positive": 1.0, "negative": 1.0})
+
+        # 计算正面和负面事件概率
+        positive_chance = base_chance * luck_multipliers["positive"]
+        negative_chance = base_chance * luck_multipliers["negative"]
+        total_special_event_chance = positive_chance + negative_chance
+
+        # 获取可能的事件列表
+        possible_positive_events = list(LUCK_SPECIAL_EVENTS["POSITIVE_EVENTS"].keys())
+        possible_negative_events = list(LUCK_SPECIAL_EVENTS["NEGATIVE_EVENTS"].keys())
+
+        special_events = {
+            "positive": possible_positive_events,
+            "negative": possible_negative_events,
+            "positive_chance": positive_chance,
+            "negative_chance": negative_chance
+        }
 
         return {
             "luck_level": luck_level,
             "multiplier": multiplier,
-            "special_event_chance": special_event_chance,
-            "possible_events": special_events,
+            "special_event_chance": total_special_event_chance,
+            "special_events": special_events,
             "is_positive": luck_value >= 50
         }
 
@@ -322,7 +322,7 @@ class LuckSystem:
     async def trigger_special_cultivation_event(
         db: AsyncSession,
         character: Character,
-        event_type: str
+        event_info: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         触发特殊修炼事件
@@ -330,65 +330,84 @@ class LuckSystem:
         Args:
             db: 数据库会话
             character: 角色对象
-            event_type: 事件类型
+            event_info: 事件信息，包含事件类型和是否为正面事件
 
         Returns:
             事件结果
         """
         try:
-            result = {"success": True, "message": "", "effects": {}}
+            event_type = event_info.get("event_type")
+            is_positive = event_info.get("is_positive", True)
 
-            if event_type == "顿悟":
-                # 顿悟：获得大量修为
-                exp_bonus = random.randint(100, 500)
-                character.cultivation_exp += exp_bonus
-                result["message"] = f"修炼时突然顿悟，修为大增！(+{exp_bonus})"
-                result["effects"]["cultivation_exp"] = exp_bonus
+            result = {"success": True, "message": "", "effects": {}, "event_type": event_type, "is_positive": is_positive}
 
-            elif event_type == "灵气共鸣":
-                # 灵气共鸣：获得灵石
-                spirit_stone_bonus = random.randint(10, 50)
-                character.spirit_stone += spirit_stone_bonus
-                result["message"] = f"与天地灵气产生共鸣，获得灵石！(+{spirit_stone_bonus})"
-                result["effects"]["spirit_stone"] = spirit_stone_bonus
+            if is_positive:
+                # 处理正面事件
+                event_config = LUCK_SPECIAL_EVENTS["POSITIVE_EVENTS"].get(event_type, {})
 
-            elif event_type == "功法突破":
-                # 功法突破：修炼速度临时提升
-                result["message"] = "功法修炼有所突破，修炼效率提升！"
-                result["effects"]["cultivation_speed_bonus"] = 0.5
+                if event_type == "顿悟":
+                    exp_bonus = random.randint(
+                        event_config.get("exp_bonus_min", 100),
+                        event_config.get("exp_bonus_max", 500)
+                    )
+                    character.cultivation_exp += exp_bonus
+                    result["message"] = f"修炼时突然顿悟，修为大增！(+{exp_bonus})"
+                    result["effects"]["cultivation_exp"] = exp_bonus
 
-            elif event_type == "修炼受阻":
-                # 修炼受阻：修为减少
-                exp_loss = random.randint(20, 100)
-                character.cultivation_exp = max(0, character.cultivation_exp - exp_loss)
-                result["message"] = f"修炼时心神不宁，修为有所损失(-{exp_loss})"
-                result["effects"]["cultivation_exp"] = -exp_loss
+                elif event_type == "灵气共鸣":
+                    spirit_stone_bonus = random.randint(
+                        event_config.get("spirit_stone_bonus_min", 10),
+                        event_config.get("spirit_stone_bonus_max", 50)
+                    )
+                    character.spirit_stone += spirit_stone_bonus
+                    result["message"] = f"与天地灵气产生共鸣，获得灵石！(+{spirit_stone_bonus})"
+                    result["effects"]["spirit_stone"] = spirit_stone_bonus
 
-            elif event_type == "走火入魔":
-                # 走火入魔：修为大幅减少，气运降低
-                exp_loss = random.randint(100, 300)
-                luck_loss = random.randint(5, 15)
-                character.cultivation_exp = max(0, character.cultivation_exp - exp_loss)
-                character.luck_value = max(0, character.luck_value - luck_loss)
-                result["message"] = f"修炼时走火入魔！修为和气运都有损失(-{exp_loss}修为, -{luck_loss}气运)"
-                result["effects"]["cultivation_exp"] = -exp_loss
-                result["effects"]["luck_value"] = -luck_loss
+                elif event_type == "功法突破":
+                    result["message"] = "功法修炼有所突破，修炼效率提升！"
+                    result["effects"]["cultivation_speed_bonus"] = event_config.get("cultivation_speed_bonus", 0.5)
+                    result["effects"]["duration_minutes"] = event_config.get("duration_minutes", 60)
 
+                elif event_type == "天材地宝":
+                    # 随机提升一个属性
+                    attributes = ["hp", "physical_attack", "magic_attack", "physical_defense", "magic_defense"]
+                    chosen_attr = random.choice(attributes)
+                    bonus = event_config.get("attribute_bonus", 5)
 
+                    # 更新角色属性
+                    current_value = getattr(character, chosen_attr, 0)
+                    setattr(character, chosen_attr, current_value + bonus)
 
-            # 记录事件日志
-            await GameLogCRUD.create_log(
-                db,
-                character.id,
-                "SPECIAL_EVENT",
-                result["message"],
-                {
-                    "event_type": event_type,
-                    "effects": result["effects"]
-                }
-            )
+                    result["message"] = f"偶遇天材地宝，{chosen_attr}永久提升！(+{bonus})"
+                    result["effects"][chosen_attr] = bonus
 
-            await db.commit()
+            else:
+                # 处理负面事件
+                event_config = LUCK_SPECIAL_EVENTS["NEGATIVE_EVENTS"].get(event_type, {})
+
+                if event_type == "修炼受阻":
+                    result["message"] = "修炼时心神不宁，修炼效率降低！"
+                    result["effects"]["cultivation_speed_penalty"] = event_config.get("cultivation_speed_penalty", 0.3)
+                    result["effects"]["duration_minutes"] = event_config.get("duration_minutes", 30)
+
+                elif event_type == "走火入魔":
+                    exp_penalty = random.randint(
+                        event_config.get("exp_penalty_min", 50),
+                        event_config.get("exp_penalty_max", 200)
+                    )
+                    character.cultivation_exp = max(0, character.cultivation_exp - exp_penalty)
+                    result["message"] = f"修炼时走火入魔，损失修为！(-{exp_penalty})"
+                    result["effects"]["cultivation_exp"] = -exp_penalty
+
+                elif event_type == "灵气紊乱":
+                    spirit_stone_penalty = random.randint(
+                        event_config.get("spirit_stone_penalty_min", 5),
+                        event_config.get("spirit_stone_penalty_max", 20)
+                    )
+                    character.spirit_stone = max(0, character.spirit_stone - spirit_stone_penalty)
+                    result["message"] = f"周围灵气紊乱，消耗额外灵石！(-{spirit_stone_penalty})"
+                    result["effects"]["spirit_stone"] = -spirit_stone_penalty
+
             return result
 
         except Exception as e:

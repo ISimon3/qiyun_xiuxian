@@ -53,7 +53,8 @@ class UpperAreaWidget(QWidget):
 
         # 延迟初始化数据 - 只在没有真实数据时显示默认数据
         if WEBENGINE_AVAILABLE:
-            QTimer.singleShot(100, self.init_default_data)  # 先显示默认数据
+            # 检查是否有预加载的数据
+            QTimer.singleShot(100, self.check_and_init_data)
 
     def create_html_area(self, parent_layout: QVBoxLayout):
         """创建HTML版本的上半区域"""
@@ -769,6 +770,37 @@ class UpperAreaWidget(QWidget):
                     }
                 }
 
+                // 气运等级配置
+                const LUCK_LEVELS = {
+                    "大凶": {"min": 0, "max": 10, "color": "#8B0000"},
+                    "凶": {"min": 11, "max": 25, "color": "#DC143C"},
+                    "小凶": {"min": 26, "max": 40, "color": "#FF6347"},
+                    "平": {"min": 41, "max": 60, "color": "#808080"},
+                    "小吉": {"min": 61, "max": 75, "color": "#32CD32"},
+                    "吉": {"min": 76, "max": 90, "color": "#00CED1"},
+                    "大吉": {"min": 91, "max": 100, "color": "#FFD700"}
+                };
+
+                // 获取气运等级名称
+                function getLuckLevelName(luckValue) {
+                    for (const [levelName, levelInfo] of Object.entries(LUCK_LEVELS)) {
+                        if (luckValue >= levelInfo.min && luckValue <= levelInfo.max) {
+                            return levelName;
+                        }
+                    }
+                    return "平";
+                }
+
+                // 获取气运颜色
+                function getLuckColor(luckValue) {
+                    for (const [levelName, levelInfo] of Object.entries(LUCK_LEVELS)) {
+                        if (luckValue >= levelInfo.min && luckValue <= levelInfo.max) {
+                            return levelInfo.color;
+                        }
+                    }
+                    return "#808080";
+                }
+
                 // 更新角色信息显示
                 function updateCharacterInfo(data) {
                     characterData = data;
@@ -787,7 +819,9 @@ class UpperAreaWidget(QWidget):
 
                     const idElement = document.getElementById('characterId');
                     if (idElement) {
-                        idElement.textContent = `(ID: ${data.id || 'xxxxxxx'})`;
+                        // 优先显示用户ID，如果没有则显示角色ID
+                        const displayId = data.user_id || data.id || 'xxxxxxx';
+                        idElement.textContent = `(ID: ${displayId})`;
                     }
 
                     // 更新境界
@@ -817,7 +851,10 @@ class UpperAreaWidget(QWidget):
 
                     const luckElement = document.getElementById('luckValue');
                     if (luckElement) {
-                        luckElement.textContent = (data.luck_value || 50).toString();
+                        const luckValue = data.luck_value || 50;
+                        const luckLevel = getLuckLevelName(luckValue);
+                        const luckColor = getLuckColor(luckValue);
+                        luckElement.innerHTML = `<span style="color: ${luckColor}; font-weight: bold;">${luckLevel}</span> (${luckValue})`;
                     }
 
                     // 更新修为进度条
@@ -1008,8 +1045,27 @@ class UpperAreaWidget(QWidget):
 
         self.html_display.setHtml(html_template)
 
+        # 连接页面加载完成信号
+        self.html_display.loadFinished.connect(self.on_page_loaded)
 
+    def on_page_loaded(self, success: bool):
+        """页面加载完成回调"""
+        if success:
+            print("✅ HTML页面加载完成")
+            # 如果有待更新的数据，现在更新
+            if hasattr(self, 'character_data') and self.character_data:
+                print("🔄 页面加载完成，立即更新角色数据")
+                QTimer.singleShot(100, lambda: self.update_character_info(self.character_data))
 
+            if hasattr(self, 'cultivation_status') and self.cultivation_status:
+                print("🔄 页面加载完成，立即更新修炼状态")
+                QTimer.singleShot(150, lambda: self.update_cultivation_status(self.cultivation_status))
+
+            if hasattr(self, 'luck_info') and self.luck_info:
+                print("🔄 页面加载完成，立即更新气运信息")
+                QTimer.singleShot(200, lambda: self.update_luck_info(self.luck_info))
+        else:
+            print("❌ HTML页面加载失败")
 
     def setup_javascript_events(self):
         """设置JavaScript事件监听"""
@@ -1084,6 +1140,37 @@ class UpperAreaWidget(QWidget):
         except Exception as e:
             print(f"❌ 处理标题变化失败: {e}")
 
+    def check_and_init_data(self):
+        """检查是否有预加载数据，如果没有则显示默认数据"""
+        if not WEBENGINE_AVAILABLE or not hasattr(self, 'html_display'):
+            return
+
+        # 检查状态管理器是否有用户数据
+        try:
+            from client.state_manager import get_state_manager
+            state_manager = get_state_manager()
+            if state_manager.user_data:
+                print(f"✅ 上区域组件发现预加载数据: {state_manager.user_data.get('name')} (ID: {state_manager.user_data.get('user_id')})")
+                # 保存数据，等待页面加载完成后更新
+                self.character_data = state_manager.user_data
+
+                # 如果还有其他预加载数据，也保存
+                if state_manager.cultivation_status:
+                    self.cultivation_status = state_manager.cultivation_status
+                if state_manager.luck_info:
+                    self.luck_info = state_manager.luck_info
+
+                print("💾 预加载数据已保存，等待页面加载完成")
+                return
+        except Exception as e:
+            print(f"⚠️ 检查预加载数据失败: {e}")
+            import traceback
+            traceback.print_exc()
+
+        # 没有预加载数据，显示默认数据
+        print("📝 上区域组件没有预加载数据，显示默认数据")
+        QTimer.singleShot(500, self._init_default_data)
+
     def init_default_data(self):
         """初始化默认数据"""
         if not WEBENGINE_AVAILABLE or not hasattr(self, 'html_display'):
@@ -1123,32 +1210,49 @@ class UpperAreaWidget(QWidget):
             return
 
         self.character_data = character_data
+        print(f"🔄 开始更新角色信息: {character_data.get('name')} (ID: {character_data.get('user_id')})")
 
         try:
-            # 构建JavaScript调用来更新角色信息
-            js_code = f"""
-            if (typeof updateCharacterInfo === 'function') {{
-                updateCharacterInfo({character_data});
-            }} else {{
-                console.log('updateCharacterInfo function not ready yet');
-            }}
-            """
-
             # 将Python字典转换为JavaScript对象字符串
             import json
             js_data = json.dumps(character_data, ensure_ascii=False)
-            js_code = f"""
-            if (typeof updateCharacterInfo === 'function') {{
-                updateCharacterInfo({js_data});
-            }} else {{
-                console.log('updateCharacterInfo function not ready yet');
+
+            # 检查JavaScript函数是否准备好，如果没有则等待
+            check_and_update_js = f"""
+            function tryUpdateCharacterInfo() {{
+                if (typeof updateCharacterInfo === 'function') {{
+                    console.log('✅ updateCharacterInfo函数已准备好，开始更新数据');
+                    updateCharacterInfo({js_data});
+                    return true;
+                }} else {{
+                    console.log('⏳ updateCharacterInfo函数还未准备好，等待中...');
+                    return false;
+                }}
+            }}
+
+            // 立即尝试更新
+            if (!tryUpdateCharacterInfo()) {{
+                // 如果失败，每100ms重试一次，最多重试50次（5秒）
+                let retryCount = 0;
+                const maxRetries = 50;
+                const retryInterval = setInterval(() => {{
+                    retryCount++;
+                    if (tryUpdateCharacterInfo() || retryCount >= maxRetries) {{
+                        clearInterval(retryInterval);
+                        if (retryCount >= maxRetries) {{
+                            console.error('❌ 超时：updateCharacterInfo函数始终未准备好');
+                        }}
+                    }}
+                }}, 100);
             }}
             """
 
-            self.html_display.page().runJavaScript(js_code)
+            self.html_display.page().runJavaScript(check_and_update_js)
 
         except Exception as e:
             print(f"❌ 更新角色信息失败: {e}")
+            import traceback
+            traceback.print_exc()
 
     def update_cultivation_status(self, cultivation_data: Dict[str, Any]):
         """更新修炼状态"""

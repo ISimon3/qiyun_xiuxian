@@ -174,16 +174,15 @@ class CultivationSystem:
                 character.spirit_gathering_array_level
             )
 
-            # 计算修炼收益 (5分钟 = 5次1分钟修炼)
+            # 计算修炼收益 (30秒周期)
             cultivation_result = simulate_cultivation_session(
                 character.luck_value,
                 character.cultivation_focus,
                 spirit_array_bonus  # 应用聚灵阵修炼速度加成
             )
 
-            # 5分钟的收益是1分钟的5倍
-            cultivation_result["exp_gained"] *= 5
-            cultivation_result["attribute_gained"] *= 5
+            # 30秒周期的收益直接使用，不需要额外倍率
+            # cultivation_result["exp_gained"] 和 cultivation_result["attribute_gained"] 已经是30秒的收益
 
             # 应用修炼收益
             old_exp = character.cultivation_exp

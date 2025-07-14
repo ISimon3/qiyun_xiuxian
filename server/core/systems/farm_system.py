@@ -554,3 +554,55 @@ class FarmSystem:
         except Exception as e:
             await db.rollback()
             print(f"更新地块状态失败: {str(e)}")
+
+    @staticmethod
+    async def process_offline_farming(db: AsyncSession, character: Character, offline_duration: float) -> Dict[str, Any]:
+        """
+        处理离线农场收益
+
+        Args:
+            db: 数据库会话
+            character: 角色对象
+            offline_duration: 离线时长（秒）
+
+        Returns:
+            农场收益信息
+        """
+        try:
+            # 获取角色的所有地块
+            result = await db.execute(
+                select(FarmPlot)
+                .where(FarmPlot.character_id == character.id)
+            )
+            plots = result.scalars().all()
+
+            matured_crops = 0
+            items_gained = {}
+
+            # 检查每个地块是否有作物成熟
+            for plot in plots:
+                if plot.seed_item_id and plot.harvest_at:
+                    # 更新地块状态
+                    await FarmSystem._update_plot_status(db, plot)
+
+                    # 如果作物成熟且未枯萎，自动收获
+                    if plot.is_ready and not plot.is_withered:
+                        harvest_result = await FarmSystem.harvest_plot(db, character, plot.plot_index)
+                        if harvest_result["success"]:
+                            matured_crops += 1
+                            # 统计收获的物品
+                            for item_name, quantity in harvest_result.get("items_gained", {}).items():
+                                items_gained[item_name] = items_gained.get(item_name, 0) + quantity
+
+            return {
+                "matured_crops": matured_crops,
+                "items_gained": items_gained
+            }
+
+        except Exception as e:
+            logger.error(f"处理离线农场失败: {e}")
+            return {
+                "matured_crops": 0,
+                "items_gained": {},
+                "error": str(e)
+            }

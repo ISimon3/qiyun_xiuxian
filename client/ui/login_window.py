@@ -18,10 +18,11 @@ class LoginWorker(QThread):
     """登录工作线程"""
 
     # 信号定义
-    login_success = pyqtSignal(dict, dict)  # 登录成功信号 (user_info, token_data)
-    login_failed = pyqtSignal(str)          # 登录失败信号
-    register_success = pyqtSignal(dict)     # 注册成功信号
-    register_failed = pyqtSignal(str)       # 注册失败信号
+    login_success = pyqtSignal(dict, dict, dict, bool)  # 登录成功信号 (user_info, token_data, character_data, remember_login_state)
+    login_failed = pyqtSignal(str)                      # 登录失败信号
+    register_success = pyqtSignal(dict)                 # 注册成功信号
+    register_failed = pyqtSignal(str)                   # 注册失败信号
+    progress_updated = pyqtSignal(str)                  # 进度更新信号
 
     def __init__(self, api_client: GameAPIClient):
         super().__init__()
@@ -29,10 +30,14 @@ class LoginWorker(QThread):
         self.operation = None
         self.params = {}
 
-    def login(self, username: str, password: str):
+    def login(self, username: str, password: str, remember_login_state: bool = False):
         """设置登录操作"""
         self.operation = 'login'
-        self.params = {'username': username, 'password': password}
+        self.params = {
+            'username': username,
+            'password': password,
+            'remember_login_state': remember_login_state
+        }
 
     def register(self, username: str, email: str, password: str):
         """设置注册操作"""
@@ -43,6 +48,10 @@ class LoginWorker(QThread):
         """执行操作"""
         try:
             if self.operation == 'login':
+                # 第一步：登录验证
+                self.progress_updated.emit("正在验证登录信息...")
+                self.msleep(500)  # 让用户看到进度信息
+
                 response = self.api_client.auth.login(
                     self.params['username'],
                     self.params['password']
@@ -50,7 +59,53 @@ class LoginWorker(QThread):
                 if response.get('success'):
                     user_info = response['data']['user']
                     token_data = response['data']['token']
-                    self.login_success.emit(user_info, token_data)
+                    remember_login_state = self.params.get('remember_login_state', False)
+
+                    # 第二步：设置token并预加载用户数据
+                    self.progress_updated.emit("正在加载用户数据...")
+                    self.msleep(300)  # 让用户看到进度信息
+
+                    self.api_client.set_token(token_data.get('access_token'))
+
+                    # 获取角色详细信息
+                    character_response = self.api_client.user.get_character_detail()
+                    if character_response.get('success'):
+                        character_data = character_response['data']
+
+                        # 第三步：加载其他必要数据
+                        self.progress_updated.emit("正在加载游戏状态...")
+                        self.msleep(200)
+
+                        # 获取修炼状态
+                        cultivation_response = self.api_client.game.get_cultivation_status()
+                        cultivation_data = cultivation_response.get('data', {}) if cultivation_response.get('success') else {}
+
+                        # 获取气运信息
+                        luck_response = self.api_client.game.get_luck_info()
+                        luck_data = luck_response.get('data', {}) if luck_response.get('success') else {}
+
+                        # 第四步：验证数据完整性
+                        self.progress_updated.emit("正在验证数据完整性...")
+                        self.msleep(300)  # 让用户看到进度信息
+
+                        # 确保数据包含必要字段
+                        if character_data and 'user_id' in character_data and 'name' in character_data:
+                            # 将所有数据打包传递
+                            complete_data = {
+                                'character': character_data,
+                                'cultivation': cultivation_data,
+                                'luck': luck_data
+                            }
+                            self.progress_updated.emit("数据加载完成！")
+                            self.msleep(200)  # 让用户看到完成信息
+                            self.login_success.emit(user_info, token_data, complete_data, remember_login_state)
+                        else:
+                            print(f"⚠️ 角色数据不完整: {character_data}")
+                            self.login_success.emit(user_info, token_data, {}, remember_login_state)
+                    else:
+                        # 如果获取角色信息失败，仍然允许登录，但传递空的角色数据
+                        print(f"⚠️ 获取角色信息失败: {character_response.get('message', '未知错误')}")
+                        self.login_success.emit(user_info, token_data, {}, remember_login_state)
                 else:
                     self.login_failed.emit(response.get('message', '登录失败'))
 
@@ -82,7 +137,7 @@ class LoginTab(QWidget):
     """登录标签页"""
 
     # 信号定义
-    login_requested = pyqtSignal(str, str)  # 登录请求信号
+    login_requested = pyqtSignal(str, str, bool)  # 登录请求信号 (username, password, remember_login_state)
 
     def __init__(self):
         super().__init__()
@@ -125,12 +180,14 @@ class LoginTab(QWidget):
         # 记住选项
         remember_layout = QVBoxLayout()
 
-        self.remember_checkbox = QCheckBox("记住登录状态")
-        self.remember_checkbox.setChecked(True)
-        remember_layout.addWidget(self.remember_checkbox)
+        self.remember_login_checkbox = QCheckBox("记住登录状态")
+        self.remember_login_checkbox.setChecked(False)
+        self.remember_login_checkbox.setToolTip("勾选后下次启动程序会自动登录")
+        remember_layout.addWidget(self.remember_login_checkbox)
 
         self.remember_password_checkbox = QCheckBox("记住密码")
         self.remember_password_checkbox.setChecked(False)
+        self.remember_password_checkbox.setToolTip("勾选后会保存账号和密码，但需要手动点击登录")
         remember_layout.addWidget(self.remember_password_checkbox)
 
         layout.addLayout(remember_layout)
@@ -166,16 +223,17 @@ class LoginTab(QWidget):
             self.password_edit.setFocus()
             return
 
-        # 保存凭据（如果勾选了记住密码）
-        if self.remember_password_checkbox.isChecked():
-            self.save_credentials(username, password)
-        else:
-            self.clear_saved_password()
+        # 保存凭据设置
+        remember_login_state = self.remember_login_checkbox.isChecked()
+        remember_password = self.remember_password_checkbox.isChecked()
 
-        # 发送登录请求信号
-        self.login_requested.emit(username, password)
+        # 保存凭据（根据用户选择）
+        self.save_credentials(username, password, remember_password)
 
-    def save_credentials(self, username: str, password: str):
+        # 发送登录请求信号，包含记住登录状态的设置
+        self.login_requested.emit(username, password, remember_login_state)
+
+    def save_credentials(self, username: str, password: str, remember_password: bool):
         """保存用户凭据"""
         try:
             import base64
@@ -184,11 +242,15 @@ class LoginTab(QWidget):
             state_manager = get_state_manager()
 
             # 简单的base64编码（注意：这不是安全的加密，仅用于演示）
-            encoded_password = base64.b64encode(password.encode()).decode()
+            encoded_password = base64.b64encode(password.encode()).decode() if remember_password else ""
 
             # 保存到状态管理器
-            state_manager.save_credentials(username, encoded_password)
-            print(f"✅ 已保存用户 {username} 的登录凭据")
+            state_manager.save_credentials(username, encoded_password, remember_password)
+
+            if remember_password:
+                print(f"✅ 已保存用户 {username} 的登录凭据")
+            else:
+                print(f"✅ 已保存用户名 {username}（未保存密码）")
 
         except Exception as e:
             print(f"❌ 保存凭据失败: {e}")
@@ -201,6 +263,11 @@ class LoginTab(QWidget):
 
             state_manager = get_state_manager()
             credentials = state_manager.get_saved_credentials()
+            remember_settings = state_manager.get_remember_settings()
+
+            # 设置记住选项的状态
+            self.remember_login_checkbox.setChecked(remember_settings.get('remember_login_state', False))
+            self.remember_password_checkbox.setChecked(remember_settings.get('remember_password', False))
 
             if credentials:
                 username = credentials.get('username', '')
@@ -208,14 +275,14 @@ class LoginTab(QWidget):
 
                 if username:
                     self.username_edit.setText(username)
+                    print(f"✅ 已加载用户名: {username}")
 
-                if encoded_password:
+                if encoded_password and remember_settings.get('remember_password', False):
                     # 解码密码
                     try:
                         password = base64.b64decode(encoded_password.encode()).decode()
                         self.password_edit.setText(password)
-                        self.remember_password_checkbox.setChecked(True)
-                        print(f"✅ 已加载用户 {username} 的保存凭据")
+                        print(f"✅ 已加载用户 {username} 的保存密码")
                     except Exception as e:
                         print(f"❌ 解码密码失败: {e}")
 
@@ -239,7 +306,8 @@ class LoginTab(QWidget):
         self.username_edit.setEnabled(enabled)
         self.password_edit.setEnabled(enabled)
         self.login_button.setEnabled(enabled)
-        self.remember_checkbox.setEnabled(enabled)
+        self.remember_login_checkbox.setEnabled(enabled)
+        self.remember_password_checkbox.setEnabled(enabled)
 
     def clear_form(self):
         """清空表单"""
@@ -414,6 +482,7 @@ class LoginWindow(QWidget):
         self.worker.login_failed.connect(self.on_login_failed)
         self.worker.register_success.connect(self.on_register_success)
         self.worker.register_failed.connect(self.on_register_failed)
+        self.worker.progress_updated.connect(self.on_progress_updated)
 
         self.init_ui()
         self.setup_connections()
@@ -498,10 +567,10 @@ class LoginWindow(QWidget):
             self.server_status_label.setText("❌ 服务器连接异常")
             self.server_status_label.setStyleSheet("color: #F44336; font-size: 12px;")
 
-    def on_login_requested(self, username: str, password: str):
+    def on_login_requested(self, username: str, password: str, remember_login_state: bool):
         """处理登录请求"""
         self.set_loading(True, "正在登录...")
-        self.worker.login(username, password)
+        self.worker.login(username, password, remember_login_state)
         self.worker.start()
 
     def on_register_requested(self, username: str, email: str, password: str):
@@ -520,17 +589,39 @@ class LoginWindow(QWidget):
             self.server_status_label.setText(message)
             self.server_status_label.setStyleSheet("color: #2196F3; font-size: 12px;")
 
-    def on_login_success(self, user_info: dict, token_data: dict):
+    def on_progress_updated(self, message: str):
+        """进度更新处理"""
+        self.server_status_label.setText(message)
+        self.server_status_label.setStyleSheet("color: #2196F3; font-size: 12px;")
+
+    def on_login_success(self, user_info: dict, token_data: dict, complete_data: dict, remember_login_state: bool):
         """登录成功处理"""
         self.set_loading(False)
 
         # 更新状态管理器
-        self.state_manager.login(user_info, token_data)
+        self.state_manager.login(user_info, token_data, remember_login_state)
+
+        # 如果有完整数据，保存到状态管理器
+        if complete_data and 'character' in complete_data:
+            character_data = complete_data['character']
+            print(f"✅ 保存完整游戏数据到状态管理器: {character_data.get('name')} (ID: {character_data.get('user_id')})")
+
+            # 保存角色数据
+            self.state_manager.update_user_data(character_data)
+
+            # 保存其他游戏状态数据到状态管理器（如果需要的话）
+            if 'cultivation' in complete_data:
+                self.state_manager.update_cultivation_status(complete_data['cultivation'])
+            if 'luck' in complete_data:
+                self.state_manager.update_luck_info(complete_data['luck'])
+        else:
+            print("⚠️ 没有完整游戏数据可保存")
 
         # 显示成功消息
         QMessageBox.information(self, "登录成功", f"欢迎回来，{user_info.get('username')}！")
 
-        # 发送登录成功信号
+        # 确保数据已保存后再发送登录成功信号
+        print(f"📤 发送登录成功信号，用户: {user_info.get('username')}")
         self.login_success.emit(user_info)
 
         # 关闭登录窗口
