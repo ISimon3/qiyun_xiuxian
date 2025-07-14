@@ -13,7 +13,9 @@ from shared.constants import (
     COMBAT_SYSTEM_CONFIG, DUNGEON_SYSTEM_CONFIG, MONSTER_CONFIGS,
     REALM_BASE_ATTRIBUTES
 )
-from shared.utils import calculate_base_attributes
+from shared.utils import calculate_base_attributes, calculate_final_attributes
+from shared.schemas import CharacterTrainingAttributes, EquipmentAttributes
+from server.core.character_service import CharacterService
 
 
 class CombatSystem:
@@ -123,25 +125,21 @@ class CombatSystem:
             战斗属性字典
         """
         try:
-            # 获取基础属性
-            base_attributes = calculate_base_attributes(character)
-
-            # 计算最大生命值
-            max_hp = base_attributes["HP"]
+            # 使用CharacterService获取完整的角色信息，包含最终属性
+            character_info = CharacterService.build_character_info(character, include_equipment=True)
+            final_attributes = character_info.attributes
 
             # 构建战斗属性
             combat_stats = {
-                "max_hp": max_hp,
+                "max_hp": final_attributes.hp,
                 "current_hp": character.current_hp,
-                "physical_attack": base_attributes["PHYSICAL_ATTACK"],
-                "magic_attack": base_attributes["MAGIC_ATTACK"],
-                "physical_defense": base_attributes["PHYSICAL_DEFENSE"],
-                "magic_defense": base_attributes["MAGIC_DEFENSE"],
-                "critical_rate": COMBAT_SYSTEM_CONFIG["BASE_CRITICAL_RATE"],
-                "critical_damage": COMBAT_SYSTEM_CONFIG["BASE_CRITICAL_DAMAGE"]
+                "physical_attack": final_attributes.physical_attack,
+                "magic_attack": final_attributes.magic_attack,
+                "physical_defense": final_attributes.physical_defense,
+                "magic_defense": final_attributes.magic_defense,
+                "critical_rate": final_attributes.critical_rate / 100.0,  # 转换为小数
+                "critical_damage": final_attributes.critical_damage / 100.0  # 转换为小数
             }
-
-            # TODO: 添加装备属性加成
 
             return combat_stats
 

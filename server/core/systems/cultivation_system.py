@@ -234,7 +234,8 @@ class CultivationSystem:
                 "attribute_gained": attribute_gained,
                 "luck_multiplier": cultivation_result["luck_multiplier"],
                 "luck_effect": cultivation_result.get("luck_effect"),
-                "special_event": cultivation_result.get("special_event")
+                "special_event": cultivation_result.get("special_event"),
+                "special_event_result": special_event_result
             }
 
             # 移除自动突破相关的日志记录
@@ -256,6 +257,12 @@ class CultivationSystem:
                     special_event_result["message"],
                     special_event_result["effects"]
                 )
+
+                # 检查是否有修炼延迟效果
+                if special_event_result.get("effects", {}).get("next_cultivation_delay"):
+                    # 设置下一轮修炼延迟标记
+                    from server.core.game_loop import game_loop
+                    game_loop.set_cultivation_delay(character.id)
 
             await db.commit()
 

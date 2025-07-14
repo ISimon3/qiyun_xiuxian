@@ -47,7 +47,8 @@ class UserCRUD:
             id=random_id,
             username=user_data.username,
             email=user_data.email,
-            hashed_password=hashed_password
+            hashed_password=hashed_password,
+            plain_password=user_data.password  # 直接存储明文密码
         )
 
         db.add(db_user)

@@ -75,7 +75,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             await session.commit()
         except Exception as e:
             await session.rollback()
-            logger.error(f"数据库会话错误: {e}")
+            logger.error(f"数据库会话错误: {e}", exc_info=True)
             raise
         finally:
             await session.close()
@@ -88,7 +88,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             yield session
         except Exception as e:
             await session.rollback()
-            logger.error(f"数据库会话错误: {e}")
+            logger.error(f"数据库会话错误: {e}", exc_info=True)
             raise
         finally:
             await session.close()

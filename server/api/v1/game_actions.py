@@ -294,12 +294,20 @@ async def get_next_cultivation_time(
         if session_info:
             last_cultivation_time = session_info["last_cultivation_time"]
             cultivation_interval = user_session_manager.cultivation_interval
-            next_time = last_cultivation_time + timedelta(seconds=cultivation_interval)
-            remaining_seconds = max(0, (next_time - current_time).total_seconds())
+            time_diff = (current_time - last_cultivation_time).total_seconds()
+
+            if time_diff >= cultivation_interval:
+                # 修炼时间已到，可以立即修炼
+                remaining_seconds = 0
+                next_time = current_time
+            else:
+                # 计算剩余时间
+                remaining_seconds = cultivation_interval - time_diff
+                next_time = last_cultivation_time + timedelta(seconds=cultivation_interval)
         else:
             # 用户未在线，返回默认值
-            next_time = current_time + timedelta(seconds=300)  # 5分钟后
-            remaining_seconds = 300
+            next_time = current_time + timedelta(seconds=5)  # 5秒后
+            remaining_seconds = 5
 
         logger.info(f"🕐 角色 {character.name} 下次修炼时间: {next_time}, 当前时间: {current_time}, 剩余: {remaining_seconds}秒")
 
@@ -309,7 +317,10 @@ async def get_next_cultivation_time(
             data={
                 "next_cultivation_time": next_time.isoformat(),
                 "remaining_seconds": int(remaining_seconds),
-                "cultivation_focus": character.cultivation_focus or "HP"
+                "cultivation_focus": character.cultivation_focus or "HP",
+                "server_time": current_time.isoformat(),  # 服务器当前时间
+                "cultivation_interval": cultivation_interval,  # 修炼间隔
+                "last_cultivation_time": session_info["last_cultivation_time"].isoformat() if session_info else None
             }
         )
 

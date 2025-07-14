@@ -113,11 +113,7 @@ class FarmSystem:
             plot.is_withered = False
             plot.has_pest = False
             plot.has_weed = False
-
-            # 计算变异概率
-            base_mutation = plot_config["mutation_base_chance"]
-            luck_bonus = (character.luck_value - 50) * 0.001  # 气运影响变异率
-            plot.mutation_chance = max(0, base_mutation + luck_bonus)
+            plot.mutation_chance = 0.0  # 移除变异系统
 
             # 消耗种子
             seed_item.quantity -= 1
@@ -133,8 +129,7 @@ class FarmSystem:
                 {
                     "plot_index": plot_index,
                     "seed_name": seed_info.name,
-                    "harvest_time": harvest_time.isoformat(),
-                    "mutation_chance": plot.mutation_chance
+                    "harvest_time": harvest_time.isoformat()
                 }
             )
 
@@ -197,34 +192,12 @@ class FarmSystem:
             base_yield = random.randint(seed_config["yield_min"], seed_config["yield_max"])
             final_yield = int(base_yield * plot_config["yield_multiplier"])
 
-            # 检查是否变异
-            is_mutation = random.random() < plot.mutation_chance
-
-            harvested_items = []
-
-            if is_mutation and seed_config.get("mutation_results"):
-                # 变异收获
-                mutation_item_name = random.choice(seed_config["mutation_results"])
-                harvested_items.append({
-                    "name": mutation_item_name,
-                    "quantity": 1,
-                    "is_mutation": True
-                })
-
-                # 添加普通收获（数量减少）
-                if final_yield > 1:
-                    harvested_items.append({
-                        "name": seed_config["result_item"],
-                        "quantity": final_yield - 1,
-                        "is_mutation": False
-                    })
-            else:
-                # 普通收获
-                harvested_items.append({
-                    "name": seed_config["result_item"],
-                    "quantity": final_yield,
-                    "is_mutation": False
-                })
+            # 普通收获（移除变异系统）
+            harvested_items = [{
+                "name": seed_config["result_item"],
+                "quantity": final_yield,
+                "is_mutation": False
+            }]
 
             # 添加物品到背包
             for item_info in harvested_items:
@@ -244,8 +217,6 @@ class FarmSystem:
             # 记录日志
             item_descriptions = [f"{item['quantity']}个{item['name']}" for item in harvested_items]
             log_message = f"收获了{', '.join(item_descriptions)}"
-            if is_mutation:
-                log_message += " (发生变异!)"
 
             await GameLogCRUD.create_log(
                 db,
@@ -254,8 +225,7 @@ class FarmSystem:
                 log_message,
                 {
                     "plot_index": plot_index,
-                    "harvested_items": harvested_items,
-                    "is_mutation": is_mutation
+                    "harvested_items": harvested_items
                 }
             )
 
@@ -267,7 +237,6 @@ class FarmSystem:
                 "success": True,
                 "message": log_message,
                 "harvested_items": harvested_items,
-                "is_mutation": is_mutation,
                 "plot_info": plot_info
             }
 
@@ -403,9 +372,6 @@ class FarmSystem:
             "growth_stage_name": FARM_SYSTEM_CONFIG["GROWTH_STAGES"].get(plot.growth_stage, "未知"),
             "is_ready": plot.is_ready,
             "is_withered": plot.is_withered,
-            "has_pest": plot.has_pest,
-            "has_weed": plot.has_weed,
-            "mutation_chance": plot.mutation_chance,
             "remaining_time_seconds": 0,
             "total_growth_time_seconds": 0,
             "growth_progress": 0.0
@@ -442,12 +408,18 @@ class FarmSystem:
             plot.is_ready = True
             plot.growth_stage = 4  # 成熟
 
-            # 检查是否枯萎（超时未收获）
-            overtime_hours = (now - plot.harvest_at).total_seconds() / 3600
-            if overtime_hours > 24:  # 超过24小时未收获
-                wither_chance = FARM_SYSTEM_CONFIG["EVENT_CHANCES"]["wither_chance"]
-                if random.random() < wither_chance:
-                    plot.is_withered = True
+            # 检查是否枯萎（成熟后每小时计算一次）
+            if not plot.is_withered:
+                overtime_hours = (now - plot.harvest_at).total_seconds() / 3600
+                # 每完整小时计算一次枯萎概率
+                hours_passed = int(overtime_hours)
+                if hours_passed > 0:
+                    wither_chance = FARM_SYSTEM_CONFIG["EVENT_CHANCES"]["wither_chance"]
+                    # 每小时都有枯萎概率
+                    for _ in range(hours_passed):
+                        if random.random() < wither_chance:
+                            plot.is_withered = True
+                            break
         else:
             # 计算成长阶段
             if plot.planted_at:
@@ -464,13 +436,7 @@ class FarmSystem:
                 else:
                     plot.growth_stage = 4  # 接近成熟
 
-        # 随机事件检查
-        if not plot.is_ready and random.random() < 0.01:  # 1%概率检查事件
-            if not plot.has_pest and random.random() < FARM_SYSTEM_CONFIG["EVENT_CHANCES"]["pest_chance"]:
-                plot.has_pest = True
-
-            if not plot.has_weed and random.random() < FARM_SYSTEM_CONFIG["EVENT_CHANCES"]["weed_chance"]:
-                plot.has_weed = True
+        # 移除虫害和杂草的随机事件检查
 
     @staticmethod
     async def _get_available_seeds(db: AsyncSession, character: Character) -> List[Dict[str, Any]]:

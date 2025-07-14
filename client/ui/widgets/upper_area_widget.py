@@ -1210,7 +1210,6 @@ class UpperAreaWidget(QWidget):
             return
 
         self.character_data = character_data
-        print(f"🔄 开始更新角色信息: {character_data.get('name')} (ID: {character_data.get('user_id')})")
 
         try:
             # 将Python字典转换为JavaScript对象字符串

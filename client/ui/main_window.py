@@ -49,7 +49,6 @@ class DataUpdateWorker(QThread):
 
     def run(self):
         """执行数据更新循环"""
-        print("🚀 数据更新线程启动")
 
         while self.running and not self.isInterruptionRequested():
             try:
@@ -169,7 +168,20 @@ class MainWindow(QMainWindow):
 
     def init_ui(self):
         """初始化界面"""
-        self.setWindowTitle("气运修仙")
+        self.setWindowTitle("纸上修仙模拟器")
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
 
         # 设置窗口大小 (4:9比例)
         window_width = 400
@@ -290,7 +302,7 @@ class MainWindow(QMainWindow):
                         cultivation_log_widget.stop_countdown()
                         self.start_cultivation_countdown(focus_type)
 
-                print(f"✅ 修炼方向已切换为: {focus_name}")
+
             else:
                 error_msg = response.get('message', '修炼方向切换失败')
                 QMessageBox.warning(self, "切换失败", error_msg)
@@ -308,39 +320,48 @@ class MainWindow(QMainWindow):
             self.load_initial_data()
 
     def start_cultivation_countdown(self, focus_type: str):
-        """启动修炼倒计时"""
+        """启动修炼倒计时（基于服务器时间同步）"""
         try:
-            print(f"🔄 尝试启动修炼倒计时: {focus_type}")
-            # 获取下次修炼时间
+            # 获取服务器时间和修炼状态
             response = self.api_client.game.get_next_cultivation_time()
-            print(f"📡 API响应: {response}")
 
             if response.get('success'):
                 data = response['data']
-                next_time_str = data.get('next_cultivation_time')
-                remaining_seconds = data.get('remaining_seconds', 300)  # 默认5分钟
+                remaining_seconds = data.get('remaining_seconds', 5)
+                server_time_str = data.get('server_time')
 
-                print(f"⏰ 下次修炼时间: {next_time_str}, 剩余秒数: {remaining_seconds}")
-
-                # 直接使用剩余秒数计算下次修炼时间
+                # 计算客户端与服务器的时间差
                 from datetime import datetime, timedelta
+                import dateutil.parser
 
-                # 如果剩余秒数为0或负数，设置为30秒后
-                if remaining_seconds <= 0:
-                    remaining_seconds = 30  # 30秒（测试用）
-                    print(f"⚠️ 剩余时间为0，设置为30秒后修炼")
+                if server_time_str:
+                    server_time = dateutil.parser.parse(server_time_str).replace(tzinfo=None)
+                    client_time = datetime.now()
+                    time_offset = (server_time - client_time).total_seconds()
 
-                next_time = datetime.now() + timedelta(seconds=remaining_seconds)
-                print(f"🕐 计算的下次修炼时间: {next_time} (剩余{remaining_seconds}秒)")
+                    print(f"🕐 服务器时间: {server_time}, 客户端时间: {client_time}, 时间差: {time_offset:.1f}秒")
+
+                    # 基于服务器时间计算下次修炼时间
+                    if remaining_seconds <= 0:
+                        # 修炼时间已到，立即开始下一轮倒计时
+                        cultivation_interval = data.get('cultivation_interval', 5)
+                        next_time = client_time + timedelta(seconds=cultivation_interval) + timedelta(seconds=time_offset)
+                    else:
+                        # 使用服务器返回的剩余时间，但调整时间差
+                        next_time = client_time + timedelta(seconds=remaining_seconds) + timedelta(seconds=time_offset)
+                else:
+                    # 没有服务器时间信息，使用本地时间
+                    if remaining_seconds <= 0:
+                        remaining_seconds = 5
+                    next_time = datetime.now() + timedelta(seconds=remaining_seconds)
+
+                print(f"🔄 启动修炼倒计时: {focus_type}, 剩余时间: {remaining_seconds}秒, 目标时间: {next_time}")
 
                 # 启动修炼倒计时
                 if self.lower_area_widget:
                     cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
                     if cultivation_log_widget:
                         cultivation_log_widget.start_cultivation_countdown(focus_type, next_time)
-                        print(f"✅ 倒计时已启动")
-            else:
-                print(f"❌ API调用失败: {response.get('message', '未知错误')}")
         except Exception as e:
             print(f"❌ 启动修炼倒计时失败: {e}")
             import traceback
@@ -363,27 +384,40 @@ class MainWindow(QMainWindow):
             # 这里可以添加更多的新消息提示逻辑，比如闪烁按钮等
 
     def on_cultivation_completed(self):
-        """修炼完成处理"""
-        print(f"🎉 修炼完成，开始处理...")
-
+        """修炼完成处理（基于服务器时间同步）"""
         try:
+            print("🔄 修炼倒计时完成，尝试获取修炼收益...")
+
             # 强制执行一次修炼周期来获取收益
             force_response = self.api_client.game.force_cultivation_cycle()
-            print(f"🔄 强制修炼周期结果: {force_response}")
 
             # 如果有修炼结果数据，添加到修炼日志
             if force_response.get('success') and force_response.get('data'):
                 cultivation_result = force_response['data']
+                print(f"✅ 修炼周期成功，获得收益")
+
                 if self.lower_area_widget:
                     cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
                     if cultivation_log_widget:
                         cultivation_log_widget.add_cultivation_result_log(cultivation_result)
+            else:
+                # 如果修炼周期未到，说明客户端倒计时与服务器不同步
+                remaining_time = force_response.get('data', {}).get('remaining_time', 0)
+                print(f"⚠️ 修炼周期未到，剩余时间: {remaining_time:.1f}秒")
+
+                if remaining_time > 0 and remaining_time <= 3:  # 如果剩余时间很短，稍后重试
+                    print(f"⏳ 剩余时间较短，{remaining_time:.1f}秒后重试")
+                    QTimer.singleShot(int(remaining_time * 1000) + 200, self.on_cultivation_completed)
+                    return
+                else:
+                    # 剩余时间较长，重新同步倒计时
+                    print(f"🔄 时间差异较大，重新同步倒计时")
 
             # 立即刷新角色数据和修炼状态
             self.load_initial_data()
 
             # 延迟一点时间后重新启动倒计时，确保数据已更新
-            QTimer.singleShot(2000, self.restart_cultivation_countdown)
+            QTimer.singleShot(1500, self.restart_cultivation_countdown)
 
         except Exception as e:
             print(f"❌ 修炼完成处理失败: {e}")
@@ -398,8 +432,6 @@ class MainWindow(QMainWindow):
             if cultivation_response.get('success'):
                 cultivation_data = cultivation_response['data']
                 current_focus = cultivation_data.get('cultivation_focus', 'PHYSICAL_ATTACK')
-
-                print(f"🔄 重新启动修炼倒计时: {current_focus}")
                 self.start_cultivation_countdown(current_focus)
 
         except Exception as e:
@@ -456,49 +488,20 @@ class MainWindow(QMainWindow):
                     self.state_manager.logout()  # 触发登出，会自动关闭窗口
                     return
 
-            # 优先使用预加载的数据
-            has_preloaded_data = False
+            # 获取最新的游戏数据
+            user_data_response = self.api_client.user.get_character_detail()
+            if user_data_response.get('success'):
+                self.on_user_data_updated(user_data_response['data'])
 
-            if self.state_manager.user_data:
-                print("✅ 使用预加载的用户数据")
-                self.on_user_data_updated(self.state_manager.user_data)
-                has_preloaded_data = True
+            cultivation_response = self.api_client.game.get_cultivation_status()
+            if cultivation_response.get('success'):
+                self.on_cultivation_status_updated(cultivation_response['data'])
 
-            if self.state_manager.cultivation_status:
-                print("✅ 使用预加载的修炼状态")
-                self.on_cultivation_status_updated(self.state_manager.cultivation_status)
-            elif not has_preloaded_data:
-                # 只有在没有预加载数据时才重新获取
-                cultivation_response = self.api_client.game.get_cultivation_status()
-                if cultivation_response.get('success'):
-                    self.on_cultivation_status_updated(cultivation_response['data'])
-                else:
-                    error_msg = cultivation_response.get('message', '获取修炼状态失败')
-                    print(f"⚠️ 修炼状态加载失败: {error_msg}")
+            luck_response = self.api_client.game.get_luck_info()
+            if luck_response.get('success'):
+                self.on_luck_info_updated(luck_response['data'])
 
-            if self.state_manager.luck_info:
-                print("✅ 使用预加载的气运信息")
-                self.on_luck_info_updated(self.state_manager.luck_info)
-            elif not has_preloaded_data:
-                # 只有在没有预加载数据时才重新获取
-                luck_response = self.api_client.game.get_luck_info()
-                if luck_response.get('success'):
-                    self.on_luck_info_updated(luck_response['data'])
-                else:
-                    error_msg = luck_response.get('message', '获取气运信息失败')
-                    print(f"⚠️ 气运信息加载失败: {error_msg}")
 
-            # 如果没有任何预加载数据，则重新获取所有数据
-            if not has_preloaded_data:
-                print("📡 重新获取所有游戏数据")
-                user_data_response = self.api_client.user.get_character_detail()
-                if user_data_response.get('success'):
-                    self.on_user_data_updated(user_data_response['data'])
-                else:
-                    error_msg = user_data_response.get('message', '获取用户数据失败')
-                    print(f"⚠️ 用户数据加载失败: {error_msg}")
-
-            print("✅ 初始数据加载完成")
 
         except APIException as e:
             if "401" in str(e):
@@ -765,8 +768,6 @@ class MainWindow(QMainWindow):
                     focus_name = focus_info.get('name', '体修')
                     focus_icon = focus_info.get('icon', '🛡️')
 
-                    print(f"✅ 自动开始修炼: {focus_name}{focus_icon}")
-
                     # 添加系统日志并启动倒计时
                     if self.lower_area_widget:
                         cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
@@ -779,16 +780,13 @@ class MainWindow(QMainWindow):
                     error_msg = start_response.get('message', '自动修炼启动失败')
                     print(f"⚠️ 自动修炼启动失败: {error_msg}")
             else:
-                print("✅ 角色已在修炼中")
                 # 如果已经在修炼，也启动倒计时
                 current_focus = cultivation_data.get('cultivation_focus', 'HP')
                 self.start_cultivation_countdown(current_focus)
 
         except APIException as e:
-            print(f"⚠️ 自动修炼启动失败: {e}")
             # 检查是否为认证失败
             if "401" in str(e):
-                print("🔐 自动修炼启动时检测到认证失败，触发用户登出...")
                 self.state_manager.logout()
         except Exception as e:
             print(f"⚠️ 自动修炼启动异常: {e}")
@@ -856,9 +854,22 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # 设置应用程序信息
-    app.setApplicationName("气运修仙")
+    app.setApplicationName("纸上修仙模拟器")
     app.setApplicationVersion("1.0.0")
     app.setOrganizationName("Simonius")
+
+    # 设置应用程序图标
+    try:
+        import os
+        # 获取项目根目录
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        icon_path = os.path.join(project_root, "appicon.ico")
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
+        else:
+            print(f"⚠️ 图标文件不存在: {icon_path}")
+    except Exception as e:
+        print(f"❌ 设置应用程序图标失败: {e}")
 
     # 创建并显示主窗口
     main_window = MainWindow()

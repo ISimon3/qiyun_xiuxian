@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QMenuBar, QStatusBar, QToolBar
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
-from PyQt6.QtGui import QFont, QColor
+from PyQt6.QtGui import QFont, QColor, QIcon
 
 from client.network.api_client import GameAPIClient, APIException
 from client.state_manager import get_state_manager
@@ -59,6 +59,19 @@ class PurchaseDialog(QDialog):
         self.setWindowTitle(f"购买 - {item_name}")
         self.setFixedSize(350, 250)
         self.setModal(True)
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
 
         layout = QVBoxLayout()
 
@@ -158,6 +171,19 @@ class CreateTradeDialog(QDialog):
         self.setWindowTitle("创建交易")
         self.setFixedSize(400, 300)
         self.setModal(True)
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
 
         layout = QVBoxLayout()
 
@@ -284,11 +310,21 @@ class ShopWindow(QMainWindow):
 
     def init_ui(self):
         """初始化界面"""
-        self.setWindowTitle("🏪 气运修仙 - 商城")
+        self.setWindowTitle("🏪 纸上修仙模拟器 - 商城")
         self.setFixedSize(650, 600)  # 更加紧凑的窗口尺寸
 
-        # 设置窗口图标（如果有的话）
-        # self.setWindowIcon(QIcon("path/to/shop_icon.png"))
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
 
         # 创建菜单栏
         self.create_menu_bar()
@@ -401,7 +437,7 @@ class ShopWindow(QMainWindow):
     def create_status_bar(self):
         """创建状态栏"""
         self.status_bar = self.statusBar()
-        self.status_bar.showMessage("欢迎来到气运修仙商城！")
+        self.status_bar.showMessage("欢迎来到纸上修仙模拟器商城！")
 
         # 添加永久状态信息
         self.connection_status = QLabel("🟢 已连接")
@@ -412,7 +448,7 @@ class ShopWindow(QMainWindow):
         QMessageBox.about(
             self,
             "关于商城",
-            "气运修仙 - 商城系统\n\n"
+            "纸上修仙模拟器 - 商城系统\n\n"
             "版本: 1.0.0\n"
             "功能:\n"
             "• 系统商城 - 购买基础物品和装备\n"

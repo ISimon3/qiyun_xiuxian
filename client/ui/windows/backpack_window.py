@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QToolTip, QApplication, QTabWidget
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint
-from PyQt6.QtGui import QPixmap, QFont, QCursor, QAction
+from PyQt6.QtGui import QPixmap, QFont, QCursor, QAction, QIcon
 
 from client.network.api_client import GameAPIClient
 from shared.constants import ITEM_QUALITY, EQUIPMENT_SLOTS, ITEM_TYPES
@@ -812,6 +812,19 @@ class BackpackWindow(QDialog):
         self.setWindowTitle("背包")
         self.setFixedSize(950, 800)  # 保持窗口大小
         self.setModal(False)  # 改为非模态窗口
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
 
         # 主布局
         main_layout = QVBoxLayout()

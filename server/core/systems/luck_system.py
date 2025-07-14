@@ -370,15 +370,22 @@ class LuckSystem:
 
                 elif event_type == "天材地宝":
                     # 随机提升一个属性
-                    attributes = ["hp", "physical_attack", "magic_attack", "physical_defense", "magic_defense"]
-                    chosen_attr = random.choice(attributes)
+                    attributes = {
+                        "hp": "生命值",
+                        "physical_attack": "物理攻击",
+                        "magic_attack": "魔法攻击",
+                        "physical_defense": "物理防御",
+                        "magic_defense": "魔法防御"
+                    }
+                    chosen_attr = random.choice(list(attributes.keys()))
+                    attr_name = attributes[chosen_attr]
                     bonus = event_config.get("attribute_bonus", 5)
 
                     # 更新角色属性
                     current_value = getattr(character, chosen_attr, 0)
                     setattr(character, chosen_attr, current_value + bonus)
 
-                    result["message"] = f"偶遇天材地宝，{chosen_attr}永久提升！(+{bonus})"
+                    result["message"] = f"偶遇天材地宝，{attr_name}永久提升！(+{bonus})"
                     result["effects"][chosen_attr] = bonus
 
             else:
@@ -387,8 +394,7 @@ class LuckSystem:
 
                 if event_type == "修炼受阻":
                     result["message"] = "修炼时心神不宁，修炼效率降低！"
-                    result["effects"]["cultivation_speed_penalty"] = event_config.get("cultivation_speed_penalty", 0.3)
-                    result["effects"]["duration_minutes"] = event_config.get("duration_minutes", 30)
+                    result["effects"]["next_cultivation_delay"] = True  # 下一轮修炼延迟
 
                 elif event_type == "走火入魔":
                     exp_penalty = random.randint(

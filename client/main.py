@@ -61,16 +61,23 @@ class GameApplication:
     
     def setup_application(self):
         """设置应用程序基本信息"""
-        self.app.setApplicationName("气运修仙")
+        self.app.setApplicationName("纸上修仙模拟器")
         self.app.setApplicationVersion("1.0.0")
-        self.app.setOrganizationName("气运修仙工作室")
-        self.app.setOrganizationDomain("qiyun-xiuxian.com")
-        
-        # 设置应用程序图标（如果存在）
-        icon_path = os.path.join(os.path.dirname(__file__), "assets", "icons", "app_icon.ico")
-        if os.path.exists(icon_path):
-            self.app.setWindowIcon(QIcon(icon_path))
-        
+        self.app.setOrganizationName("Simonius")
+        self.app.setOrganizationDomain("simonius.com")
+
+        # 设置应用程序图标
+        try:
+            # 确保图标文件路径正确
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.app.setWindowIcon(QIcon(icon_path))
+                print(f"✅ 应用程序图标设置成功: {icon_path}")
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置应用程序图标失败: {e}")
+
         # 设置样式
         self.setup_styles()
     

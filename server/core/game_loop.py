@@ -26,6 +26,7 @@ class GameLoop:
         from server.config import settings
         self.cultivation_interval = settings.CULTIVATION_TICK_INTERVAL
         self.last_cultivation_time = {}  # 记录每个角色的最后修炼时间
+        self.cultivation_delays = {}     # 记录角色的修炼延迟状态
 
     async def start(self):
         """启动游戏主循环"""
@@ -101,11 +102,25 @@ class GameLoop:
 
             # 检查是否需要进行修炼周期
             time_diff = (current_time - last_cultivation).total_seconds()
-            logger.info(f"⏰ 角色 {character.name} 距离上次修炼: {time_diff:.1f}秒")
 
-            if time_diff >= self.cultivation_interval:
-                # 计算需要处理的周期数
-                cycles_to_process = int(time_diff // self.cultivation_interval)
+            # 检查是否有延迟效果
+            current_interval = self.cultivation_interval
+            if self.cultivation_delays.get(character_id, False):
+                current_interval = self.cultivation_interval * 2  # 延迟1倍时间
+                logger.info(f"⏳ 角色 {character.name} 受到修炼效率降低影响，周期延长至 {current_interval}秒")
+
+            logger.info(f"⏰ 角色 {character.name} 距离上次修炼: {time_diff:.1f}秒，需要间隔: {current_interval}秒")
+
+            if time_diff >= current_interval:
+                # 如果有延迟效果，只处理一个周期
+                if self.cultivation_delays.get(character_id, False):
+                    cycles_to_process = 1
+                    # 清除延迟状态
+                    self.cultivation_delays[character_id] = False
+                    logger.info(f"🔄 角色 {character.name} 延迟修炼周期完成，恢复正常修炼间隔")
+                else:
+                    # 计算需要处理的周期数
+                    cycles_to_process = int(time_diff // self.cultivation_interval)
 
                 logger.info(f"🔄 角色 {character.name} 需要处理 {cycles_to_process} 个修炼周期")
 
@@ -131,18 +146,23 @@ class GameLoop:
         current_time = datetime.now()
         last_cultivation = self.last_cultivation_time.get(character_id)
 
+        # 检查是否有延迟效果
+        current_interval = self.cultivation_interval
+        if self.cultivation_delays.get(character_id, False):
+            current_interval = self.cultivation_interval * 2  # 延迟1倍时间
+
         if last_cultivation is None:
             # 如果没有记录，返回当前时间加上修炼间隔
-            next_time = current_time + timedelta(seconds=self.cultivation_interval)
+            next_time = current_time + timedelta(seconds=current_interval)
             logger.info(f"🕐 角色 {character_id} 首次获取修炼时间: {next_time}")
             return next_time
         else:
             # 计算下次修炼时间
-            next_time = last_cultivation + timedelta(seconds=self.cultivation_interval)
+            next_time = last_cultivation + timedelta(seconds=current_interval)
 
             # 如果下次修炼时间已经过了，说明应该立即修炼
             if next_time <= current_time:
-                next_time = current_time + timedelta(seconds=self.cultivation_interval)
+                next_time = current_time + timedelta(seconds=current_interval)
                 logger.info(f"🕐 角色 {character_id} 修炼时间已到，设置新的修炼时间: {next_time}")
 
             return next_time
@@ -212,12 +232,18 @@ class GameLoop:
 
         return last_cultivation + timedelta(seconds=self.cultivation_interval)
 
+    def set_cultivation_delay(self, character_id: int):
+        """设置角色修炼延迟状态"""
+        self.cultivation_delays[character_id] = True
+        logger.info(f"⏳ 角色 {character_id} 设置修炼延迟状态，下一轮修炼时间将延长1倍")
+
     def get_status(self) -> Dict[str, Any]:
         """获取游戏循环状态"""
         return {
             "is_running": self.is_running,
             "cultivation_interval": self.cultivation_interval,
             "active_characters": len(self.last_cultivation_time),
+            "delayed_characters": [char_id for char_id, delayed in self.cultivation_delays.items() if delayed],
             "last_cultivation_times": {
                 char_id: time.isoformat()
                 for char_id, time in self.last_cultivation_time.items()

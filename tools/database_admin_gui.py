@@ -25,6 +25,7 @@ from server.database.models import User, Character, InventoryItem, EquippedItem,
 from server.config import settings
 from shared.constants import CULTIVATION_REALMS, LUCK_LEVELS, SPIRITUAL_ROOTS
 from shared.utils import get_realm_name, get_luck_level_name
+from passlib.context import CryptContext
 
 
 class DatabaseWorker(QThread):
@@ -105,6 +106,8 @@ class DatabaseWorker(QThread):
                             'id': user.id,
                             'username': user.username or '',
                             'email': user.email or '',
+                            'hashed_password': user.hashed_password or '',
+                            'plain_password': user.plain_password or '',  # 直接获取明文密码
                             'is_active': user.is_active if user.is_active is not None else True,
                             'is_verified': user.is_verified if user.is_verified is not None else False,
                             'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S') if user.created_at else '',
@@ -200,6 +203,8 @@ class DatabaseWorker(QThread):
             self.operation_completed.emit(False, f"操作失败: {str(e)}")
 
 
+
+
 class UserEditDialog(QDialog):
     """用户编辑对话框"""
     
@@ -212,6 +217,12 @@ class UserEditDialog(QDialog):
         """初始化界面"""
         self.setWindowTitle(f"编辑用户 - {self.user_data['username']}")
         self.setFixedSize(400, 300)
+
+        # 设置窗口图标
+        try:
+            self.setWindowIcon(QIcon("appicon.ico"))
+        except Exception:
+            pass
         
         layout = QVBoxLayout()
         
@@ -235,8 +246,25 @@ class UserEditDialog(QDialog):
         self.verified_checkbox = QCheckBox()
         self.verified_checkbox.setChecked(self.user_data['is_verified'])
         form_layout.addRow("验证状态:", self.verified_checkbox)
-        
+
+        # 密码重置
+        password_group = QGroupBox("密码重置")
+        password_layout = QFormLayout()
+
+        self.new_password_edit = QLineEdit()
+        self.new_password_edit.setPlaceholderText("留空则不修改密码")
+        self.new_password_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        password_layout.addRow("新密码:", self.new_password_edit)
+
+        self.confirm_password_edit = QLineEdit()
+        self.confirm_password_edit.setPlaceholderText("确认新密码")
+        self.confirm_password_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        password_layout.addRow("确认密码:", self.confirm_password_edit)
+
+        password_group.setLayout(password_layout)
+
         layout.addLayout(form_layout)
+        layout.addWidget(password_group)
         
         # 按钮
         button_layout = QHBoxLayout()
@@ -254,12 +282,33 @@ class UserEditDialog(QDialog):
     
     def get_data(self) -> Dict[str, Any]:
         """获取编辑后的数据"""
-        return {
+        data = {
             'username': self.username_edit.text(),
             'email': self.email_edit.text(),
             'is_active': self.active_checkbox.isChecked(),
             'is_verified': self.verified_checkbox.isChecked()
         }
+
+        # 检查密码重置
+        new_password = self.new_password_edit.text().strip()
+        confirm_password = self.confirm_password_edit.text().strip()
+
+        if new_password:
+            if new_password != confirm_password:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "密码错误", "两次输入的密码不一致！")
+                return None
+            if len(new_password) < 6:
+                from PyQt6.QtWidgets import QMessageBox
+                QMessageBox.warning(self, "密码错误", "密码长度至少6个字符！")
+                return None
+
+            # 生成密码哈希
+            from passlib.context import CryptContext
+            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            data['hashed_password'] = pwd_context.hash(new_password)
+
+        return data
 
 
 class UserGameDataEditDialog(QDialog):
@@ -274,6 +323,12 @@ class UserGameDataEditDialog(QDialog):
         """初始化界面"""
         self.setWindowTitle(f"编辑用户游戏数据 - {self.game_data['name']}")
         self.setFixedSize(500, 600)
+
+        # 设置窗口图标
+        try:
+            self.setWindowIcon(QIcon("appicon.ico"))
+        except Exception:
+            pass
 
         layout = QVBoxLayout()
 
@@ -381,8 +436,21 @@ class DatabaseAdminMainWindow(QMainWindow):
 
     def init_ui(self):
         """初始化界面"""
-        self.setWindowTitle("气运修仙 - 数据库管理工具")
+        self.setWindowTitle("纸上修仙模拟器 - 数据库管理工具")
         self.setGeometry(100, 100, 1200, 800)
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
 
         # 中央组件
         central_widget = QWidget()
@@ -656,7 +724,7 @@ class DatabaseAdminMainWindow(QMainWindow):
             self.game_data = data
             self.populate_game_data_table(data)
             self.status_label.setText(f"游戏数据加载完成，共 {len(data)} 条记录")
-        elif data and 'email' in data[0] and 'hashed_password' not in data[0]:  # 用户数据（不包含密码）
+        elif data and 'email' in data[0]:  # 用户数据
             self.users_data = data
             self.populate_users_table(data)
             self.status_label.setText(f"用户数据加载完成，共 {len(data)} 条记录")
@@ -669,7 +737,7 @@ class DatabaseAdminMainWindow(QMainWindow):
             return
 
         # 设置表格
-        headers = ['ID', '用户名', '邮箱', '激活状态', '验证状态', '创建时间', '最后登录', '有游戏数据']
+        headers = ['ID', '用户名', '邮箱', '明文密码', '密码哈希', '激活状态', '验证状态', '创建时间', '最后登录', '有游戏数据']
         self.users_table.setColumnCount(len(headers))
         self.users_table.setHorizontalHeaderLabels(headers)
         self.users_table.setRowCount(len(users_data))
@@ -681,21 +749,42 @@ class DatabaseAdminMainWindow(QMainWindow):
                 self.users_table.setItem(row, 1, QTableWidgetItem(user.get('username', '')))
                 self.users_table.setItem(row, 2, QTableWidgetItem(user.get('email', '')))
 
+                # 明文密码
+                plain_password = user.get('plain_password', '')
+                password_item = QTableWidgetItem(plain_password)
+                if plain_password:
+                    password_item.setForeground(QColor("#28a745"))  # 绿色显示密码
+                else:
+                    password_item.setForeground(QColor("#dc3545"))  # 红色显示空密码
+                    password_item.setText("无密码")
+                self.users_table.setItem(row, 3, password_item)
+
+                # 密码哈希 - 显示前30个字符，后面用...表示
+                password_hash = user.get('hashed_password', '')
+                if len(password_hash) > 30:
+                    display_hash = password_hash[:30] + '...'
+                else:
+                    display_hash = password_hash
+                hash_item = QTableWidgetItem(display_hash)
+                hash_item.setToolTip(password_hash)  # 完整密码哈希作为工具提示
+                hash_item.setForeground(QColor("#666666"))  # 灰色显示
+                self.users_table.setItem(row, 4, hash_item)
+
                 # 激活状态
                 is_active = user.get('is_active', True)
                 active_item = QTableWidgetItem("✅ 激活" if is_active else "❌ 封禁")
                 active_item.setForeground(QColor("#28a745") if is_active else QColor("#dc3545"))
-                self.users_table.setItem(row, 3, active_item)
+                self.users_table.setItem(row, 5, active_item)
 
                 # 验证状态
                 is_verified = user.get('is_verified', False)
                 verified_item = QTableWidgetItem("✅ 已验证" if is_verified else "❌ 未验证")
                 verified_item.setForeground(QColor("#28a745") if is_verified else QColor("#ffc107"))
-                self.users_table.setItem(row, 4, verified_item)
+                self.users_table.setItem(row, 6, verified_item)
 
-                self.users_table.setItem(row, 5, QTableWidgetItem(user.get('created_at', '')))
-                self.users_table.setItem(row, 6, QTableWidgetItem(user.get('last_login', '')))
-                self.users_table.setItem(row, 7, QTableWidgetItem(user.get('has_game_data', '否')))
+                self.users_table.setItem(row, 7, QTableWidgetItem(user.get('created_at', '')))
+                self.users_table.setItem(row, 8, QTableWidgetItem(user.get('last_login', '')))
+                self.users_table.setItem(row, 9, QTableWidgetItem(user.get('has_game_data', '否')))
 
             except Exception as e:
                 print(f"填充用户表格第{row}行时出错: {e}")
@@ -707,6 +796,8 @@ class DatabaseAdminMainWindow(QMainWindow):
         header = self.users_table.horizontalHeader()
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # 用户名列自适应
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # 邮箱列自适应
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)  # 明文密码列可调整
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)  # 密码哈希列可调整
 
     def populate_game_data_table(self, game_data: List[Dict[str, Any]]):
         """填充游戏数据表格"""
@@ -777,7 +868,7 @@ class DatabaseAdminMainWindow(QMainWindow):
             row = selected_rows[0].row()
             user_id = int(self.users_table.item(row, 0).text())
             username = self.users_table.item(row, 1).text()
-            is_active = "激活" in self.users_table.item(row, 3).text()
+            is_active = "激活" in self.users_table.item(row, 5).text()  # 激活状态列索引改为5
 
             self.ban_user_button.setEnabled(is_active)
             self.unban_user_button.setEnabled(not is_active)
@@ -841,8 +932,9 @@ class DatabaseAdminMainWindow(QMainWindow):
         dialog = UserEditDialog(user_data, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_data = dialog.get_data()
-            self.status_label.setText("正在更新用户数据...")
-            self.db_worker.update_user(user_id, new_data)
+            if new_data is not None:  # 检查密码验证是否通过
+                self.status_label.setText("正在更新用户数据...")
+                self.db_worker.update_user(user_id, new_data)
 
     def ban_selected_user(self):
         """封禁选中的用户"""

@@ -1,5 +1,5 @@
-# 项目依赖库
-# 服务端依赖
+# Project Dependencies
+# Server Dependencies
 fastapi>=0.116.0
 uvicorn[standard]>=0.35.0
 sqlalchemy>=2.0.41
@@ -10,22 +10,22 @@ python-jose[cryptography]>=3.5.0
 passlib[bcrypt]>=1.7.4
 python-multipart>=0.0.20
 websockets>=15.0.0
-asyncpg>=0.30.0  # PostgreSQL异步驱动
-aiosqlite>=0.21.0  # SQLite异步驱动
-bcrypt>=4.3.0  # 密码哈希
+asyncpg>=0.30.0
+aiosqlite>=0.21.0
+bcrypt>=4.3.0
 
-# 客户端依赖
+# Client Dependencies
 PyQt6>=6.9.0
-PyQt6-WebEngine>=6.9.0  # Web引擎组件
+PyQt6-WebEngine>=6.9.0
 requests>=2.32.0
 websocket-client>=1.8.0
 
-# 开发和测试依赖
+# Development and Testing Dependencies
 pytest>=8.4.0
 pytest-asyncio>=1.0.0
-httpx>=0.28.0  # 用于测试FastAPI
-black>=25.1.0  # 代码格式化
-flake8>=7.3.0  # 代码检查
+httpx>=0.28.0
+black>=25.1.0
+flake8>=7.3.0
 
-# 可选依赖
-python-dotenv>=1.1.0  # 环境变量管理
+# Optional Dependencies
+python-dotenv>=1.1.0

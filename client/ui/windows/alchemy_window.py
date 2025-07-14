@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QTimer
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QColor, QPalette
+from PyQt6.QtGui import QFont, QColor, QIcon, QPalette
 
 from client.network.api_client import GameAPIClient
 from client.state_manager import StateManager
@@ -44,6 +44,19 @@ class AlchemyWindow(QWidget):
         """初始化界面"""
         self.setWindowTitle("炼丹房")
         self.setFixedSize(900, 700)
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
         
         # 主布局
         main_layout = QHBoxLayout(self)

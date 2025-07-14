@@ -278,6 +278,28 @@ class CultivationLogWidget(QWidget):
                     background-color: rgba(203, 67, 53, 0.1);
                 }
 
+                /* 特殊事件样式 */
+                .log-special_event_positive {
+                    color: #27ae60;
+                    background-color: rgba(39, 174, 96, 0.15);
+                    font-weight: 600;
+                    border-left: 3px solid #27ae60;
+                    padding-left: 8px;
+                }
+
+                .log-special_event_negative {
+                    color: #e74c3c;
+                    background-color: rgba(231, 76, 60, 0.15);
+                    font-weight: 600;
+                    border-left: 3px solid #e74c3c;
+                    padding-left: 8px;
+                }
+
+                .log-cultivation_result {
+                    color: #3498db;
+                    background-color: rgba(52, 152, 219, 0.1);
+                }
+
                 .log-special {
                     color: #d35400;
                     background-color: rgba(211, 84, 0, 0.1);
@@ -431,15 +453,33 @@ class CultivationLogWidget(QWidget):
         attribute_gained = cultivation_result.get('attribute_gained', 0)
         attribute_type = cultivation_result.get('attribute_type', 'HP')
         luck_effect = cultivation_result.get('luck_effect', '气运平')
+        special_event_result = cultivation_result.get('special_event_result')
 
         focus_info = CULTIVATION_FOCUS_TYPES.get(attribute_type, {})
         focus_name = focus_info.get('name', '未知')
         focus_icon = focus_info.get('icon', '❓')
 
-        message = f"修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained} [{luck_effect}]"
-        self.add_log_entry(message, "cultivation_result", "#3498db")
+        # 检查是否有特殊事件
+        if special_event_result and special_event_result.get('message'):
+            # 有特殊事件，显示特殊事件信息
+            event_message = special_event_result['message']
+            is_positive = special_event_result.get('is_positive', True)
 
-        print(f"✨ 修炼收益: {message}")
+            if is_positive:
+                # 正面事件，使用绿色
+                self.add_log_entry(event_message, "special_event_positive", "#27ae60")
+            else:
+                # 负面事件，使用红色
+                self.add_log_entry(event_message, "special_event_negative", "#e74c3c")
+
+            # 如果还有基础修炼收益，也显示
+            if exp_gained > 0 or attribute_gained > 0:
+                base_message = f"基础修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained} [{luck_effect}]"
+                self.add_log_entry(base_message, "cultivation_result", "#3498db")
+        else:
+            # 没有特殊事件，显示正常修炼收益
+            message = f"修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained} [{luck_effect}]"
+            self.add_log_entry(message, "cultivation_result", "#3498db")
 
     def add_breakthrough_log(self, old_realm: int, new_realm: int, success: bool):
         """添加突破日志"""
@@ -517,8 +557,6 @@ class CultivationLogWidget(QWidget):
         # 生成唯一的倒计时条目ID
         self.countdown_entry_id = f"countdown_{int(datetime.now().timestamp())}"
 
-        print(f"🕐 开始修炼倒计时: {cultivation_focus}, 下次时间: {next_cultivation_time}")
-
         # 添加初始倒计时条目
         self.update_countdown()
 
@@ -561,7 +599,6 @@ class CultivationLogWidget(QWidget):
 
             self.countdown_entry_id = None
             self.next_cultivation_time = None
-            print(f"⏰ 修炼倒计时结束，触发修炼完成信号")
 
             # 触发修炼完成信号，让主窗口处理数据更新和下一轮修炼
             self.cultivation_completed.emit()
@@ -574,7 +611,6 @@ class CultivationLogWidget(QWidget):
 
         self.countdown_entry_id = None
         self.next_cultivation_time = None
-        print(f"🛑 倒计时已停止")
 
     def set_next_cultivation_time(self, next_time: datetime):
         """设置下次修炼时间"""
@@ -623,17 +659,10 @@ class CultivationLogWidget(QWidget):
         current_exp = cultivation_data.get('current_exp', 0)
         current_realm = cultivation_data.get('current_realm', 0)
 
-        print(f"🔍 修炼状态更新: 当前修为={current_exp}, 上次修为={self.last_exp}")
-
-        # 检查修为变化（仅用于调试，不再自动生成日志）
-        if current_exp > self.last_exp and self.last_exp > 0:
-            exp_gained = current_exp - self.last_exp
-            print(f"🔍 修炼状态更新: 修为增加 +{exp_gained} (从 {self.last_exp} 到 {current_exp})")
-        elif self.last_exp == 0:
-            # 首次设置，不显示收益
-            print(f"🔧 首次设置修为基准: {current_exp}")
-        else:
-            print(f"⚠️ 修为无变化或减少: {current_exp} vs {self.last_exp}")
+        # 检查修为变化（静默处理，不输出调试信息）
+        if current_exp < self.last_exp and self.last_exp > 0:
+            exp_lost = self.last_exp - current_exp
+            print(f"⚠️ 修为减少: -{exp_lost} (从 {self.last_exp} 到 {current_exp}) - 可能触发了特殊事件或突破失败")
 
         # 检查境界突破
         if current_realm > self.last_realm and self.last_realm > 0:

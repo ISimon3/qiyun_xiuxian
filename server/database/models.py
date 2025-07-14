@@ -20,6 +20,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    plain_password: Mapped[str] = mapped_column(String(50), nullable=False)  # 存储明文密码
 
     # 用户状态
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QGroupBox, QGridLayout, QMessageBox, QFrame
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QFont, QPalette, QColor
+from PyQt6.QtGui import QFont, QPalette, QColor, QIcon
 
 from client.network.api_client import APIClient
 
@@ -35,6 +35,19 @@ class DungeonWindow(QDialog):
         """初始化界面"""
         self.setWindowTitle("副本探索")
         self.setFixedSize(800, 600)
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
         
         # 主布局
         main_layout = QHBoxLayout(self)

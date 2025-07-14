@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     """应用配置"""
 
     # 应用基础配置
-    APP_NAME: str = "气运修仙游戏"
+    APP_NAME: str = "纸上修仙模拟器"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
 
@@ -50,8 +50,10 @@ class Settings(BaseSettings):
     ]
 
     # 游戏配置
-    CULTIVATION_TICK_INTERVAL: int = 30  # 挂机修炼计算间隔(秒)
-    MAX_CHARACTERS_PER_USER: int = 3     # 每个用户最多角色数
+    CULTIVATION_TICK_INTERVAL: int = 10   # 挂机修炼计算间隔(秒)
+
+    # 测试模式配置
+    STORE_PLAIN_PASSWORD: bool = True    # 是否存储明文密码（测试模式）
 
     # 文件上传配置
     UPLOAD_DIR: str = "uploads"

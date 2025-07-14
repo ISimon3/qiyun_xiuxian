@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QGroupBox, QSplitter
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QPalette, QColor
+from PyQt6.QtGui import QFont, QPalette, QColor, QIcon
 from typing import Dict, Any, Optional
 
 from client.network.api_client import GameAPIClient
@@ -38,6 +38,19 @@ class CaveWindow(QDialog):
         self.setWindowTitle("洞府")
         self.setFixedSize(800, 600)
         self.setModal(False)  # 非模态窗口
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
 
         # 主布局
         main_layout = QVBoxLayout()

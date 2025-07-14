@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QProgressBar, QCheckBox, QFrame
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QPalette
+from PyQt6.QtGui import QFont, QPalette, QIcon
 
 from client.network.api_client import GameAPIClient, APIException
 from client.state_manager import get_state_manager
@@ -492,9 +492,22 @@ class LoginWindow(QWidget):
 
     def init_ui(self):
         """初始化界面"""
-        self.setWindowTitle("气运修仙 - 登录")
+        self.setWindowTitle("纸上修仙模拟器 - 登录")
         self.setFixedSize(400, 500)
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint)
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
 
         # 主布局
         main_layout = QVBoxLayout()
@@ -678,9 +691,22 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # 设置应用程序信息
-    app.setApplicationName("气运修仙")
+    app.setApplicationName("纸上修仙模拟器")
     app.setApplicationVersion("1.0.0")
-    app.setOrganizationName("气运修仙工作室")
+    app.setOrganizationName("Simonius")
+
+    # 设置应用程序图标
+    try:
+        import os
+        # 获取项目根目录
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        icon_path = os.path.join(project_root, "appicon.ico")
+        if os.path.exists(icon_path):
+            app.setWindowIcon(QIcon(icon_path))
+        else:
+            print(f"⚠️ 图标文件不存在: {icon_path}")
+    except Exception as e:
+        print(f"❌ 设置应用程序图标失败: {e}")
 
     # 创建并显示登录窗口
     login_window = LoginWindow()

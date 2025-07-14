@@ -167,11 +167,11 @@ CULTIVATION_FOCUS_TYPES = {
 
 # 挂机修炼配置
 CULTIVATION_CONFIG = {
-    "BASE_EXP_GAIN": 2,            # 基础修为获得/30秒周期 (相当于每分钟4点修为)
-    "BASE_ATTRIBUTE_GAIN": 1,      # 基础属性获得/30秒周期 (相当于每分钟2点属性)
+    "BASE_EXP_GAIN": 2,            # 基础修为获得/周期
+    "BASE_ATTRIBUTE_GAIN": 1,      # 基础属性获得/周期
     "LUCK_MULTIPLIER_MIN": 0.5,    # 气运影响最小倍率
     "LUCK_MULTIPLIER_MAX": 2.0,    # 气运影响最大倍率
-    "BASE_SPECIAL_EVENT_CHANCE": 0.05,  # 基础特殊事件概率 (5%)
+    "BASE_SPECIAL_EVENT_CHANCE": 0.25,  # 基础特殊事件概率 (25%)
 }
 
 # 气运特殊事件配置
@@ -499,30 +499,9 @@ REALM_BASE_ATTRIBUTES = {
 }
 
 
-# 属性计算公式 - 简化版本
-ATTRIBUTE_FORMULAS = {
-    # 基础属性 = 境界基础值 + 等级加成 + 装备加成
-    "HP": {
-        "level_multiplier": 20,  # 每级增加20点生命
-        "equipment_bonus": True
-    },
-    "PHYSICAL_ATTACK": {
-        "level_multiplier": 5,   # 每级增加5点物攻
-        "equipment_bonus": True
-    },
-    "MAGIC_ATTACK": {
-        "level_multiplier": 5,   # 每级增加5点法攻
-        "equipment_bonus": True
-    },
-    "PHYSICAL_DEFENSE": {
-        "level_multiplier": 3,   # 每级增加3点物防
-        "equipment_bonus": True
-    },
-    "MAGIC_DEFENSE": {
-        "level_multiplier": 3,   # 每级增加3点法防
-        "equipment_bonus": True
-    }
-}
+# 属性计算说明
+# 基础属性 = 境界基础值 + 修炼（挂机获得的体修、法修等）+ 装备加成
+# 不再使用等级系统，所有属性提升通过境界突破和挂机修炼获得
 
 # 物品品质
 ITEM_QUALITY = {
@@ -676,21 +655,18 @@ FARM_SYSTEM_CONFIG = {
             "name": "普通土地",
             "growth_speed_multiplier": 1.0,
             "yield_multiplier": 1.0,
-            "mutation_base_chance": 0.01,  # 1%基础变异率
             "unlock_cost": 0
         },
         "fertile": {
             "name": "肥沃土地",
             "growth_speed_multiplier": 1.3,
             "yield_multiplier": 1.2,
-            "mutation_base_chance": 0.02,  # 2%基础变异率
             "unlock_cost": 1000  # 金币
         },
         "spiritual": {
             "name": "灵田",
             "growth_speed_multiplier": 1.5,
             "yield_multiplier": 1.5,
-            "mutation_base_chance": 0.05,  # 5%基础变异率
             "unlock_cost": 5000  # 金币
         }
     },
@@ -701,22 +677,19 @@ FARM_SYSTEM_CONFIG = {
             "growth_time_hours": 2,  # 2小时成熟
             "yield_min": 1,
             "yield_max": 3,
-            "result_item": "灵草",
-            "mutation_results": ["高品质灵草", "灵草精华"]
+            "result_item": "灵草"
         },
         "灵芝种子": {
             "growth_time_hours": 6,  # 6小时成熟
             "yield_min": 1,
             "yield_max": 2,
-            "result_item": "灵芝",
-            "mutation_results": ["千年灵芝", "灵芝王"]
+            "result_item": "灵芝"
         },
         "聚气草种子": {
             "growth_time_hours": 4,  # 4小时成熟
             "yield_min": 2,
             "yield_max": 4,
-            "result_item": "聚气草",
-            "mutation_results": ["聚气草精华", "灵气结晶"]
+            "result_item": "聚气草"
         }
     },
 
@@ -731,9 +704,7 @@ FARM_SYSTEM_CONFIG = {
 
     # 特殊事件概率
     "EVENT_CHANCES": {
-        "pest_chance": 0.1,    # 10%虫害概率
-        "weed_chance": 0.15,   # 15%杂草概率
-        "wither_chance": 0.05, # 5%枯萎概率（如果不及时收获）
+        "wither_chance": 0.05, # 5%枯萎概率（成熟后每小时计算一次）
     },
 
     # 地块解锁需求

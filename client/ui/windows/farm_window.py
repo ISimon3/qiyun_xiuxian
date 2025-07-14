@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QGroupBox, QSplitter, QComboBox, QSpinBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QPalette, QColor, QPixmap, QPainter
+from PyQt6.QtGui import QFont, QPalette, QColor, QPixmap, QPainter, QIcon
 from typing import Dict, Any, Optional, List
 
 from client.network.api_client import GameAPIClient
@@ -156,6 +156,19 @@ class FarmWindow(QDialog):
         self.setWindowTitle("灵田")
         self.setFixedSize(900, 700)
         self.setModal(False)  # 非模态窗口
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
 
         # 主布局
         main_layout = QVBoxLayout()
