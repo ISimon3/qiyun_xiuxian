@@ -357,7 +357,7 @@ class LuckSystem:
                 if event_type == "顿悟":
                     exp_bonus = random.randint(
                         event_config.get("exp_bonus_min", 100),
-                        event_config.get("exp_bonus_max", 500)
+                        event_config.get("exp_bonus_max", 200)
                     )
                     character.cultivation_exp += exp_bonus
                     result["message"] = f"修炼时突然顿悟，修为大增！(+{exp_bonus})"
@@ -401,7 +401,7 @@ class LuckSystem:
                 if event_type == "走火入魔":
                     exp_penalty = random.randint(
                         event_config.get("exp_penalty_min", 50),
-                        event_config.get("exp_penalty_max", 200)
+                        event_config.get("exp_penalty_max", 100)
                     )
                     character.cultivation_exp = max(0, character.cultivation_exp - exp_penalty)
                     result["message"] = f"修炼时走火入魔，损失修为！(-{exp_penalty})"
@@ -415,6 +415,23 @@ class LuckSystem:
                     character.spirit_stone = max(0, character.spirit_stone - spirit_stone_penalty)
                     result["message"] = f"周围灵气紊乱，消耗额外灵石！(-{spirit_stone_penalty})"
                     result["effects"]["spirit_stone"] = -spirit_stone_penalty
+
+                elif event_type == "财物散失":
+                    gold_penalty = random.randint(
+                        event_config.get("gold_penalty_min", 100),
+                        event_config.get("gold_penalty_max", 500)
+                    )
+                    character.gold = max(0, character.gold - gold_penalty)
+                    result["message"] = f"修炼时心神不宁，财物散失！(-{gold_penalty})"
+                    result["effects"]["gold"] = -gold_penalty
+
+                elif event_type == "气运受损":
+                    luck_penalty = event_config.get("luck_penalty", 1)
+                    old_luck = character.luck_value
+                    character.luck_value = max(0, character.luck_value - luck_penalty)
+                    actual_penalty = old_luck - character.luck_value
+                    result["message"] = f"修炼时触犯禁忌，气运受损！(-{actual_penalty})"
+                    result["effects"]["luck_value"] = -actual_penalty
 
             return result
 

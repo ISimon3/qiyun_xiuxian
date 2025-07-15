@@ -205,13 +205,24 @@ LUCK_SPECIAL_EVENTS = {
             "description": "修炼时走火入魔，损失修为",
             "exp_penalty_min": 50,
             "exp_penalty_max": 100,
-            "probability_weight": 50
+            "probability_weight": 29
         },
         "灵气紊乱": {
             "description": "周围灵气紊乱，消耗额外灵石",
             "spirit_stone_penalty_min": 5,
             "spirit_stone_penalty_max": 20,
-            "probability_weight": 50
+            "probability_weight": 29
+        },
+        "财物散失": {
+            "description": "修炼时心神不宁，财物散失",
+            "gold_penalty_min": 100,
+            "gold_penalty_max": 500,
+            "probability_weight": 24
+        },
+        "气运受损": {
+            "description": "修炼时触犯禁忌，气运受损",
+            "luck_penalty": 1,
+            "probability_weight": 18
         }
     },
 
