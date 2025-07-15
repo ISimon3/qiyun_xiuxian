@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     ]
 
     # 游戏配置
-    CULTIVATION_TICK_INTERVAL: int = 10   # 挂机修炼计算间隔(秒)
+    CULTIVATION_TICK_INTERVAL: int = 60   # 挂机修炼计算间隔(秒)
 
     # 测试模式配置
     STORE_PLAIN_PASSWORD: bool = True    # 是否存储明文密码（测试模式）
