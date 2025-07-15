@@ -123,6 +123,18 @@ class AuthAPI:
     def __init__(self, client: APIClient):
         self.client = client
 
+    def check_username(self, username: str) -> Dict[str, Any]:
+        """
+        检查用户名是否可用
+
+        Args:
+            username: 要检查的用户名
+
+        Returns:
+            用户名可用性检查结果
+        """
+        return self.client.get(f'/api/v1/auth/check-username/{username}')
+
     def register(self, username: str, email: str, password: str) -> Dict[str, Any]:
         """
         用户注册

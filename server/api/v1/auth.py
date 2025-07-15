@@ -16,6 +16,58 @@ from shared.schemas import (
 router = APIRouter()
 
 
+@router.get("/check-username/{username}", response_model=BaseResponse, summary="检查用户名是否可用")
+async def check_username(
+    username: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    检查用户名是否可用
+
+    - **username**: 要检查的用户名
+
+    返回用户名可用性信息
+    """
+    try:
+        # 检查用户名格式
+        if not username or not username.strip() or len(username) < 3 or len(username) > 20:
+            return BaseResponse(
+                success=False,
+                message="用户名长度必须在3-20个字符之间",
+                data=None
+            )
+
+        import re
+        if not re.match(r'^[a-zA-Z0-9_]+$', username):
+            return BaseResponse(
+                success=False,
+                message="用户名只能包含字母、数字和下划线",
+                data=None
+            )
+
+        # 检查用户名是否已存在
+        existing_user = await UserCRUD.get_user_by_username(db, username)
+        if existing_user:
+            return BaseResponse(
+                success=False,
+                message="用户名已被使用",
+                data={"available": False}
+            )
+
+        return BaseResponse(
+            success=True,
+            message="用户名可用",
+            data={"available": True}
+        )
+
+    except Exception as e:
+        return BaseResponse(
+            success=False,
+            message=f"检查用户名失败: {str(e)}",
+            data=None
+        )
+
+
 @router.post("/register", response_model=BaseResponse, summary="用户注册")
 async def register(
     user_data: UserRegister,

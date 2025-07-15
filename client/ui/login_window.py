@@ -343,6 +343,9 @@ class RegisterTab(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.api_client = None  # 将在父窗口中设置
+        self.username_checked = False  # 用户名是否已检测
+        self.username_available = False  # 用户名是否可用
         self.init_ui()
 
     def init_ui(self):
@@ -366,11 +369,52 @@ class RegisterTab(QWidget):
         username_label.setStyleSheet("background: transparent; font-weight: bold; color: #555; font-size: 11px;")
         username_layout.addWidget(username_label)
 
+        # 用户名输入框和检测按钮的水平布局
+        username_input_layout = QHBoxLayout()
+        username_input_layout.setSpacing(8)
+
         self.username_edit = QLineEdit()
         self.username_edit.setPlaceholderText("3-20个字符，支持字母数字下划线")
         self.username_edit.setMinimumHeight(35)
         self.username_edit.setMaximumHeight(35)
-        username_layout.addWidget(self.username_edit)
+        username_input_layout.addWidget(self.username_edit)
+
+        # 检测按钮
+        self.check_username_button = QPushButton("检测")
+        self.check_username_button.setMinimumHeight(35)
+        self.check_username_button.setMaximumHeight(35)
+        self.check_username_button.setMinimumWidth(60)
+        self.check_username_button.setMaximumWidth(60)
+        self.check_username_button.clicked.connect(self.on_check_username_clicked)
+        self.check_username_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+            QPushButton:pressed {
+                background-color: #21618c;
+            }
+            QPushButton:disabled {
+                background-color: #bdc3c7;
+                color: #7f8c8d;
+            }
+        """)
+        username_input_layout.addWidget(self.check_username_button)
+
+        username_layout.addLayout(username_input_layout)
+
+        # 用户名检测结果标签
+        self.username_status_label = QLabel("")
+        self.username_status_label.setStyleSheet("background: transparent; font-size: 10px; margin-left: 2px;")
+        self.username_status_label.setMinimumHeight(16)
+        username_layout.addWidget(self.username_status_label)
 
         form_layout.addLayout(username_layout)
 
@@ -447,7 +491,93 @@ class RegisterTab(QWidget):
         # 回车键注册
         self.confirm_password_edit.returnPressed.connect(self.on_register_clicked)
 
+        # 用户名输入框内容变化时重置检测状态
+        self.username_edit.textChanged.connect(self.on_username_changed)
+
         self.setLayout(layout)
+
+    def set_api_client(self, api_client):
+        """设置API客户端"""
+        self.api_client = api_client
+
+    def on_username_changed(self):
+        """用户名输入框内容变化时的处理"""
+        self.username_checked = False
+        self.username_available = False
+        self.username_status_label.setText("")
+        self.username_status_label.setStyleSheet("background: transparent; font-size: 10px; margin-left: 2px;")
+
+    def on_check_username_clicked(self):
+        """检测用户名按钮点击事件"""
+        username = self.username_edit.text().strip()
+
+        # 基本验证
+        if not username:
+            self.show_username_status("请输入用户名", "error")
+            return
+
+        if len(username) < 3 or len(username) > 20:
+            self.show_username_status("用户名长度必须在3-20个字符之间", "error")
+            return
+
+        import re
+        if not re.match(r'^[a-zA-Z0-9_]+$', username):
+            self.show_username_status("用户名只能包含字母、数字和下划线", "error")
+            return
+
+        # 检查API客户端是否可用
+        if not self.api_client:
+            self.show_username_status("系统错误，请重试", "error")
+            return
+
+        # 禁用按钮并显示检测中状态
+        self.check_username_button.setEnabled(False)
+        self.check_username_button.setText("检测中...")
+        self.show_username_status("正在检测用户名...", "checking")
+
+        # 执行检测
+        try:
+            response = self.api_client.auth.check_username(username)
+            self.handle_username_check_result(response)
+        except Exception as e:
+            self.show_username_status(f"检测失败: {str(e)}", "error")
+        finally:
+            # 恢复按钮状态
+            self.check_username_button.setEnabled(True)
+            self.check_username_button.setText("检测")
+
+    def handle_username_check_result(self, response):
+        """处理用户名检测结果"""
+        if response.get('success'):
+            self.username_checked = True
+            self.username_available = True
+            self.show_username_status("✓ 用户名可用", "success")
+        else:
+            self.username_checked = True
+            self.username_available = False
+            message = response.get('message', '用户名不可用')
+            self.show_username_status(f"✗ {message}", "error")
+
+    def show_username_status(self, message, status_type):
+        """显示用户名状态信息"""
+        self.username_status_label.setText(message)
+
+        if status_type == "success":
+            color = "#27ae60"  # 绿色
+        elif status_type == "error":
+            color = "#e74c3c"  # 红色
+        elif status_type == "checking":
+            color = "#f39c12"  # 橙色
+        else:
+            color = "#7f8c8d"  # 灰色
+
+        self.username_status_label.setStyleSheet(f"""
+            background: transparent;
+            font-size: 10px;
+            margin-left: 2px;
+            color: {color};
+            font-weight: bold;
+        """)
 
     def on_register_clicked(self):
         """注册按钮点击事件"""
@@ -478,6 +608,18 @@ class RegisterTab(QWidget):
 
         if not re.match(r'^[a-zA-Z0-9_]+$', username):
             QMessageBox.warning(self, "输入错误", "用户名只能包含字母、数字和下划线")
+            self.username_edit.setFocus()
+            return False
+
+        # 检查用户名是否已检测
+        if not self.username_checked:
+            QMessageBox.warning(self, "输入错误", "请先检测用户名是否可用")
+            self.username_edit.setFocus()
+            return False
+
+        # 检查用户名是否可用
+        if not self.username_available:
+            QMessageBox.warning(self, "输入错误", "用户名不可用，请更换用户名")
             self.username_edit.setFocus()
             return False
 
@@ -515,6 +657,7 @@ class RegisterTab(QWidget):
     def set_enabled(self, enabled: bool):
         """设置控件启用状态"""
         self.username_edit.setEnabled(enabled)
+        self.check_username_button.setEnabled(enabled)
         self.email_edit.setEnabled(enabled)
         self.password_edit.setEnabled(enabled)
         self.confirm_password_edit.setEnabled(enabled)
@@ -526,6 +669,12 @@ class RegisterTab(QWidget):
         self.email_edit.clear()
         self.password_edit.clear()
         self.confirm_password_edit.clear()
+
+        # 重置用户名检测状态
+        self.username_checked = False
+        self.username_available = False
+        self.username_status_label.setText("")
+
         self.username_edit.setFocus()
 
 
@@ -793,6 +942,7 @@ class LoginWindow(QWidget):
 
         # 注册标签页
         self.register_tab = RegisterTab()
+        self.register_tab.set_api_client(self.api_client)  # 设置API客户端
         self.tab_widget.addTab(self.register_tab, "注册")
 
         main_layout.addWidget(self.tab_widget)
