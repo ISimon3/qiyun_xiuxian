@@ -389,9 +389,7 @@ class LuckSystem:
                 # 处理负面事件
                 event_config = LUCK_SPECIAL_EVENTS["NEGATIVE_EVENTS"].get(event_type, {})
 
-
-
-                elif event_type == "走火入魔":
+                if event_type == "走火入魔":
                     exp_penalty = random.randint(
                         event_config.get("exp_penalty_min", 50),
                         event_config.get("exp_penalty_max", 200)

@@ -19,6 +19,7 @@ PyQt6>=6.9.0
 PyQt6-WebEngine>=6.9.0
 requests>=2.32.0
 websocket-client>=1.8.0
+python-dateutil>=2.8.2
 
 # Development and Testing Dependencies
 pytest>=8.4.0

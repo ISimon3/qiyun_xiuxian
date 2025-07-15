@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时执行
-    logger.info("正在启动气运修仙游戏服务器...")
+    logger.info("正在启动修仙模拟器服务器...")
 
     try:
         # 初始化数据库
