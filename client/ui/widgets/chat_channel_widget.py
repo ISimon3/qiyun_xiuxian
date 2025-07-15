@@ -38,11 +38,8 @@ class ChatChannelWidget(QWidget):
         try:
             self.init_ui()
             self.setup_websocket_callbacks()
-            print("✅ 聊天组件初始化成功")
         except Exception as e:
-            print(f"❌ 聊天组件初始化失败: {e}")
-            import traceback
-            traceback.print_exc()
+            pass  # 聊天组件初始化失败
     
     def init_ui(self):
         """初始化界面"""
@@ -64,12 +61,9 @@ class ChatChannelWidget(QWidget):
     def setVisible(self, visible):
         """重写setVisible方法，添加错误处理"""
         try:
-            print(f"🔄 聊天组件设置可见性: {visible}")
             super().setVisible(visible)
         except Exception as e:
-            print(f"❌ 聊天组件setVisible失败: {e}")
-            import traceback
-            traceback.print_exc()
+            pass  # 聊天组件setVisible失败
 
     def create_title_bar(self, layout):
         """创建标题栏"""
@@ -234,13 +228,8 @@ class ChatChannelWidget(QWidget):
                 self.websocket_client.register_message_callback("chat", self.on_chat_message)
                 self.websocket_client.register_message_callback("system", self.on_system_message)
                 self.websocket_client.register_message_callback("history", self.on_history_message)
-                print("✅ WebSocket回调注册成功")
-            else:
-                print("⚠️ WebSocket客户端不存在，跳过回调注册")
         except Exception as e:
-            print(f"❌ WebSocket回调注册失败: {e}")
-            import traceback
-            traceback.print_exc()
+            pass  # WebSocket回调注册失败
     
     def init_chat_html(self):
         """初始化聊天HTML页面"""
@@ -392,7 +381,7 @@ class ChatChannelWidget(QWidget):
             welcome_msg = self.create_system_message_html("欢迎进入聊天频道，祝您修炼愉快！", current_time)
             self.add_message_to_chat_display(welcome_msg)
         except Exception as e:
-            print(f"❌ 添加欢迎消息失败: {e}")
+            pass  # 添加欢迎消息失败
     
     def send_chat_message(self):
         """发送聊天消息"""
@@ -411,13 +400,7 @@ class ChatChannelWidget(QWidget):
         
         # 通过WebSocket发送消息
         if self.websocket_client and self.websocket_client.is_connected:
-            success = self.websocket_client.send_chat_message(message, "WORLD")
-            if success:
-                print(f"💬 通过WebSocket发送聊天消息: {message}")
-            else:
-                print("❌ WebSocket发送消息失败")
-        else:
-            print("⚠️ WebSocket未连接，消息仅本地显示")
+            self.websocket_client.send_chat_message(message, "WORLD")
 
     def add_local_chat_message(self, message: str):
         """添加本地聊天消息（用于WebSocket未连接时的回退）"""
@@ -607,7 +590,6 @@ class ChatChannelWidget(QWidget):
                     self.add_message_to_chat_display(new_message)
 
                 except Exception as msg_error:
-                    print(f"⚠️ 处理单条历史消息失败: {msg_error}")
                     continue
 
         except Exception as e:
@@ -688,7 +670,6 @@ class ChatChannelWidget(QWidget):
                 try:
                     page = self.chat_display.page()
                     if page is None:
-                        print("⚠️ WebEngine页面不存在，跳过消息添加")
                         return
 
                     # 转义JavaScript字符串中的特殊字符
@@ -698,11 +679,9 @@ class ChatChannelWidget(QWidget):
                     js_code = f"addMessage('{escaped_html}');"
                     page.runJavaScript(js_code)
                 except Exception as js_error:
-                    print(f"❌ JavaScript执行失败: {js_error}")
                     # 回退到简单的文本显示
                     import re
                     text_content = re.sub('<[^<]+?>', '', message_html)
-                    print(f"📝 回退显示文本: {text_content}")
             else:
                 # QTextEdit版本的回退处理
                 if hasattr(self.chat_display, 'append'):
@@ -712,9 +691,7 @@ class ChatChannelWidget(QWidget):
                     self.chat_display.append(text_content)
 
         except Exception as e:
-            print(f"❌ 添加消息到聊天显示失败: {e}")
-            import traceback
-            traceback.print_exc()
+            pass  # 添加消息到聊天显示失败
 
     def clear_messages(self):
         """清空聊天消息"""
@@ -726,20 +703,16 @@ class ChatChannelWidget(QWidget):
                 # QTextEdit版本
                 self.chat_display.clear()
         except Exception as e:
-            print(f"❌ 清空聊天消息失败: {e}")
+            pass  # 清空聊天消息失败
 
     def show_new_message_indicator(self):
         """显示新消息提示"""
         try:
             # 发送新消息信号
             self.new_message_received.emit()
-            print("🔔 新消息提示：有新的聊天消息，请点击'频道'按钮查看")
         except Exception as e:
-            print(f"❌ 显示新消息提示失败: {e}")
+            pass  # 显示新消息提示失败
 
     def clear_new_message_indicator(self):
         """清除新消息提示"""
-        try:
-            print("🔔 新消息提示已清除")
-        except Exception as e:
-            print(f"❌ 清除新消息提示失败: {e}")
+        pass

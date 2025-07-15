@@ -367,8 +367,8 @@ class CharacterInfoWidget(QWidget):
                 luck_color = level_info.get("color", "#808080")
                 break
 
-        # 更新气运标签
-        self.luck_label.setText(f"{luck_level_name} ({luck_value})")
+        # 更新气运标签（不显示具体数值）
+        self.luck_label.setText(f"{luck_level_name}")
         self.luck_label.setStyleSheet(f"color: {luck_color}; font-weight: bold;")
 
     def update_cultivation_focus(self, focus_type: str):

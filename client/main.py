@@ -72,11 +72,8 @@ class GameApplication:
             icon_path = os.path.join(project_root, "appicon.ico")
             if os.path.exists(icon_path):
                 self.app.setWindowIcon(QIcon(icon_path))
-                print(f"✅ 应用程序图标设置成功: {icon_path}")
-            else:
-                print(f"⚠️ 图标文件不存在: {icon_path}")
         except Exception as e:
-            print(f"❌ 设置应用程序图标失败: {e}")
+            pass  # 设置应用程序图标失败
 
         # 设置样式
         self.setup_styles()
@@ -191,29 +188,21 @@ class GameApplication:
     def run(self):
         """运行应用程序"""
         try:
-            print("🎮 正在启动气运修仙客户端...")
-            
             # 检查是否需要自动登录
             remember_settings = self.state_manager.get_remember_settings()
             if (remember_settings.get('remember_login_state', False) and
                 self.state_manager.is_logged_in and
                 not self.state_manager.is_token_expired()):
-                print(f"✅ 自动登录用户: {self.state_manager.user_info.get('username')}")
                 # 直接进入主界面
                 self.show_main_window()
             else:
-                if self.state_manager.is_logged_in and self.state_manager.is_token_expired():
-                    print("⚠️ 登录状态已过期")
-                print("📝 显示登录窗口")
                 # 显示登录窗口
                 self.show_login_window()
-            
+
             # 启动事件循环
             return self.app.exec()
-            
+
         except Exception as e:
-            print(f"❌ 应用程序启动失败: {e}")
-            traceback.print_exc()
             return 1
 
     def show_login_window(self):
@@ -257,7 +246,6 @@ class GameApplication:
 
         if self.main_window is None:
             server_url = self.state_manager.server_url
-            print(f"🏗️ 创建主窗口，用户数据已准备: {self.state_manager.user_data.get('name')}")
             self.main_window = MainWindow(server_url)
 
             # 连接主窗口信号
@@ -273,16 +261,13 @@ class GameApplication:
 
     def on_main_window_closed(self):
         """主窗口关闭处理"""
-        print("📊 主窗口已关闭")
         self.main_window = None
 
         # 检查是否还有登录状态，如果没有则显示登录窗口
         if not self.state_manager.is_logged_in:
-            print("🔐 用户已登出，显示登录窗口")
             self.show_login_window()
         else:
             # 用户主动关闭主窗口时退出应用程序
-            print("🚪 退出应用程序")
             self.app.quit()
 
     def cleanup_before_quit(self):
@@ -350,8 +335,6 @@ class GameApplication:
 
     def cleanup(self):
         """清理资源"""
-        print("🧹 正在清理应用程序资源...")
-
         # 关闭所有窗口
         if self.login_window:
             self.login_window.close()
@@ -367,10 +350,6 @@ class GameApplication:
 def main():
     """主函数"""
     try:
-        print("=" * 50)
-        print("🎮 气运修仙 - 客户端启动器")
-        print("=" * 50)
-
         # 创建应用程序实例
         game_app = GameApplication()
 
@@ -380,12 +359,9 @@ def main():
         # 清理资源
         game_app.cleanup()
 
-        print("👋 客户端已退出")
         return exit_code
 
     except Exception as e:
-        print(f"❌ 应用程序运行失败: {e}")
-        traceback.print_exc()
         return 1
 
 

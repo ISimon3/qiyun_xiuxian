@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     ]
 
     # 游戏配置
-    CULTIVATION_TICK_INTERVAL: int = 60   # 挂机修炼计算间隔(秒)
+    CULTIVATION_TICK_INTERVAL: int = 20   # 挂机修炼计算间隔(秒)
 
     # 测试模式配置
     STORE_PLAIN_PASSWORD: bool = True    # 是否存储明文密码（测试模式）
@@ -87,7 +87,7 @@ settings = Settings()
 # 开发环境配置
 class DevelopmentSettings(Settings):
     DEBUG: bool = True
-    DATABASE_ECHO: bool = True
+    DATABASE_ECHO: bool = False  # 关闭SQL日志以减少输出
 
 
 # 生产环境配置
@@ -113,3 +113,38 @@ def get_settings() -> Settings:
         return TestSettings()
     else:
         return DevelopmentSettings()
+
+
+# 全局配置实例
+settings = get_settings()
+
+
+# 时区配置
+from datetime import timezone, timedelta, datetime
+
+# 服务器时区配置（可以根据实际部署环境调整）
+SERVER_TIMEZONE = timezone(timedelta(hours=8))  # UTC+8 (中国标准时间)
+
+def get_server_timezone():
+    """获取服务器时区"""
+    return SERVER_TIMEZONE
+
+def get_server_now():
+    """获取服务器当前时间"""
+    return datetime.now(SERVER_TIMEZONE)
+
+def get_server_today():
+    """获取服务器当前日期"""
+    return get_server_now().date()
+
+def convert_to_server_time(dt):
+    """将时间转换为服务器时区"""
+    if dt is None:
+        return None
+
+    if dt.tzinfo is None:
+        # 如果没有时区信息，假设为服务器时区
+        return dt.replace(tzinfo=SERVER_TIMEZONE)
+    else:
+        # 转换为服务器时区
+        return dt.astimezone(SERVER_TIMEZONE)

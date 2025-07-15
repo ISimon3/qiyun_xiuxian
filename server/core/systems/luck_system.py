@@ -31,9 +31,17 @@ class LuckSystem:
             签到结果
         """
         try:
-            # 检查今日是否已签到
-            today = datetime.now().date()
-            last_sign_date = character.last_active.date() if character.last_active else None
+            # 检查今日是否已签到（基于服务器时间的每天凌晨12:00重置）
+            from server.config import get_server_now, get_server_today, convert_to_server_time
+
+            now = get_server_now()
+            today = get_server_today()
+
+            # 检查最后签到日期
+            last_sign_date = None
+            if character.last_sign_date:
+                last_sign_datetime = convert_to_server_time(character.last_sign_date)
+                last_sign_date = last_sign_datetime.date()
 
             if last_sign_date == today:
                 luck_level = get_luck_level_name(character.luck_value)
@@ -48,9 +56,10 @@ class LuckSystem:
             new_luck = generate_daily_luck()
             old_luck = character.luck_value
 
-            # 更新角色气运值和最后活跃时间
+            # 更新角色气运值、最后活跃时间和签到日期（使用服务器时区）
             character.luck_value = new_luck
-            character.last_active = datetime.now()
+            character.last_active = now
+            character.last_sign_date = now
 
             # 记录日志
             luck_change = new_luck - old_luck
@@ -60,7 +69,7 @@ class LuckSystem:
                 db,
                 character.id,
                 "DAILY_SIGN",
-                f"每日签到完成，今日气运：{luck_level}({new_luck})",
+                f"每日签到完成，今日气运：{luck_level}",
                 {
                     "old_luck": old_luck,
                     "new_luck": new_luck,

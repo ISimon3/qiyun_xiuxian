@@ -100,11 +100,9 @@ class LoginWorker(QThread):
                             self.msleep(200)  # 让用户看到完成信息
                             self.login_success.emit(user_info, token_data, complete_data, remember_login_state)
                         else:
-                            print(f"⚠️ 角色数据不完整: {character_data}")
                             self.login_success.emit(user_info, token_data, {}, remember_login_state)
                     else:
                         # 如果获取角色信息失败，仍然允许登录，但传递空的角色数据
-                        print(f"⚠️ 获取角色信息失败: {character_response.get('message', '未知错误')}")
                         self.login_success.emit(user_info, token_data, {}, remember_login_state)
                 else:
                     self.login_failed.emit(response.get('message', '登录失败'))
@@ -247,13 +245,8 @@ class LoginTab(QWidget):
             # 保存到状态管理器
             state_manager.save_credentials(username, encoded_password, remember_password)
 
-            if remember_password:
-                print(f"✅ 已保存用户 {username} 的登录凭据")
-            else:
-                print(f"✅ 已保存用户名 {username}（未保存密码）")
-
         except Exception as e:
-            print(f"❌ 保存凭据失败: {e}")
+            pass  # 保存凭据失败
 
     def load_saved_credentials(self):
         """加载保存的凭据"""
@@ -275,19 +268,17 @@ class LoginTab(QWidget):
 
                 if username:
                     self.username_edit.setText(username)
-                    print(f"✅ 已加载用户名: {username}")
 
                 if encoded_password and remember_settings.get('remember_password', False):
                     # 解码密码
                     try:
                         password = base64.b64decode(encoded_password.encode()).decode()
                         self.password_edit.setText(password)
-                        print(f"✅ 已加载用户 {username} 的保存密码")
                     except Exception as e:
-                        print(f"❌ 解码密码失败: {e}")
+                        pass  # 解码密码失败
 
         except Exception as e:
-            print(f"❌ 加载凭据失败: {e}")
+            pass  # 加载凭据失败
 
     def clear_saved_password(self):
         """清除保存的密码"""
@@ -296,10 +287,9 @@ class LoginTab(QWidget):
 
             state_manager = get_state_manager()
             state_manager.clear_saved_password()
-            print("🧹 已清除保存的密码")
 
         except Exception as e:
-            print(f"❌ 清除密码失败: {e}")
+            pass  # 清除密码失败
 
     def set_enabled(self, enabled: bool):
         """设置控件启用状态"""
@@ -617,7 +607,6 @@ class LoginWindow(QWidget):
         # 如果有完整数据，保存到状态管理器
         if complete_data and 'character' in complete_data:
             character_data = complete_data['character']
-            print(f"✅ 保存完整游戏数据到状态管理器: {character_data.get('name')} (ID: {character_data.get('user_id')})")
 
             # 保存角色数据
             self.state_manager.update_user_data(character_data)
@@ -627,14 +616,11 @@ class LoginWindow(QWidget):
                 self.state_manager.update_cultivation_status(complete_data['cultivation'])
             if 'luck' in complete_data:
                 self.state_manager.update_luck_info(complete_data['luck'])
-        else:
-            print("⚠️ 没有完整游戏数据可保存")
 
         # 显示成功消息
         QMessageBox.information(self, "登录成功", f"欢迎回来，{user_info.get('username')}！")
 
         # 确保数据已保存后再发送登录成功信号
-        print(f"📤 发送登录成功信号，用户: {user_info.get('username')}")
         self.login_success.emit(user_info)
 
         # 关闭登录窗口

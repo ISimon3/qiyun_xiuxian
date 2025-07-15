@@ -436,13 +436,14 @@ class CultivationLogWidget(QWidget):
             print(f"❌ 添加HTML日志失败: {e}")
 
     def add_cultivation_log(self, exp_gained: int, attribute_gained: int,
-                          attribute_type: str, luck_effect: str):
+                          attribute_type: str, luck_effect: str = None):
         """添加修炼日志"""
         focus_info = CULTIVATION_FOCUS_TYPES.get(attribute_type, {})
         focus_name = focus_info.get('name', '未知')
         focus_icon = focus_info.get('icon', '❓')
 
-        message = f"修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained} [{luck_effect}]"
+        # 不再显示气运效果描述，保持简洁
+        message = f"修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained}"
         self.add_log_entry(message, "cultivation", "#3498db")
 
     def add_cultivation_result_log(self, cultivation_result: Dict[str, Any]):
@@ -469,18 +470,18 @@ class CultivationLogWidget(QWidget):
             if is_positive:
                 # 正面事件，使用绿色
                 self.add_log_entry(event_message, "special_event_positive", "#27ae60")
+                # 正面事件时，如果还有基础修炼收益，也显示（不含气运描述）
+                if exp_gained > 0 or attribute_gained > 0:
+                    base_message = f"基础修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained}"
+                    self.add_log_entry(base_message, "cultivation_result", "#3498db")
             else:
-                # 负面事件，使用红色
+                # 负面事件，使用红色，不显示基础修炼收益（因为已被取消）
                 self.add_log_entry(event_message, "special_event_negative", "#e74c3c")
-
-            # 如果还有基础修炼收益，也显示
-            if exp_gained > 0 or attribute_gained > 0:
-                base_message = f"基础修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained} [{luck_effect}]"
-                self.add_log_entry(base_message, "cultivation_result", "#3498db")
         else:
-            # 没有特殊事件，显示正常修炼收益
-            message = f"修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained} [{luck_effect}]"
-            self.add_log_entry(message, "cultivation_result", "#3498db")
+            # 没有特殊事件，显示正常修炼收益（不含气运描述）
+            if exp_gained > 0 or attribute_gained > 0:
+                message = f"修炼{focus_name}{focus_icon} 获得修为+{exp_gained}, {focus_name}+{attribute_gained}"
+                self.add_log_entry(message, "cultivation_result", "#3498db")
 
     def add_breakthrough_log(self, old_realm: int, new_realm: int, success: bool):
         """添加突破日志"""
@@ -501,13 +502,13 @@ class CultivationLogWidget(QWidget):
         change = new_luck - old_luck
 
         if change > 0:
-            message = f"🍀 {reason} 气运提升！{old_level}({old_luck}) → {new_level}({new_luck}) [+{change}]"
+            message = f"🍀 {reason} 气运提升！{old_level} → {new_level}"
             color = "#27ae60"
         elif change < 0:
-            message = f"💀 {reason} 气运下降！{old_level}({old_luck}) → {new_level}({new_luck}) [{change}]"
+            message = f"💀 {reason} 气运下降！{old_level} → {new_level}"
             color = "#e74c3c"
         else:
-            message = f"⚖️ {reason} 气运无变化 {new_level}({new_luck})"
+            message = f"⚖️ {reason} 气运无变化 {new_level}"
             color = "#95a5a6"
 
         self.add_log_entry(message, "luck", color)
@@ -536,9 +537,7 @@ class CultivationLogWidget(QWidget):
                 }
             });
 
-            console.log('找到', toRemove.length, '条修炼方向切换日志');
             toRemove.forEach(entry => {
-                console.log('移除:', entry.textContent);
                 entry.remove();
             });
             """
@@ -564,9 +563,7 @@ class CultivationLogWidget(QWidget):
 
     def update_countdown(self):
         """更新倒计时显示"""
-        print("🧪 DEBUG: update_countdown 方法开始执行")
         if not self.next_cultivation_time:
-            print("🧪 DEBUG: next_cultivation_time 为空，返回")
             return
 
         current_time = datetime.now()
@@ -607,18 +604,12 @@ class CultivationLogWidget(QWidget):
             self.next_cultivation_time = None
 
             # 触发修炼完成信号，让主窗口处理数据更新和下一轮修炼
-            print("🧪 DEBUG: 修炼日志组件即将异步发送 cultivation_completed 信号")
             # 使用QTimer.singleShot确保信号在下一个事件循环中发送，避免同步阻塞
             QTimer.singleShot(0, lambda: self._emit_cultivation_completed())
-            print("🧪 DEBUG: 修炼日志组件已安排异步发送 cultivation_completed 信号")
-
-        print("🧪 DEBUG: update_countdown 方法执行完毕")
 
     def _emit_cultivation_completed(self):
         """异步发送修炼完成信号"""
-        print("🧪 DEBUG: 真正发送 cultivation_completed 信号")
         self.cultivation_completed.emit()
-        print("🧪 DEBUG: cultivation_completed 信号已发送")
 
     def stop_countdown(self):
         """停止当前倒计时"""

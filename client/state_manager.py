@@ -96,27 +96,19 @@ class StateManager(QObject):
             token_data: 令牌数据
             remember_login_state: 是否记住登录状态
         """
-        print(f"📊 状态管理器: 开始登录处理 - {user_info.get('username')}")
-
         self._user_info = user_info
         self._access_token = token_data.get('access_token')
         self._remember_login_state = remember_login_state
 
         if not self._access_token:
-            print("❌ 警告: 未获取到访问令牌")
             return
 
         # 计算token过期时间
         expires_in = token_data.get('expires_in', 3600)
         self._token_expires_at = datetime.now().timestamp() + expires_in
 
-        print(f"✅ Token设置成功，有效期: {expires_in}秒")
-        print(f"🔑 Token: {self._access_token[:20]}...")
-        print(f"💾 记住登录状态: {remember_login_state}")
-
         # 保存配置
         self.save_config()
-        print("💾 登录状态已保存")
 
         # 发送登录信号
         self.user_logged_in.emit(user_info)
@@ -168,14 +160,12 @@ class StateManager(QObject):
                 'username': username,
                 'password': encoded_password
             }
-            print(f"📝 状态管理器: 已保存用户 {username} 的凭据")
         else:
             # 只保存用户名，不保存密码
             self._saved_credentials = {
                 'username': username,
                 'password': ''
             }
-            print(f"📝 状态管理器: 已保存用户名 {username}（未保存密码）")
 
         self.save_config()
 
@@ -208,13 +198,11 @@ class StateManager(QObject):
                 'password': ''
             }
             self.save_config()
-            print("🧹 状态管理器: 已清除保存的密码")
 
     def clear_all_credentials(self) -> None:
         """清除所有保存的凭据"""
         self._saved_credentials = None
         self.save_config()
-        print("🧹 状态管理器: 已清除所有保存的凭据")
 
     def is_token_expired(self) -> bool:
         """检查token是否过期"""
@@ -275,14 +263,13 @@ class StateManager(QObject):
                 json.dump(config_data, f, ensure_ascii=False, indent=2)
 
         except Exception as e:
-            print(f"保存配置失败: {e}")
+            pass  # 保存配置失败
 
     def load_config(self) -> None:
         """从文件加载配置"""
         try:
             if not os.path.exists(self.config_file):
                 # 配置文件不存在时，重置所有状态为默认值
-                print("配置文件不存在，重置为默认状态")
                 self._server_url = 'http://localhost:8000'
                 self._user_info = None
                 self._access_token = None
@@ -308,11 +295,9 @@ class StateManager(QObject):
 
             # 检查token是否过期
             if self._access_token and self.is_token_expired():
-                print("Token已过期，清除登录状态")
                 self.logout()
 
         except Exception as e:
-            print(f"加载配置失败: {e}")
             # 加载失败时也重置为默认状态
             self._server_url = 'http://localhost:8000'
             self._user_info = None
@@ -329,14 +314,13 @@ class StateManager(QObject):
             if os.path.exists(self.config_file):
                 os.remove(self.config_file)
         except Exception as e:
-            print(f"清除配置失败: {e}")
+            pass  # 清除配置失败
 
         # 重置状态
         self.logout()
 
     def reload_config(self) -> None:
         """重新加载配置文件"""
-        print("🔄 重新加载配置文件...")
         self.load_config()
 
     def get_config_summary(self) -> Dict[str, Any]:

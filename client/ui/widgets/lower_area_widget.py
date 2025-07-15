@@ -62,16 +62,12 @@ class LowerAreaWidget(QWidget):
 
         # 发送视图切换信号
         self.view_switched.emit("chat")
-
-        print("🔄 已切换到聊天界面")
     
     def switch_to_log_view(self):
         """切换到修炼日志界面"""
         if self.current_view == "log":
-            print("⚠️ 已经在修炼日志界面，跳过切换")
             return
 
-        print(f"🔄 正在从 {self.current_view} 切换到修炼日志界面")
         self.current_view = "log"
 
         try:
@@ -83,28 +79,18 @@ class LowerAreaWidget(QWidget):
 
             # 发送视图切换信号
             self.view_switched.emit("log")
-
-            print("✅ 已切换到修炼日志界面")
         except Exception as e:
-            print(f"❌ 切换到修炼日志界面失败: {e}")
-            import traceback
-            traceback.print_exc()
+            pass  # 切换到修炼日志界面失败
     
     def toggle_view(self):
         """切换视图"""
         try:
-            print(f"🔄 开始切换视图，当前视图: {self.current_view}")
-
             if self.current_view == "log":
                 self.switch_to_chat_view()
             else:
                 self.switch_to_log_view()
-
-            print(f"✅ 视图切换完成，当前视图: {self.current_view}")
         except Exception as e:
-            print(f"❌ 视图切换失败: {e}")
-            import traceback
-            traceback.print_exc()
+            pass  # 视图切换失败
     
     def get_current_view(self) -> str:
         """获取当前视图类型"""

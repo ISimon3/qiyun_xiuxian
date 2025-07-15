@@ -854,7 +854,7 @@ class UpperAreaWidget(QWidget):
                         const luckValue = data.luck_value || 50;
                         const luckLevel = getLuckLevelName(luckValue);
                         const luckColor = getLuckColor(luckValue);
-                        luckElement.innerHTML = `<span style="color: ${luckColor}; font-weight: bold;">${luckLevel}</span> (${luckValue})`;
+                        luckElement.innerHTML = `<span style="color: ${luckColor}; font-weight: bold;">${luckLevel}</span>`;
                     }
 
                     // 更新修为进度条
@@ -1118,7 +1118,7 @@ class UpperAreaWidget(QWidget):
             self.html_display.page().titleChanged.connect(self.handle_title_change)
 
         except Exception as e:
-            print(f"❌ 设置JavaScript事件失败: {e}")
+            pass  # 设置JavaScript事件失败
 
     def handle_title_change(self, title: str):
         """处理页面标题变化（用于接收JavaScript事件）"""
@@ -1138,7 +1138,7 @@ class UpperAreaWidget(QWidget):
             elif title.startswith('caveWindow:'):
                 self.cave_window_requested.emit()
         except Exception as e:
-            print(f"❌ 处理标题变化失败: {e}")
+            pass  # 处理标题变化失败
 
     def check_and_init_data(self):
         """检查是否有预加载数据，如果没有则显示默认数据"""
@@ -1150,7 +1150,6 @@ class UpperAreaWidget(QWidget):
             from client.state_manager import get_state_manager
             state_manager = get_state_manager()
             if state_manager.user_data:
-                print(f"✅ 上区域组件发现预加载数据: {state_manager.user_data.get('name')} (ID: {state_manager.user_data.get('user_id')})")
                 # 保存数据，等待页面加载完成后更新
                 self.character_data = state_manager.user_data
 
@@ -1160,15 +1159,11 @@ class UpperAreaWidget(QWidget):
                 if state_manager.luck_info:
                     self.luck_info = state_manager.luck_info
 
-                print("💾 预加载数据已保存，等待页面加载完成")
                 return
         except Exception as e:
-            print(f"⚠️ 检查预加载数据失败: {e}")
-            import traceback
-            traceback.print_exc()
+            pass  # 检查预加载数据失败
 
         # 没有预加载数据，显示默认数据
-        print("📝 上区域组件没有预加载数据，显示默认数据")
         QTimer.singleShot(500, self._init_default_data)
 
     def init_default_data(self):

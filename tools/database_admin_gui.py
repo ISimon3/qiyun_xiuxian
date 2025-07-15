@@ -1057,13 +1057,16 @@ class DatabaseAdminMainWindow(QMainWindow):
         )
 
         if reply == QMessageBox.StandardButton.Yes:
+            # 生成随机气运值而不是固定50
+            from shared.utils import generate_daily_luck
             reset_data = {
                 'cultivation_exp': 0,
                 'cultivation_realm': 0,
-                'luck_value': 50,
+                'luck_value': generate_daily_luck(),  # 使用随机气运值
                 'gold': 1000,
                 'spirit_stone': 0,
-                'cultivation_focus': None
+                'cultivation_focus': None,
+                'last_sign_date': None  # 重置签到日期，允许重新签到
             }
             self.status_label.setText("正在重置游戏数据...")
             self.db_worker.update_user_game_data(data_id, reset_data)

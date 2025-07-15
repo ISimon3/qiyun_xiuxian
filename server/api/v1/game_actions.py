@@ -101,10 +101,17 @@ async def get_luck_info(
         luck_level = get_luck_level_name(character.luck_value)
         luck_color = LUCK_LEVELS[luck_level]["color"]
 
-        # 检查今日是否可以签到
-        from datetime import datetime
-        today = datetime.now().date()
-        last_sign_date = character.last_active.date() if character.last_active else None
+        # 检查今日是否可以签到（基于服务器时间的每天凌晨12:00重置）
+        from server.config import get_server_today, convert_to_server_time
+
+        today = get_server_today()
+
+        # 检查最后签到日期
+        last_sign_date = None
+        if character.last_sign_date:
+            last_sign_datetime = convert_to_server_time(character.last_sign_date)
+            last_sign_date = last_sign_datetime.date()
+
         can_sign_today = last_sign_date != today
 
         # 获取修炼影响

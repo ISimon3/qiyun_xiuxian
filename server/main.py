@@ -129,14 +129,16 @@ async def log_requests(request: Request, call_next):
     """记录请求日志"""
     start_time = asyncio.get_event_loop().time()
 
-    # 记录请求信息
-    logger.info(f"请求: {request.method} {request.url}")
+    # 只记录非API请求或错误请求
+    if not request.url.path.startswith("/api/v1/game/") or settings.DEBUG:
+        logger.info(f"请求: {request.method} {request.url}")
 
     response = await call_next(request)
 
-    # 记录响应信息
+    # 只记录错误响应或调试模式下的所有响应
     process_time = asyncio.get_event_loop().time() - start_time
-    logger.info(f"响应: {response.status_code} - 耗时: {process_time:.3f}s")
+    if response.status_code >= 400 or settings.DEBUG:
+        logger.info(f"响应: {response.status_code} - 耗时: {process_time:.3f}s")
 
     return response
 

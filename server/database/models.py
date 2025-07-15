@@ -52,7 +52,7 @@ class Character(Base):
     spiritual_root: Mapped[str] = mapped_column(String(20), nullable=False)
 
     # 资源
-    luck_value: Mapped[int] = mapped_column(Integer, default=50)
+    luck_value: Mapped[int] = mapped_column(Integer, default=50)  # 初始气运值，首次签到时会重新生成
     gold: Mapped[int] = mapped_column(BigInteger, default=0)
     spirit_stone: Mapped[int] = mapped_column(BigInteger, default=0)
 
@@ -86,7 +86,8 @@ class Character(Base):
     # 时间戳
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    last_active: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_active: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_sign_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)  # 最后签到日期
 
     # 关系
     user: Mapped["User"] = relationship("User", back_populates="characters")

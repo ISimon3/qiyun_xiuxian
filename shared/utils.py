@@ -219,18 +219,16 @@ def simulate_cultivation_session(
         chosen_event = random.choices(events, weights=weights)[0]
         special_event = {"event_type": chosen_event, "is_positive": False}
 
+    # 如果触发负面事件，取消正常收益
+    if special_event and not special_event.get("is_positive", True):
+        final_exp = 0
+        final_attr = 0
+
     # 获取修习方向信息
     focus_info = CULTIVATION_FOCUS_TYPES.get(cultivation_focus, CULTIVATION_FOCUS_TYPES["HP"])
 
-    # 生成气运效果描述
-    if luck_multiplier >= 1.5:
-        luck_effect = "气运极佳"
-    elif luck_multiplier >= 1.2:
-        luck_effect = "气运不错"
-    elif luck_multiplier >= 0.8:
-        luck_effect = "气运平平"
-    else:
-        luck_effect = "气运不佳"
+    # 不再生成气运效果描述，保持简洁
+    luck_effect = None
 
     return {
         "exp_gained": final_exp,

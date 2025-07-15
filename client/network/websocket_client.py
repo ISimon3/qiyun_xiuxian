@@ -42,13 +42,11 @@ class WebSocketClient(QObject):
             return
 
         if self.is_connected:
-            print("⚠️ WebSocket已经连接")
             return
 
         try:
             # 构造WebSocket URL
             ws_url = f"{self.server_url}/api/v1/websocket/ws/{self.token}"
-            print(f"🔗 正在连接WebSocket: {ws_url}")
 
             # 创建WebSocket连接
             self.ws = websocket.WebSocketApp(
@@ -67,19 +65,16 @@ class WebSocketClient(QObject):
             self.ws_thread.start()
 
         except Exception as e:
-            print(f"❌ WebSocket连接失败: {e}")
             self.error_occurred.emit(f"连接失败: {str(e)}")
 
     def disconnect(self):
         """断开WebSocket连接"""
         if self.ws and self.is_connected:
-            print("🔌 正在断开WebSocket连接...")
             self.ws.close()
 
     def send_message(self, message_data: Dict[str, Any]):
         """发送消息"""
         if not self.is_connected or not self.ws:
-            print("⚠️ WebSocket未连接，无法发送消息")
             return False
 
         try:
@@ -87,7 +82,6 @@ class WebSocketClient(QObject):
             self.ws.send(message_json)
             return True
         except Exception as e:
-            print(f"❌ 发送消息失败: {e}")
             self.error_occurred.emit(f"发送消息失败: {str(e)}")
             return False
 
@@ -124,7 +118,6 @@ class WebSocketClient(QObject):
 
     def _on_open(self, ws):
         """WebSocket连接打开回调"""
-        print("✅ WebSocket连接成功")
         self.is_connected = True
         self.reconnect_attempts = 0
 
@@ -143,14 +136,13 @@ class WebSocketClient(QObject):
             message_data = json.loads(message)
             message_type = message_data.get("type", "unknown")
 
-            print(f"📨 收到WebSocket消息: {message_type}")
+
 
             # 使用QTimer确保信号在主线程中发出
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(0, lambda: self._emit_message_signal(message_data))
 
         except Exception as e:
-            print(f"❌ 处理WebSocket消息失败: {e}")
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(0, lambda: self.error_occurred.emit(f"处理消息失败: {str(e)}"))
 
@@ -167,19 +159,16 @@ class WebSocketClient(QObject):
                 self.message_callbacks[message_type](message_data)
 
         except Exception as e:
-            print(f"❌ 发出消息信号失败: {e}")
             self.error_occurred.emit(f"信号处理失败: {str(e)}")
 
     def _on_error(self, ws, error):
         """WebSocket错误回调"""
-        print(f"❌ WebSocket错误: {error}")
         # 使用QTimer确保信号在主线程中发出
         from PyQt6.QtCore import QTimer
         QTimer.singleShot(0, lambda: self.error_occurred.emit(f"WebSocket错误: {str(error)}"))
 
     def _on_close(self, ws, close_status_code, close_msg):
         """WebSocket连接关闭回调"""
-        print(f"🔌 WebSocket连接已关闭: {close_status_code} - {close_msg}")
         self.is_connected = False
 
         # 使用QTimer确保信号在主线程中发出
@@ -189,7 +178,7 @@ class WebSocketClient(QObject):
         # 尝试重连
         if self.reconnect_attempts < self.max_reconnect_attempts:
             self.reconnect_attempts += 1
-            print(f"🔄 尝试重连 ({self.reconnect_attempts}/{self.max_reconnect_attempts})...")
+
 
             def delayed_reconnect():
                 import time
@@ -201,7 +190,7 @@ class WebSocketClient(QObject):
             reconnect_thread = threading.Thread(target=delayed_reconnect, daemon=True)
             reconnect_thread.start()
         else:
-            print("❌ 达到最大重连次数，停止重连")
+            pass  # 达到最大重连次数，停止重连
 
 
 class WebSocketManager(QObject):

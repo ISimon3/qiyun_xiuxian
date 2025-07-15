@@ -900,8 +900,8 @@ DEFAULT_CONFIG = {
     "MAX_LUCK_VALUE": 100,            # 最大气运值
     "MIN_LUCK_VALUE": 0,              # 最小气运值
     "BREAKTHROUGH_BASE_CHANCE": 0.5,  # 基础突破成功率
-    "DAILY_LUCK_MIN": 30,             # 每日随机气运最小值
-    "DAILY_LUCK_MAX": 80,             # 每日随机气运最大值
+    "DAILY_LUCK_MIN": 0,              # 每日随机气运最小值
+    "DAILY_LUCK_MAX": 100,            # 每日随机气运最大值
 }
 
 # 副本系统配置

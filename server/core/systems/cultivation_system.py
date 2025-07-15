@@ -219,14 +219,13 @@ class CultivationSystem:
             # 更新最后活跃时间
             character.last_active = datetime.now()
 
-            # 记录修炼日志
-            log_message = f"修炼收益：修为+{cultivation_result['exp_gained']}"
-            if attribute_gained > 0:
-                focus_name = CULTIVATION_FOCUS_TYPES[attribute_type]["name"]
-                log_message += f"，{focus_name}+{attribute_gained}"
-
-            if cultivation_result.get("luck_effect"):
-                log_message += f"（{cultivation_result['luck_effect']}）"
+            # 记录修炼日志 - 只有在有正常收益时才记录
+            log_message = None
+            if cultivation_result['exp_gained'] > 0 or attribute_gained > 0:
+                log_message = f"修炼收益：修为+{cultivation_result['exp_gained']}"
+                if attribute_gained > 0:
+                    focus_name = CULTIVATION_FOCUS_TYPES[attribute_type]["name"]
+                    log_message += f"，{focus_name}+{attribute_gained}"
 
             log_data = {
                 "exp_gained": cultivation_result["exp_gained"],
@@ -238,15 +237,15 @@ class CultivationSystem:
                 "special_event_result": special_event_result
             }
 
-            # 移除自动突破相关的日志记录
-
-            await GameLogCRUD.create_log(
-                db,
-                character.id,
-                "CULTIVATION_CYCLE",
-                log_message,
-                log_data
-            )
+            # 只有在有正常收益时才记录修炼日志
+            if log_message:
+                await GameLogCRUD.create_log(
+                    db,
+                    character.id,
+                    "CULTIVATION_CYCLE",
+                    log_message,
+                    log_data
+                )
 
             # 如果有特殊事件，记录特殊事件日志
             if special_event_result:

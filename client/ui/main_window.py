@@ -96,7 +96,7 @@ class DataUpdateWorker(QThread):
                     break
                 self.msleep(1000)  # 每秒检查一次
 
-        print("🛑 数据更新线程已停止")
+
 
 
 class CultivationWorker(QObject):
@@ -167,14 +167,11 @@ class CultivationWorker(QObject):
     def force_cultivation_cycle(self):
         """异步强制执行修炼周期"""
         try:
-            print("🔄 后台线程：执行强制修炼周期")
             force_response = self.api_client.game.force_cultivation_cycle()
-            print("✅ 后台线程：强制修炼周期完成，发送信号")
             self.cultivation_completed.emit({
                 'response': force_response
             })
         except Exception as e:
-            print(f"❌ 后台线程：修炼完成处理失败: {str(e)}")
             self.operation_failed.emit(f"修炼完成处理失败: {str(e)}")
 
     def start_cultivation(self, focus_type: str):
@@ -228,30 +225,22 @@ class CultivationWorker(QObject):
     def refresh_all_data(self):
         """异步刷新所有游戏数据"""
         try:
-            print("🔄 后台线程：开始刷新所有游戏数据")
-
             # 获取用户游戏数据
             user_data_response = self.api_client.user.get_character_detail()
             if user_data_response.get('success'):
-                print("✅ 后台线程：用户数据获取成功")
                 self.user_data_updated.emit(user_data_response['data'])
 
             # 获取修炼状态
             cultivation_response = self.api_client.game.get_cultivation_status()
             if cultivation_response.get('success'):
-                print("✅ 后台线程：修炼状态获取成功")
                 self.cultivation_status_updated.emit(cultivation_response['data'])
 
             # 获取气运信息
             luck_response = self.api_client.game.get_luck_info()
             if luck_response.get('success'):
-                print("✅ 后台线程：气运信息获取成功")
                 self.luck_info_updated.emit(luck_response['data'])
 
-            print("✅ 后台线程：所有数据刷新完成")
-
         except Exception as e:
-            print(f"❌ 后台线程：刷新数据失败: {str(e)}")
             self.operation_failed.emit(f"刷新数据失败: {str(e)}")
 
 
@@ -300,20 +289,15 @@ class MainWindow(QMainWindow):
 
         # 检查登录状态
         if not self.state_manager.is_logged_in or self.state_manager.is_token_expired():
-            print("⚠️ 用户未登录或token已过期，触发登出")
             # 延迟触发登出，确保窗口已完全初始化
             QTimer.singleShot(100, self.state_manager.logout)
             return
 
         # 优化启动流程，避免过度并发
-        print("🔄 开始优化的启动流程...")
-
         # 第一阶段：界面初始化完成后加载数据（给界面更多时间渲染）
         if self.state_manager.user_data:
-            print(f"✅ 主窗口发现预加载数据: {self.state_manager.user_data.get('name')} (ID: {self.state_manager.user_data.get('user_id')})")
             QTimer.singleShot(1000, self.load_initial_data_async)  # 使用异步版本，避免阻塞UI
         else:
-            print("📡 主窗口没有预加载数据，延迟加载")
             QTimer.singleShot(1500, self.load_initial_data_async)  # 使用异步版本，避免阻塞UI
 
         # 第二阶段：数据加载完成后启动后台服务（进一步延迟）
@@ -321,23 +305,16 @@ class MainWindow(QMainWindow):
 
     def start_background_services(self):
         """启动后台服务（分阶段启动，避免过度并发）"""
-        print("🔄 开始启动后台服务...")
-
         # 第一步：启动数据更新线程
         self.start_data_updates()
 
         # 第二步：延迟启动自动修炼（再延迟2秒）
         QTimer.singleShot(2000, self.start_auto_cultivation)
 
-        print("✅ 后台服务启动流程已安排")
-
     def start_data_updates(self):
         """启动数据更新线程"""
         if not self.update_worker.isRunning():
-            print("🚀 启动数据更新线程")
             self.update_worker.start_updates()
-        else:
-            print("⚠️ 数据更新线程已在运行")
 
     def init_ui(self):
         """初始化界面"""
@@ -430,9 +407,8 @@ class MainWindow(QMainWindow):
                 chat_widget = self.lower_area_widget.get_chat_channel_widget()
                 if chat_widget:
                     chat_widget.new_message_received.connect(self.on_new_chat_message_received)
-                    print("✅ 聊天信号连接已设置")
         except Exception as e:
-            print(f"❌ 设置聊天信号失败: {e}")
+            pass  # 聊天信号连接失败
 
     def on_daily_sign_requested(self):
         """处理每日签到请求"""
@@ -515,7 +491,7 @@ class MainWindow(QMainWindow):
                 client_time = datetime.now()
                 time_offset = (server_time - client_time).total_seconds()
 
-                print(f"🕐 服务器时间: {server_time}, 客户端时间: {client_time}, 时间差: {time_offset:.1f}秒")
+
 
                 # 基于服务器时间计算下次修炼时间
                 if remaining_seconds <= 0:
@@ -531,7 +507,7 @@ class MainWindow(QMainWindow):
                     remaining_seconds = 5
                 next_time = datetime.now() + timedelta(seconds=remaining_seconds)
 
-            print(f"🔄 启动修炼倒计时: {focus_type}, 剩余时间: {remaining_seconds}秒, 目标时间: {next_time}")
+
 
             # 启动修炼倒计时
             if self.lower_area_widget:
@@ -552,29 +528,21 @@ class MainWindow(QMainWindow):
         """处理新聊天消息接收"""
         # 如果当前不在聊天界面，显示新消息提示
         if self.lower_area_widget and self.lower_area_widget.get_current_view() != "chat":
-            print("💬 收到新消息！点击'频道'按钮查看聊天")
             # 这里可以添加更多的新消息提示逻辑，比如闪烁按钮等
+            pass
 
     def on_cultivation_completed(self):
         """修炼完成处理（异步版本）"""
-        print("🔄 修炼倒计时完成，尝试获取修炼收益...")
-        print("⚡ 发送信号到后台线程处理修炼完成")
-        print("🧪 DEBUG: on_cultivation_completed 方法开始执行")
-
         # 发送信号到后台线程处理修炼完成
         self.cultivation_worker.force_cultivation_cycle_requested.emit()
 
-        print("🧪 DEBUG: on_cultivation_completed 方法执行完毕，信号已发送")
-
     def on_cultivation_completed_async(self, data: dict):
         """异步修炼完成处理"""
-        print("⚡ 异步修炼完成处理开始")
         force_response = data['response']
 
         # 如果有修炼结果数据，添加到修炼日志
         if force_response.get('success') and force_response.get('data'):
             cultivation_result = force_response['data']
-            print(f"✅ 修炼周期成功，获得收益")
 
             if self.lower_area_widget:
                 cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
@@ -583,18 +551,13 @@ class MainWindow(QMainWindow):
         else:
             # 如果修炼周期未到，说明客户端倒计时与服务器不同步
             remaining_time = force_response.get('data', {}).get('remaining_time', 0)
-            print(f"⚠️ 修炼周期未到，剩余时间: {remaining_time:.1f}秒")
+
 
             if remaining_time > 0 and remaining_time <= 3:  # 如果剩余时间很短，稍后重试
-                print(f"⏳ 剩余时间较短，{remaining_time:.1f}秒后重试")
                 QTimer.singleShot(int(remaining_time * 1000) + 200, self.on_cultivation_completed)
                 return
-            else:
-                # 剩余时间较长，重新同步倒计时
-                print(f"🔄 时间差异较大，重新同步倒计时")
 
         # 异步刷新角色数据和修炼状态
-        print("⚡ 发送信号到后台线程刷新数据")
         self.cultivation_worker.refresh_all_data_requested.emit()
 
         # 延迟一点时间后重新启动倒计时，确保数据已更新
@@ -622,7 +585,6 @@ class MainWindow(QMainWindow):
             self.start_cultivation_countdown(focus_type)
         else:
             error_msg = response.get('message', '自动修炼启动失败')
-            print(f"⚠️ 自动修炼启动失败: {error_msg}")
 
     def restart_cultivation_countdown(self):
         """重新启动修炼倒计时（异步版本）"""
@@ -666,12 +628,9 @@ class MainWindow(QMainWindow):
         """安全地连接WebSocket"""
         try:
             if hasattr(self, 'websocket_client') and self.websocket_client:
-                print("🔗 开始连接WebSocket...")
                 self.websocket_client.connect()
-            else:
-                print("❌ WebSocket客户端未初始化")
         except Exception as e:
-            print(f"❌ WebSocket连接失败: {e}")
+            pass  # WebSocket连接失败
             import traceback
             traceback.print_exc()
 
@@ -697,12 +656,8 @@ class MainWindow(QMainWindow):
 
     def load_initial_data_async(self):
         """加载初始数据（异步版本，用于初始化时）"""
-        print("🔄 开始异步加载初始数据")
-        print("🧪 DEBUG: load_initial_data_async 方法开始执行")
-
         # 检查登录状态
         if not self.state_manager.is_logged_in or self.state_manager.is_token_expired():
-            print("🧪 DEBUG: 登录状态检查失败")
             QMessageBox.warning(self, "认证失败", "登录状态已过期，请重新登录")
             self.state_manager.logout()  # 触发登出，会自动关闭窗口
             return
@@ -710,19 +665,14 @@ class MainWindow(QMainWindow):
         # 确保API客户端有token
         if not self.api_client.access_token:
             if self.state_manager.access_token:
-                print("🧪 DEBUG: 设置API客户端token")
                 self.api_client.set_token(self.state_manager.access_token)
             else:
-                print("🧪 DEBUG: 未找到访问令牌")
                 QMessageBox.warning(self, "认证失败", "未找到访问令牌，请重新登录")
                 self.state_manager.logout()  # 触发登出，会自动关闭窗口
                 return
 
         # 异步获取最新的游戏数据
-        print("⚡ 发送信号到后台线程加载初始数据")
-        print("🧪 DEBUG: 即将发送 refresh_all_data_requested 信号")
         self.cultivation_worker.refresh_all_data_requested.emit()
-        print("🧪 DEBUG: load_initial_data_async 方法执行完毕")
 
     def load_initial_data_sync(self):
         """加载初始数据（同步版本，仅用于初始化时）"""
@@ -823,15 +773,9 @@ class MainWindow(QMainWindow):
             self.show_shop_window()
         elif function_key == "channel":
             try:
-                print("🔄 用户点击频道按钮")
                 if self.lower_area_widget:
                     self.lower_area_widget.toggle_view()
-                else:
-                    print("❌ lower_area_widget 不存在")
             except Exception as e:
-                print(f"❌ 频道切换失败: {e}")
-                import traceback
-                traceback.print_exc()
                 QMessageBox.critical(self, "错误", f"频道切换失败: {str(e)}")
         else:
             QMessageBox.information(self, "提示", f"功能 '{function_key}' 正在开发中...")
@@ -968,10 +912,10 @@ class MainWindow(QMainWindow):
             # 注意：HTML版本的上半区域会通过数据更新自动刷新
 
             # 添加日志已经在WorldBossWindow中处理了
-            print(f"✅ Boss被击败，获得奖励: {reward_data}")
+            pass
 
         except Exception as e:
-            print(f"处理boss被击败事件失败: {str(e)}")
+            pass  # 处理boss被击败事件失败
 
     def show_shop_window(self):
         """显示商城窗口"""
@@ -1017,39 +961,33 @@ class MainWindow(QMainWindow):
     # WebSocket事件处理方法
     def on_websocket_connected(self):
         """WebSocket连接成功"""
-        print("✅ WebSocket连接成功")
+        pass
 
     def on_websocket_disconnected(self):
         """WebSocket连接断开"""
-        print("🔌 WebSocket连接断开")
+        pass
 
     def on_websocket_error(self, error_message: str):
         """WebSocket错误"""
-        print(f"❌ WebSocket错误: {error_message}")
+        pass  # 可以在这里添加错误处理逻辑
 
     def on_websocket_message(self, message_data: dict):
         """处理WebSocket消息"""
         message_type = message_data.get("type", "unknown")
-        print(f"📨 收到WebSocket消息: {message_type}")
 
     def closeEvent(self, event):
         """窗口关闭事件"""
         try:
-            print("🔄 正在关闭主窗口...")
-
             # 断开WebSocket连接
             if hasattr(self, 'websocket_client'):
-                print("🔌 正在断开WebSocket连接...")
                 self.websocket_client.disconnect()
 
             # 停止数据更新线程
             if hasattr(self, 'update_worker') and self.update_worker.isRunning():
-                print("⏹️ 停止数据更新线程...")
                 self.update_worker.stop_updates()
 
                 # 等待线程结束，但设置超时避免卡死
                 if not self.update_worker.wait(3000):  # 等待3秒
-                    print("⚠️ 强制终止数据更新线程")
                     self.update_worker.terminate()
                     self.update_worker.wait(1000)  # 再等1秒
 
@@ -1060,15 +998,12 @@ class MainWindow(QMainWindow):
 
                 # 等待线程结束，但设置超时避免卡死
                 if not self.cultivation_thread.wait(3000):  # 等待3秒
-                    print("⚠️ 强制终止修炼工作线程")
                     self.cultivation_thread.terminate()
                     self.cultivation_thread.wait(1000)  # 再等1秒
 
-            print("✅ 主窗口关闭完成")
             event.accept()
 
         except Exception as e:
-            print(f"❌ 关闭窗口时发生错误: {e}")
             event.accept()  # 即使出错也要关闭窗口
 
 
