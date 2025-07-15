@@ -90,21 +90,25 @@ async def login(
     """
     try:
         # 验证用户凭据
-        user = await AuthService.authenticate_user(db, login_data.username, login_data.password)
+        user, error_message = await AuthService.authenticate_user(db, login_data.username, login_data.password)
         if not user:
-            raise AuthenticationError("用户名或密码错误")
-
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="用户账户已被禁用"
+            # 返回BaseResponse格式的错误响应
+            return BaseResponse(
+                success=False,
+                message=error_message,
+                data=None
             )
+
+        # 检查用户是否已有活跃会话
+        from server.database.crud import SessionCRUD
+        active_sessions = await SessionCRUD.get_active_sessions_by_user_id(db, user.id)
+        had_active_session = len(active_sessions) > 0
 
         # 获取客户端信息
         ip_address = get_client_ip(request)
         user_agent = get_user_agent(request)
 
-        # 创建用户会话
+        # 创建用户会话（会自动停用旧会话）
         access_token, expires_at = await AuthService.create_user_session(
             db, user, ip_address, user_agent
         )
@@ -126,9 +130,14 @@ async def login(
         # 启动用户会话（计算离线收益）
         session_result = await user_session_manager.user_login(user.id, character.id)
 
+        # 构造登录消息
+        login_message = "登录成功"
+        if had_active_session:
+            login_message = "登录成功（已自动断开其他设备的连接）"
+
         return BaseResponse(
             success=True,
-            message="登录成功",
+            message=login_message,
             data={
                 "token": token_data.model_dump(),
                 "user": UserInfo.model_validate(user).model_dump(),
@@ -138,16 +147,59 @@ async def login(
                     "cultivation_realm": character.cultivation_realm,
                     "luck_value": character.luck_value
                 },
-                "session_info": session_result
+                "session_info": session_result,
+                "had_active_session": had_active_session
             }
         )
 
-    except AuthenticationError as e:
-        raise e
+    except Exception as e:
+        return BaseResponse(
+            success=False,
+            message=f"登录失败: {str(e)}",
+            data=None
+        )
+
+
+@router.get("/sessions", response_model=BaseResponse, summary="获取用户会话信息")
+async def get_user_sessions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取当前用户的所有活跃会话信息
+
+    需要在请求头中提供有效的JWT令牌
+    """
+    try:
+        from server.database.crud import SessionCRUD
+
+        # 获取用户的所有活跃会话
+        active_sessions = await SessionCRUD.get_active_sessions_by_user_id(db, current_user.id)
+
+        sessions_data = []
+        for session in active_sessions:
+            sessions_data.append({
+                "id": session.id,
+                "ip_address": session.ip_address,
+                "user_agent": session.user_agent,
+                "created_at": session.created_at.isoformat(),
+                "last_used": session.last_used.isoformat(),
+                "expires_at": session.expires_at.isoformat()
+            })
+
+        return BaseResponse(
+            success=True,
+            message="获取会话信息成功",
+            data={
+                "active_sessions_count": len(active_sessions),
+                "sessions": sessions_data
+            }
+        )
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"登录失败: {str(e)}"
+            detail=f"获取会话信息失败: {str(e)}"
         )
 
 

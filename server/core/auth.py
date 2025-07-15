@@ -81,8 +81,13 @@ class AuthService:
     """认证服务"""
     
     @staticmethod
-    async def authenticate_user(db: AsyncSession, username: str, password: str) -> Optional[User]:
-        """用户认证"""
+    async def authenticate_user(db: AsyncSession, username: str, password: str) -> tuple[Optional[User], str]:
+        """
+        用户认证
+
+        Returns:
+            tuple[Optional[User], str]: (用户对象, 错误消息)
+        """
         return await UserCRUD.authenticate_user(db, username, password)
     
     @staticmethod
@@ -96,18 +101,24 @@ class AuthService:
         创建用户会话
         返回: (access_token, expires_at)
         """
+        # 检查用户是否已有活跃会话，如果有则停用旧会话（防止重复登录）
+        active_sessions = await SessionCRUD.get_active_sessions_by_user_id(db, user.id)
+        if active_sessions:
+            print(f"用户 {user.username} 已有 {len(active_sessions)} 个活跃会话，将停用旧会话")
+            await SessionCRUD.deactivate_user_sessions(db, user.id)
+
         # 创建JWT令牌
         token_data = {"sub": str(user.id), "username": user.username}
         access_token, jti, expires_at = JWTManager.create_access_token(token_data)
-        
+
         # 保存会话到数据库
         await SessionCRUD.create_session(
             db, user.id, jti, expires_at, ip_address, user_agent
         )
-        
+
         # 更新用户最后登录时间
         await UserCRUD.update_user_login_time(db, user.id)
-        
+
         return access_token, expires_at
     
     @staticmethod

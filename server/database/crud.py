@@ -91,14 +91,26 @@ class UserCRUD:
         await db.commit()
 
     @staticmethod
-    async def authenticate_user(db: AsyncSession, username: str, password: str) -> Optional[User]:
-        """验证用户登录"""
+    async def authenticate_user(db: AsyncSession, username: str, password: str) -> tuple[Optional[User], str]:
+        """
+        验证用户登录
+
+        Returns:
+            tuple[Optional[User], str]: (用户对象, 错误消息)
+            如果认证成功，返回 (user, "")
+            如果认证失败，返回 (None, error_message)
+        """
         user = await UserCRUD.get_user_by_username(db, username)
         if not user:
-            return None
+            return None, "用户名不存在"
+
+        if not user.is_active:
+            return None, "用户账户已被禁用"
+
         if not UserCRUD.verify_password(password, user.hashed_password):
-            return None
-        return user
+            return None, "密码错误"
+
+        return user, ""
 
 
 class CharacterCRUD:
@@ -472,6 +484,20 @@ class SessionCRUD:
         await db.commit()
 
     @staticmethod
+    async def get_active_sessions_by_user_id(db: AsyncSession, user_id: int) -> List[UserSession]:
+        """获取用户的所有活跃会话"""
+        result = await db.execute(
+            select(UserSession)
+            .where(and_(
+                UserSession.user_id == user_id,
+                UserSession.is_active == True,
+                UserSession.expires_at > datetime.utcnow()
+            ))
+            .order_by(desc(UserSession.created_at))
+        )
+        return result.scalars().all()
+
+    @staticmethod
     async def deactivate_session(db: AsyncSession, token_jti: str) -> bool:
         """停用会话"""
         result = await db.execute(
@@ -481,6 +507,24 @@ class SessionCRUD:
         )
         await db.commit()
         return result.rowcount > 0
+
+    @staticmethod
+    async def deactivate_user_sessions(db: AsyncSession, user_id: int, exclude_jti: Optional[str] = None) -> int:
+        """停用用户的所有活跃会话（可排除指定的会话）"""
+        query = update(UserSession).where(
+            and_(
+                UserSession.user_id == user_id,
+                UserSession.is_active == True
+            )
+        ).values(is_active=False)
+
+        # 如果指定了要排除的会话，则不停用该会话
+        if exclude_jti:
+            query = query.where(UserSession.token_jti != exclude_jti)
+
+        result = await db.execute(query)
+        await db.commit()
+        return result.rowcount
 
     @staticmethod
     async def cleanup_expired_sessions(db: AsyncSession) -> int:

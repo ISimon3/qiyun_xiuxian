@@ -30,17 +30,22 @@ class UserSessionManager:
     async def user_login(self, user_id: int, character_id: int) -> Dict[str, Any]:
         """
         用户登录处理
-        
+
         Args:
             user_id: 用户ID
             character_id: 角色ID
-            
+
         Returns:
             登录处理结果，包含离线收益
         """
         try:
             current_time = datetime.now()
-            
+
+            # 检查用户是否已经在线，如果是则先处理旧会话登出
+            if user_id in self.user_sessions:
+                logger.info(f"👤 用户 {user_id} 重复登录，先处理旧会话登出")
+                await self.user_logout(user_id)
+
             # 获取角色信息
             async with get_db_session() as db:
                 character = await CharacterCRUD.get_character_by_id(db, character_id)
@@ -49,7 +54,7 @@ class UserSessionManager:
 
                 # 计算离线收益
                 offline_rewards = await self._calculate_offline_rewards(db, character, current_time)
-                
+
                 # 更新角色最后活跃时间
                 character.last_active = current_time
                 await db.commit()
@@ -64,7 +69,7 @@ class UserSessionManager:
             }
 
             logger.info(f"👤 用户 {user_id} (角色 {character_id}) 登录成功")
-            
+
             return {
                 "success": True,
                 "message": "登录成功",
