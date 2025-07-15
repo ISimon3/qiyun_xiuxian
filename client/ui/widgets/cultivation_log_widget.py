@@ -427,9 +427,10 @@ class CultivationLogWidget(QWidget):
             import html
             safe_message = html.escape(str(message))
 
-            # 执行JavaScript添加日志
+            # 执行JavaScript添加日志（异步调用）
             js_code = f"addLogEntry('{timestamp}', '{safe_message}', '{log_type}', '{color}');"
-            self.log_display.page().runJavaScript(js_code)
+            # 使用异步JavaScript调用，避免阻塞UI线程
+            self.log_display.page().runJavaScript(js_code, lambda result: None)
 
         except Exception as e:
             print(f"❌ 添加HTML日志失败: {e}")
@@ -541,7 +542,8 @@ class CultivationLogWidget(QWidget):
                 entry.remove();
             });
             """
-            self.log_display.page().runJavaScript(js_code)
+            # 使用异步JavaScript调用，避免阻塞UI线程
+            self.log_display.page().runJavaScript(js_code, lambda result: None)
 
 
 
@@ -562,7 +564,9 @@ class CultivationLogWidget(QWidget):
 
     def update_countdown(self):
         """更新倒计时显示"""
+        print("🧪 DEBUG: update_countdown 方法开始执行")
         if not self.next_cultivation_time:
+            print("🧪 DEBUG: next_cultivation_time 为空，返回")
             return
 
         current_time = datetime.now()
@@ -580,7 +584,7 @@ class CultivationLogWidget(QWidget):
             message = f"正在进行[{focus_name}]，剩余时间{minutes}分{seconds:02d}秒..."
             timestamp = current_time.strftime("%H:%M:%S")
 
-            # 在同一条记录上更新倒计时
+            # 在同一条记录上更新倒计时（异步JavaScript调用）
             if WEBENGINE_AVAILABLE and hasattr(self, 'log_display') and self.countdown_entry_id:
                 # 检查条目是否存在，如果不存在则添加
                 js_check = f"""
@@ -590,24 +594,38 @@ class CultivationLogWidget(QWidget):
                     addCountdownEntry('{self.countdown_entry_id}', '{timestamp}', '{message}');
                 }}
                 """
-                self.log_display.page().runJavaScript(js_check)
+                # 使用异步JavaScript调用，避免阻塞UI线程
+                self.log_display.page().runJavaScript(js_check, lambda result: None)
         else:
-            # 倒计时结束，移除倒计时条目
+            # 倒计时结束，移除倒计时条目（异步JavaScript调用）
             if WEBENGINE_AVAILABLE and hasattr(self, 'log_display') and self.countdown_entry_id:
                 js_remove = f"removeCountdownEntry('{self.countdown_entry_id}');"
-                self.log_display.page().runJavaScript(js_remove)
+                # 使用异步JavaScript调用，避免阻塞UI线程
+                self.log_display.page().runJavaScript(js_remove, lambda result: None)
 
             self.countdown_entry_id = None
             self.next_cultivation_time = None
 
             # 触发修炼完成信号，让主窗口处理数据更新和下一轮修炼
-            self.cultivation_completed.emit()
+            print("🧪 DEBUG: 修炼日志组件即将异步发送 cultivation_completed 信号")
+            # 使用QTimer.singleShot确保信号在下一个事件循环中发送，避免同步阻塞
+            QTimer.singleShot(0, lambda: self._emit_cultivation_completed())
+            print("🧪 DEBUG: 修炼日志组件已安排异步发送 cultivation_completed 信号")
+
+        print("🧪 DEBUG: update_countdown 方法执行完毕")
+
+    def _emit_cultivation_completed(self):
+        """异步发送修炼完成信号"""
+        print("🧪 DEBUG: 真正发送 cultivation_completed 信号")
+        self.cultivation_completed.emit()
+        print("🧪 DEBUG: cultivation_completed 信号已发送")
 
     def stop_countdown(self):
         """停止当前倒计时"""
         if WEBENGINE_AVAILABLE and hasattr(self, 'log_display') and self.countdown_entry_id:
             js_remove = f"removeCountdownEntry('{self.countdown_entry_id}');"
-            self.log_display.page().runJavaScript(js_remove)
+            # 使用异步JavaScript调用，避免阻塞UI线程
+            self.log_display.page().runJavaScript(js_remove, lambda result: None)
 
         self.countdown_entry_id = None
         self.next_cultivation_time = None
@@ -642,8 +660,9 @@ class CultivationLogWidget(QWidget):
 
         # 根据渲染方式清空显示
         if WEBENGINE_AVAILABLE and hasattr(self, 'log_display'):
-            # HTML版本清空
-            self.log_display.page().runJavaScript("clearLog();")
+            # HTML版本清空（异步调用）
+            # 使用异步JavaScript调用，避免阻塞UI线程
+            self.log_display.page().runJavaScript("clearLog();", lambda result: None)
         else:
             # QTextEdit版本清空
             self.log_text_edit.clear()

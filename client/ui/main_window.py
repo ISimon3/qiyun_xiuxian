@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QSplitter, QFrame, QLabel, QPushButton, QMessageBox,
     QApplication, QSystemTrayIcon, QMenu, QLineEdit
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread, QObject
 from PyQt6.QtGui import QFont, QIcon, QAction
 
 from client.network.api_client import GameAPIClient, APIException
@@ -99,6 +99,162 @@ class DataUpdateWorker(QThread):
         print("🛑 数据更新线程已停止")
 
 
+class CultivationWorker(QObject):
+    """修炼相关异步操作工作类"""
+
+    # 信号定义
+    cultivation_focus_changed = pyqtSignal(dict)  # 修炼方向切换完成信号
+    cultivation_completed = pyqtSignal(dict)  # 修炼完成信号
+    cultivation_started = pyqtSignal(dict)  # 修炼开始信号
+    cultivation_countdown_ready = pyqtSignal(dict)  # 修炼倒计时准备就绪信号
+    operation_failed = pyqtSignal(str)  # 操作失败信号
+
+    # 数据更新信号（复用DataUpdateWorker的信号定义）
+    user_data_updated = pyqtSignal(dict)  # 用户数据更新信号
+    cultivation_status_updated = pyqtSignal(dict)  # 修炼状态更新信号
+    luck_info_updated = pyqtSignal(dict)  # 气运信息更新信号
+
+    # 内部触发信号（用于从主线程触发后台线程操作）
+    force_cultivation_cycle_requested = pyqtSignal()  # 请求强制修炼周期信号
+    refresh_all_data_requested = pyqtSignal()  # 请求刷新所有数据信号
+    change_cultivation_focus_requested = pyqtSignal(str)  # 请求切换修炼方向信号
+    get_cultivation_countdown_info_requested = pyqtSignal(str)  # 请求获取修炼倒计时信息信号
+    get_cultivation_status_for_restart_requested = pyqtSignal()  # 请求获取修炼状态用于重启信号
+    get_cultivation_status_for_auto_start_requested = pyqtSignal()  # 请求获取修炼状态用于自动开始信号
+
+    def __init__(self, api_client: GameAPIClient):
+        super().__init__()
+        self.api_client = api_client
+
+        # 连接内部信号到对应的方法
+        self.force_cultivation_cycle_requested.connect(self.force_cultivation_cycle)
+        self.refresh_all_data_requested.connect(self.refresh_all_data)
+        self.change_cultivation_focus_requested.connect(self.change_cultivation_focus)
+        self.get_cultivation_countdown_info_requested.connect(self.get_cultivation_countdown_info)
+        self.get_cultivation_status_for_restart_requested.connect(self.get_cultivation_status_for_restart)
+        self.get_cultivation_status_for_auto_start_requested.connect(self.get_cultivation_status_for_auto_start)
+
+    def change_cultivation_focus(self, focus_type: str):
+        """异步切换修炼方向"""
+        try:
+            response = self.api_client.game.change_cultivation_focus(focus_type)
+            if response.get('success'):
+                self.cultivation_focus_changed.emit({
+                    'focus_type': focus_type,
+                    'response': response
+                })
+            else:
+                error_msg = response.get('message', '修炼方向切换失败')
+                self.operation_failed.emit(f"切换修炼方向失败: {error_msg}")
+        except Exception as e:
+            self.operation_failed.emit(f"切换修炼方向时发生错误: {str(e)}")
+
+    def get_cultivation_countdown_info(self, focus_type: str):
+        """异步获取修炼倒计时信息"""
+        try:
+            response = self.api_client.game.get_next_cultivation_time()
+            if response.get('success'):
+                self.cultivation_countdown_ready.emit({
+                    'focus_type': focus_type,
+                    'response': response
+                })
+            else:
+                error_msg = response.get('message', '获取修炼时间失败')
+                self.operation_failed.emit(f"获取修炼倒计时失败: {error_msg}")
+        except Exception as e:
+            self.operation_failed.emit(f"获取修炼倒计时时发生错误: {str(e)}")
+
+    def force_cultivation_cycle(self):
+        """异步强制执行修炼周期"""
+        try:
+            print("🔄 后台线程：执行强制修炼周期")
+            force_response = self.api_client.game.force_cultivation_cycle()
+            print("✅ 后台线程：强制修炼周期完成，发送信号")
+            self.cultivation_completed.emit({
+                'response': force_response
+            })
+        except Exception as e:
+            print(f"❌ 后台线程：修炼完成处理失败: {str(e)}")
+            self.operation_failed.emit(f"修炼完成处理失败: {str(e)}")
+
+    def start_cultivation(self, focus_type: str):
+        """异步开始修炼"""
+        try:
+            start_response = self.api_client.game.start_cultivation(focus_type)
+            self.cultivation_started.emit({
+                'focus_type': focus_type,
+                'response': start_response
+            })
+        except Exception as e:
+            self.operation_failed.emit(f"开始修炼失败: {str(e)}")
+
+    def get_cultivation_status_for_restart(self):
+        """异步获取修炼状态用于重启倒计时"""
+        try:
+            cultivation_response = self.api_client.game.get_cultivation_status()
+            if cultivation_response.get('success'):
+                cultivation_data = cultivation_response['data']
+                current_focus = cultivation_data.get('cultivation_focus', 'PHYSICAL_ATTACK')
+                # 获取倒计时信息
+                self.get_cultivation_countdown_info(current_focus)
+            else:
+                self.operation_failed.emit("获取修炼状态失败")
+        except Exception as e:
+            self.operation_failed.emit(f"重启修炼倒计时失败: {str(e)}")
+
+    def get_cultivation_status_for_auto_start(self):
+        """异步获取修炼状态用于自动开始修炼"""
+        try:
+            response = self.api_client.game.get_cultivation_status()
+            if response.get('success'):
+                cultivation_data = response['data']
+                is_cultivating = cultivation_data.get('is_cultivating', False)
+                current_focus = cultivation_data.get('cultivation_focus', 'PHYSICAL_ATTACK')
+
+                if not is_cultivating:
+                    # 需要开始修炼
+                    self.start_cultivation(current_focus)
+                else:
+                    # 已经在修炼，直接启动倒计时
+                    self.cultivation_started.emit({
+                        'focus_type': current_focus,
+                        'response': {'success': True, 'already_cultivating': True}
+                    })
+            else:
+                self.operation_failed.emit("无法获取修炼状态，跳过自动修炼")
+        except Exception as e:
+            self.operation_failed.emit(f"自动修炼启动异常: {str(e)}")
+
+    def refresh_all_data(self):
+        """异步刷新所有游戏数据"""
+        try:
+            print("🔄 后台线程：开始刷新所有游戏数据")
+
+            # 获取用户游戏数据
+            user_data_response = self.api_client.user.get_character_detail()
+            if user_data_response.get('success'):
+                print("✅ 后台线程：用户数据获取成功")
+                self.user_data_updated.emit(user_data_response['data'])
+
+            # 获取修炼状态
+            cultivation_response = self.api_client.game.get_cultivation_status()
+            if cultivation_response.get('success'):
+                print("✅ 后台线程：修炼状态获取成功")
+                self.cultivation_status_updated.emit(cultivation_response['data'])
+
+            # 获取气运信息
+            luck_response = self.api_client.game.get_luck_info()
+            if luck_response.get('success'):
+                print("✅ 后台线程：气运信息获取成功")
+                self.luck_info_updated.emit(luck_response['data'])
+
+            print("✅ 后台线程：所有数据刷新完成")
+
+        except Exception as e:
+            print(f"❌ 后台线程：刷新数据失败: {str(e)}")
+            self.operation_failed.emit(f"刷新数据失败: {str(e)}")
+
+
 
 
 
@@ -128,6 +284,13 @@ class MainWindow(QMainWindow):
         self.update_worker = DataUpdateWorker(self.api_client)
         self.setup_worker_connections()
 
+        # 初始化修炼工作线程
+        self.cultivation_thread = QThread()
+        self.cultivation_worker = CultivationWorker(self.api_client)
+        self.cultivation_worker.moveToThread(self.cultivation_thread)
+        self.setup_cultivation_worker_connections()
+        self.cultivation_thread.start()
+
         # 界面组件
         self.upper_area_widget = None
         self.lower_area_widget = None
@@ -142,21 +305,31 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(100, self.state_manager.logout)
             return
 
-        # 检查是否有预加载数据
+        # 优化启动流程，避免过度并发
+        print("🔄 开始优化的启动流程...")
+
+        # 第一阶段：界面初始化完成后加载数据（给界面更多时间渲染）
         if self.state_manager.user_data:
             print(f"✅ 主窗口发现预加载数据: {self.state_manager.user_data.get('name')} (ID: {self.state_manager.user_data.get('user_id')})")
-            # 立即加载预加载数据，但给界面一点时间完成初始化
-            QTimer.singleShot(200, self.load_initial_data)
-            # 延迟启动数据更新线程，避免与初始加载冲突
-            QTimer.singleShot(2000, self.start_data_updates)
+            QTimer.singleShot(1000, self.load_initial_data_async)  # 使用异步版本，避免阻塞UI
         else:
             print("📡 主窗口没有预加载数据，延迟加载")
-            QTimer.singleShot(500, self.load_initial_data)  # 延迟加载
-            # 延迟启动数据更新线程
-            QTimer.singleShot(3000, self.start_data_updates)
+            QTimer.singleShot(1500, self.load_initial_data_async)  # 使用异步版本，避免阻塞UI
 
-        # 延迟启动自动修炼
-        QTimer.singleShot(800, self.start_auto_cultivation)
+        # 第二阶段：数据加载完成后启动后台服务（进一步延迟）
+        QTimer.singleShot(3000, self.start_background_services)  # 3秒后启动后台服务
+
+    def start_background_services(self):
+        """启动后台服务（分阶段启动，避免过度并发）"""
+        print("🔄 开始启动后台服务...")
+
+        # 第一步：启动数据更新线程
+        self.start_data_updates()
+
+        # 第二步：延迟启动自动修炼（再延迟2秒）
+        QTimer.singleShot(2000, self.start_auto_cultivation)
+
+        print("✅ 后台服务启动流程已安排")
 
     def start_data_updates(self):
         """启动数据更新线程"""
@@ -269,7 +442,7 @@ class MainWindow(QMainWindow):
                 data = response['data']
                 message = data.get('message', '签到成功')
                 QMessageBox.information(self, "签到成功", message)
-                # 刷新数据
+                # 异步刷新数据
                 self.load_initial_data()
             else:
                 error_msg = response.get('message', '签到失败')
@@ -284,88 +457,87 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "错误", f"签到时发生错误: {str(e)}")
 
     def on_cultivation_focus_changed(self, focus_type: str):
-        """处理修炼方向变更"""
-        try:
-            response = self.api_client.game.change_cultivation_focus(focus_type)
-            if response.get('success'):
-                focus_info = CULTIVATION_FOCUS_TYPES.get(focus_type, {})
-                focus_name = focus_info.get('name', '未知')
-                focus_icon = focus_info.get('icon', '❓')
+        """处理修炼方向变更（异步版本）"""
+        # 发送信号到后台线程处理修炼方向切换
+        self.cultivation_worker.change_cultivation_focus_requested.emit(focus_type)
 
-                # 添加日志（使用特殊类型，只保留最后一条）
-                if self.lower_area_widget:
-                    cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
-                    if cultivation_log_widget:
-                        cultivation_log_widget.add_system_log(f"修炼方向已切换为: {focus_name}{focus_icon}", "cultivation_switch")
+    def on_cultivation_focus_changed_async(self, data: dict):
+        """异步修炼方向切换完成处理"""
+        focus_type = data['focus_type']
+        response = data['response']
 
-                        # 立即停止当前倒计时并启动新的倒计时（立即切换，无需等待）
-                        cultivation_log_widget.stop_countdown()
-                        self.start_cultivation_countdown(focus_type)
+        focus_info = CULTIVATION_FOCUS_TYPES.get(focus_type, {})
+        focus_name = focus_info.get('name', '未知')
+        focus_icon = focus_info.get('icon', '❓')
 
+        # 添加日志（使用特殊类型，只保留最后一条）
+        if self.lower_area_widget:
+            cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
+            if cultivation_log_widget:
+                cultivation_log_widget.add_system_log(f"修炼方向已切换为: {focus_name}{focus_icon}", "cultivation_switch")
 
-            else:
-                error_msg = response.get('message', '修炼方向切换失败')
-                QMessageBox.warning(self, "切换失败", error_msg)
-                # 恢复原来的选择
-                self.load_initial_data()
-        except APIException as e:
-            if "401" in str(e):
-                QMessageBox.warning(self, "认证失败", "登录状态已过期，请重新登录")
-                self.state_manager.logout()  # 触发登出，会自动关闭窗口
-            else:
-                QMessageBox.warning(self, "切换失败", str(e))
-                self.load_initial_data()
-        except Exception as e:
-            QMessageBox.critical(self, "错误", f"修炼方向切换时发生错误: {str(e)}")
+                # 立即停止当前倒计时并启动新的倒计时（立即切换，无需等待）
+                cultivation_log_widget.stop_countdown()
+                # 异步获取倒计时信息
+                self.cultivation_worker.get_cultivation_countdown_info_requested.emit(focus_type)
+
+    def on_cultivation_operation_failed(self, error_message: str):
+        """修炼操作失败处理"""
+        if "401" in error_message or "认证失败" in error_message:
+            QMessageBox.warning(self, "认证失败", "登录状态已过期，请重新登录")
+            self.state_manager.logout()
+        else:
+            QMessageBox.warning(self, "操作失败", error_message)
+            # 异步刷新数据以恢复状态
             self.load_initial_data()
 
     def start_cultivation_countdown(self, focus_type: str):
-        """启动修炼倒计时（基于服务器时间同步）"""
-        try:
-            # 获取服务器时间和修炼状态
-            response = self.api_client.game.get_next_cultivation_time()
+        """启动修炼倒计时（异步版本）"""
+        # 发送信号到后台线程获取倒计时信息
+        self.cultivation_worker.get_cultivation_countdown_info_requested.emit(focus_type)
 
-            if response.get('success'):
-                data = response['data']
-                remaining_seconds = data.get('remaining_seconds', 5)
-                server_time_str = data.get('server_time')
+    def on_cultivation_countdown_ready_async(self, data: dict):
+        """异步修炼倒计时信息准备完成处理"""
+        focus_type = data['focus_type']
+        response = data['response']
 
-                # 计算客户端与服务器的时间差
-                from datetime import datetime, timedelta
-                import dateutil.parser
+        if response.get('success'):
+            data_info = response['data']
+            remaining_seconds = data_info.get('remaining_seconds', 5)
+            server_time_str = data_info.get('server_time')
 
-                if server_time_str:
-                    server_time = dateutil.parser.parse(server_time_str).replace(tzinfo=None)
-                    client_time = datetime.now()
-                    time_offset = (server_time - client_time).total_seconds()
+            # 导入datetime相关模块
+            from datetime import datetime, timedelta
+            import dateutil.parser
 
-                    print(f"🕐 服务器时间: {server_time}, 客户端时间: {client_time}, 时间差: {time_offset:.1f}秒")
+            if server_time_str:
+                server_time = dateutil.parser.parse(server_time_str).replace(tzinfo=None)
+                client_time = datetime.now()
+                time_offset = (server_time - client_time).total_seconds()
 
-                    # 基于服务器时间计算下次修炼时间
-                    if remaining_seconds <= 0:
-                        # 修炼时间已到，立即开始下一轮倒计时
-                        cultivation_interval = data.get('cultivation_interval', 5)
-                        next_time = client_time + timedelta(seconds=cultivation_interval) + timedelta(seconds=time_offset)
-                    else:
-                        # 使用服务器返回的剩余时间，但调整时间差
-                        next_time = client_time + timedelta(seconds=remaining_seconds) + timedelta(seconds=time_offset)
+                print(f"🕐 服务器时间: {server_time}, 客户端时间: {client_time}, 时间差: {time_offset:.1f}秒")
+
+                # 基于服务器时间计算下次修炼时间
+                if remaining_seconds <= 0:
+                    # 修炼时间已到，立即开始下一轮倒计时
+                    cultivation_interval = data_info.get('cultivation_interval', 5)
+                    next_time = client_time + timedelta(seconds=cultivation_interval) + timedelta(seconds=time_offset)
                 else:
-                    # 没有服务器时间信息，使用本地时间
-                    if remaining_seconds <= 0:
-                        remaining_seconds = 5
-                    next_time = datetime.now() + timedelta(seconds=remaining_seconds)
+                    # 使用服务器返回的剩余时间，但调整时间差
+                    next_time = client_time + timedelta(seconds=remaining_seconds) + timedelta(seconds=time_offset)
+            else:
+                # 没有服务器时间信息，使用本地时间
+                if remaining_seconds <= 0:
+                    remaining_seconds = 5
+                next_time = datetime.now() + timedelta(seconds=remaining_seconds)
 
-                print(f"🔄 启动修炼倒计时: {focus_type}, 剩余时间: {remaining_seconds}秒, 目标时间: {next_time}")
+            print(f"🔄 启动修炼倒计时: {focus_type}, 剩余时间: {remaining_seconds}秒, 目标时间: {next_time}")
 
-                # 启动修炼倒计时
-                if self.lower_area_widget:
-                    cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
-                    if cultivation_log_widget:
-                        cultivation_log_widget.start_cultivation_countdown(focus_type, next_time)
-        except Exception as e:
-            print(f"❌ 启动修炼倒计时失败: {e}")
-            import traceback
-            traceback.print_exc()
+            # 启动修炼倒计时
+            if self.lower_area_widget:
+                cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
+                if cultivation_log_widget:
+                    cultivation_log_widget.start_cultivation_countdown(focus_type, next_time)
 
     def on_lower_view_switched(self, view_type: str):
         """处理下半区域视图切换"""
@@ -384,58 +556,78 @@ class MainWindow(QMainWindow):
             # 这里可以添加更多的新消息提示逻辑，比如闪烁按钮等
 
     def on_cultivation_completed(self):
-        """修炼完成处理（基于服务器时间同步）"""
-        try:
-            print("🔄 修炼倒计时完成，尝试获取修炼收益...")
+        """修炼完成处理（异步版本）"""
+        print("🔄 修炼倒计时完成，尝试获取修炼收益...")
+        print("⚡ 发送信号到后台线程处理修炼完成")
+        print("🧪 DEBUG: on_cultivation_completed 方法开始执行")
 
-            # 强制执行一次修炼周期来获取收益
-            force_response = self.api_client.game.force_cultivation_cycle()
+        # 发送信号到后台线程处理修炼完成
+        self.cultivation_worker.force_cultivation_cycle_requested.emit()
 
-            # 如果有修炼结果数据，添加到修炼日志
-            if force_response.get('success') and force_response.get('data'):
-                cultivation_result = force_response['data']
-                print(f"✅ 修炼周期成功，获得收益")
+        print("🧪 DEBUG: on_cultivation_completed 方法执行完毕，信号已发送")
 
+    def on_cultivation_completed_async(self, data: dict):
+        """异步修炼完成处理"""
+        print("⚡ 异步修炼完成处理开始")
+        force_response = data['response']
+
+        # 如果有修炼结果数据，添加到修炼日志
+        if force_response.get('success') and force_response.get('data'):
+            cultivation_result = force_response['data']
+            print(f"✅ 修炼周期成功，获得收益")
+
+            if self.lower_area_widget:
+                cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
+                if cultivation_log_widget:
+                    cultivation_log_widget.add_cultivation_result_log(cultivation_result)
+        else:
+            # 如果修炼周期未到，说明客户端倒计时与服务器不同步
+            remaining_time = force_response.get('data', {}).get('remaining_time', 0)
+            print(f"⚠️ 修炼周期未到，剩余时间: {remaining_time:.1f}秒")
+
+            if remaining_time > 0 and remaining_time <= 3:  # 如果剩余时间很短，稍后重试
+                print(f"⏳ 剩余时间较短，{remaining_time:.1f}秒后重试")
+                QTimer.singleShot(int(remaining_time * 1000) + 200, self.on_cultivation_completed)
+                return
+            else:
+                # 剩余时间较长，重新同步倒计时
+                print(f"🔄 时间差异较大，重新同步倒计时")
+
+        # 异步刷新角色数据和修炼状态
+        print("⚡ 发送信号到后台线程刷新数据")
+        self.cultivation_worker.refresh_all_data_requested.emit()
+
+        # 延迟一点时间后重新启动倒计时，确保数据已更新
+        QTimer.singleShot(1500, self.restart_cultivation_countdown)
+
+    def on_cultivation_started_async(self, data: dict):
+        """异步修炼开始处理"""
+        focus_type = data['focus_type']
+        response = data['response']
+
+        if response.get('success'):
+            if not response.get('already_cultivating', False):
+                # 新开始修炼
+                focus_info = CULTIVATION_FOCUS_TYPES.get(focus_type, {})
+                focus_name = focus_info.get('name', '体修')
+                focus_icon = focus_info.get('icon', '🛡️')
+
+                # 添加系统日志
                 if self.lower_area_widget:
                     cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
                     if cultivation_log_widget:
-                        cultivation_log_widget.add_cultivation_result_log(cultivation_result)
-            else:
-                # 如果修炼周期未到，说明客户端倒计时与服务器不同步
-                remaining_time = force_response.get('data', {}).get('remaining_time', 0)
-                print(f"⚠️ 修炼周期未到，剩余时间: {remaining_time:.1f}秒")
+                        cultivation_log_widget.add_system_log(f"自动开始修炼: {focus_name}{focus_icon}")
 
-                if remaining_time > 0 and remaining_time <= 3:  # 如果剩余时间很短，稍后重试
-                    print(f"⏳ 剩余时间较短，{remaining_time:.1f}秒后重试")
-                    QTimer.singleShot(int(remaining_time * 1000) + 200, self.on_cultivation_completed)
-                    return
-                else:
-                    # 剩余时间较长，重新同步倒计时
-                    print(f"🔄 时间差异较大，重新同步倒计时")
-
-            # 立即刷新角色数据和修炼状态
-            self.load_initial_data()
-
-            # 延迟一点时间后重新启动倒计时，确保数据已更新
-            QTimer.singleShot(1500, self.restart_cultivation_countdown)
-
-        except Exception as e:
-            print(f"❌ 修炼完成处理失败: {e}")
-            import traceback
-            traceback.print_exc()
+            # 启动修炼倒计时
+            self.start_cultivation_countdown(focus_type)
+        else:
+            error_msg = response.get('message', '自动修炼启动失败')
+            print(f"⚠️ 自动修炼启动失败: {error_msg}")
 
     def restart_cultivation_countdown(self):
-        """重新启动修炼倒计时"""
-        try:
-            # 获取当前修炼状态
-            cultivation_response = self.api_client.game.get_cultivation_status()
-            if cultivation_response.get('success'):
-                cultivation_data = cultivation_response['data']
-                current_focus = cultivation_data.get('cultivation_focus', 'PHYSICAL_ATTACK')
-                self.start_cultivation_countdown(current_focus)
-
-        except Exception as e:
-            print(f"❌ 重新启动修炼倒计时失败: {e}")
+        """重新启动修炼倒计时（异步版本）"""
+        # 发送信号到后台线程获取修炼状态并重启倒计时
+        self.cultivation_worker.get_cultivation_status_for_restart_requested.emit()
 
     def setup_worker_connections(self):
         """设置工作线程信号连接"""
@@ -443,6 +635,19 @@ class MainWindow(QMainWindow):
         self.update_worker.cultivation_status_updated.connect(self.on_cultivation_status_updated)
         self.update_worker.luck_info_updated.connect(self.on_luck_info_updated)
         self.update_worker.update_failed.connect(self.on_update_failed)
+
+    def setup_cultivation_worker_connections(self):
+        """设置修炼工作线程的信号连接"""
+        self.cultivation_worker.cultivation_focus_changed.connect(self.on_cultivation_focus_changed_async)
+        self.cultivation_worker.cultivation_completed.connect(self.on_cultivation_completed_async)
+        self.cultivation_worker.cultivation_started.connect(self.on_cultivation_started_async)
+        self.cultivation_worker.cultivation_countdown_ready.connect(self.on_cultivation_countdown_ready_async)
+        self.cultivation_worker.operation_failed.connect(self.on_cultivation_operation_failed)
+
+        # 连接数据刷新信号（复用DataUpdateWorker的信号）
+        self.cultivation_worker.user_data_updated.connect(self.on_user_data_updated)
+        self.cultivation_worker.cultivation_status_updated.connect(self.on_cultivation_status_updated)
+        self.cultivation_worker.luck_info_updated.connect(self.on_luck_info_updated)
 
     def setup_websocket_connections(self):
         """设置WebSocket连接"""
@@ -471,7 +676,56 @@ class MainWindow(QMainWindow):
             traceback.print_exc()
 
     def load_initial_data(self):
-        """加载初始数据"""
+        """加载初始数据（异步版本）"""
+        # 检查登录状态
+        if not self.state_manager.is_logged_in or self.state_manager.is_token_expired():
+            QMessageBox.warning(self, "认证失败", "登录状态已过期，请重新登录")
+            self.state_manager.logout()  # 触发登出，会自动关闭窗口
+            return
+
+        # 确保API客户端有token
+        if not self.api_client.access_token:
+            if self.state_manager.access_token:
+                self.api_client.set_token(self.state_manager.access_token)
+            else:
+                QMessageBox.warning(self, "认证失败", "未找到访问令牌，请重新登录")
+                self.state_manager.logout()  # 触发登出，会自动关闭窗口
+                return
+
+        # 发送信号到后台线程获取最新的游戏数据
+        self.cultivation_worker.refresh_all_data_requested.emit()
+
+    def load_initial_data_async(self):
+        """加载初始数据（异步版本，用于初始化时）"""
+        print("🔄 开始异步加载初始数据")
+        print("🧪 DEBUG: load_initial_data_async 方法开始执行")
+
+        # 检查登录状态
+        if not self.state_manager.is_logged_in or self.state_manager.is_token_expired():
+            print("🧪 DEBUG: 登录状态检查失败")
+            QMessageBox.warning(self, "认证失败", "登录状态已过期，请重新登录")
+            self.state_manager.logout()  # 触发登出，会自动关闭窗口
+            return
+
+        # 确保API客户端有token
+        if not self.api_client.access_token:
+            if self.state_manager.access_token:
+                print("🧪 DEBUG: 设置API客户端token")
+                self.api_client.set_token(self.state_manager.access_token)
+            else:
+                print("🧪 DEBUG: 未找到访问令牌")
+                QMessageBox.warning(self, "认证失败", "未找到访问令牌，请重新登录")
+                self.state_manager.logout()  # 触发登出，会自动关闭窗口
+                return
+
+        # 异步获取最新的游戏数据
+        print("⚡ 发送信号到后台线程加载初始数据")
+        print("🧪 DEBUG: 即将发送 refresh_all_data_requested 信号")
+        self.cultivation_worker.refresh_all_data_requested.emit()
+        print("🧪 DEBUG: load_initial_data_async 方法执行完毕")
+
+    def load_initial_data_sync(self):
+        """加载初始数据（同步版本，仅用于初始化时）"""
         try:
             # 检查登录状态
             if not self.state_manager.is_logged_in or self.state_manager.is_token_expired():
@@ -500,8 +754,6 @@ class MainWindow(QMainWindow):
             luck_response = self.api_client.game.get_luck_info()
             if luck_response.get('success'):
                 self.on_luck_info_updated(luck_response['data'])
-
-
 
         except APIException as e:
             if "401" in str(e):
@@ -532,7 +784,7 @@ class MainWindow(QMainWindow):
             if cultivation_log_widget:
                 cultivation_log_widget.update_cultivation_status(cultivation_data)
 
-                # 连接修炼完成信号（只连接一次）
+                # 连接修炼完成信号（只连接一次）- 使用新的异步版本
                 if not hasattr(self, '_cultivation_signal_connected'):
                     cultivation_log_widget.cultivation_completed.connect(self.on_cultivation_completed)
                     self._cultivation_signal_connected = True
@@ -742,54 +994,13 @@ class MainWindow(QMainWindow):
 
 
     def start_auto_cultivation(self):
-        """启动自动修炼"""
-        try:
-            # 检查登录状态
-            if not self.state_manager.is_logged_in or self.state_manager.is_token_expired():
-                return
+        """启动自动修炼（异步版本）"""
+        # 检查登录状态
+        if not self.state_manager.is_logged_in or self.state_manager.is_token_expired():
+            return
 
-            # 获取当前修炼状态
-            response = self.api_client.game.get_cultivation_status()
-            if not response.get('success'):
-                print("⚠️ 无法获取修炼状态，跳过自动修炼")
-                return
-
-            cultivation_data = response['data']
-            is_cultivating = cultivation_data.get('is_cultivating', False)
-
-            if not is_cultivating:
-                # 获取当前修炼方向，优先使用用户上次选择的方向，否则使用默认的力修
-                current_focus = cultivation_data.get('cultivation_focus', 'PHYSICAL_ATTACK')
-
-                # 开始修炼
-                start_response = self.api_client.game.start_cultivation(current_focus)
-                if start_response.get('success'):
-                    focus_info = CULTIVATION_FOCUS_TYPES.get(current_focus, {})
-                    focus_name = focus_info.get('name', '体修')
-                    focus_icon = focus_info.get('icon', '🛡️')
-
-                    # 添加系统日志并启动倒计时
-                    if self.lower_area_widget:
-                        cultivation_log_widget = self.lower_area_widget.get_cultivation_log_widget()
-                        if cultivation_log_widget:
-                            cultivation_log_widget.add_system_log(f"自动开始修炼: {focus_name}{focus_icon}")
-
-                    # 启动修炼倒计时
-                    self.start_cultivation_countdown(current_focus)
-                else:
-                    error_msg = start_response.get('message', '自动修炼启动失败')
-                    print(f"⚠️ 自动修炼启动失败: {error_msg}")
-            else:
-                # 如果已经在修炼，也启动倒计时
-                current_focus = cultivation_data.get('cultivation_focus', 'HP')
-                self.start_cultivation_countdown(current_focus)
-
-        except APIException as e:
-            # 检查是否为认证失败
-            if "401" in str(e):
-                self.state_manager.logout()
-        except Exception as e:
-            print(f"⚠️ 自动修炼启动异常: {e}")
+        # 发送信号到后台线程获取修炼状态并自动开始修炼
+        self.cultivation_worker.get_cultivation_status_for_auto_start_requested.emit()
 
     def on_user_logged_out(self):
         """用户登出处理"""
@@ -841,6 +1052,17 @@ class MainWindow(QMainWindow):
                     print("⚠️ 强制终止数据更新线程")
                     self.update_worker.terminate()
                     self.update_worker.wait(1000)  # 再等1秒
+
+            # 停止修炼工作线程
+            if hasattr(self, 'cultivation_thread') and self.cultivation_thread.isRunning():
+                print("⏹️ 停止修炼工作线程...")
+                self.cultivation_thread.quit()
+
+                # 等待线程结束，但设置超时避免卡死
+                if not self.cultivation_thread.wait(3000):  # 等待3秒
+                    print("⚠️ 强制终止修炼工作线程")
+                    self.cultivation_thread.terminate()
+                    self.cultivation_thread.wait(1000)  # 再等1秒
 
             print("✅ 主窗口关闭完成")
             event.accept()
