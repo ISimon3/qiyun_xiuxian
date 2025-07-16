@@ -92,6 +92,50 @@ class UpperAreaWidget(QWidget):
 
     def init_html(self):
         """初始化HTML页面"""
+        # 获取图标文件的绝对路径并转换为base64
+        import os
+        import base64
+
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+        icons_dir = os.path.join(project_root, "client", "assets", "icons", "mainwindow_ui")
+
+        # 定义需要的图标文件
+        icon_files = {
+            'check_icon': 'check_icon.png',
+            'hp_icon': 'HP_icon.png',
+            'physical_attack_icon': 'PHYSICAL_ATTACK_icon.png',
+            'magic_attack_icon': 'MAGIC_ATTACK_icon.png',
+            'physical_defense_icon': 'PHYSICAL_DEFENSE_icon.png',
+            'magic_defense_icon': 'MAGIC_DEFENSE_icon.png',
+            'backpack_icon': 'backpack_icon.png',
+            'cave_icon': 'cave_icon.png',
+            'farm_icon': 'farm_icon.png',
+            'alchemy_icon': 'alchemy_icon.png',  # 更新的炼丹图标
+            'dungeon_icon': 'dungeon_icon.png',
+            'worldboss_icon': 'worldboss_icon.png',
+            'shop_icon': 'shop_icon.png',
+            # 新增的图标
+            'spirit_stone_icon': 'spirit_stone_icon.png',
+            'gold_icon': 'gold_icon.png',
+            'cultivation_focus_icon': 'cultivation_focus_icon.png'
+        }
+
+        # 将图标转换为base64编码
+        icon_base64 = {}
+        for key, filename in icon_files.items():
+            icon_path = os.path.join(icons_dir, filename)
+            if os.path.exists(icon_path):
+                try:
+                    with open(icon_path, 'rb') as f:
+                        icon_data = f.read()
+                        icon_base64[key] = base64.b64encode(icon_data).decode('utf-8')
+                except Exception as e:
+                    print(f"⚠️ 无法加载图标 {filename}: {e}")
+                    icon_base64[key] = None
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+                icon_base64[key] = None
+
         html_template = """
         <!DOCTYPE html>
         <html>
@@ -263,11 +307,11 @@ class UpperAreaWidget(QWidget):
                     cursor: pointer;
                 }
 
-                @keyframes pulse {
-                    0% { transform: scale(1); }
-                    50% { transform: scale(1.05); }
-                    100% { transform: scale(1); }
-                }
+                @keyframes pulse {{
+                    0% {{ transform: scale(1); }}
+                    50% {{ transform: scale(1.05); }}
+                    100% {{ transform: scale(1); }}
+                }}
 
                 /* 五边形属性图表区域 */
                 .pentagon-section {
@@ -507,7 +551,9 @@ class UpperAreaWidget(QWidget):
                                 <span class="character-realm" id="characterRealm">境界：筑基期</span>
                             </div>
                         </div>
-                        <div class="sign-icon" id="signIcon" onclick="handleDailySign()" title="每日签到">📅</div>
+                        <div class="sign-icon" id="signIcon" onclick="handleDailySign()" title="每日签到">
+                            {check_icon_img}
+                        </div>
                     </div>
 
                     <!-- 修为进度条 -->
@@ -528,23 +574,23 @@ class UpperAreaWidget(QWidget):
                         <canvas id="pentagonCanvas" width="180" height="180"></canvas>
                         <div class="attribute-labels">
                             <div class="attribute-label" id="label-hp" onclick="setCultivationFocus('HP')" title="体修">
-                                💪
+                                {hp_icon_img}
                                 <span class="attribute-value" id="hp-value">100</span>
                             </div>
                             <div class="attribute-label" id="label-physical-attack" onclick="setCultivationFocus('PHYSICAL_ATTACK')" title="力修">
-                                ⚔️
+                                {physical_attack_icon_img}
                                 <span class="attribute-value" id="physical-attack-value">20</span>
                             </div>
                             <div class="attribute-label" id="label-magic-attack" onclick="setCultivationFocus('MAGIC_ATTACK')" title="法修">
-                                🔮
+                                {magic_attack_icon_img}
                                 <span class="attribute-value" id="magic-attack-value">20</span>
                             </div>
                             <div class="attribute-label" id="label-physical-defense" onclick="setCultivationFocus('PHYSICAL_DEFENSE')" title="护体">
-                                🛡️
+                                {physical_defense_icon_img}
                                 <span class="attribute-value" id="physical-defense-value">15</span>
                             </div>
                             <div class="attribute-label" id="label-magic-defense" onclick="setCultivationFocus('MAGIC_DEFENSE')" title="抗法">
-                                🌟
+                                {magic_defense_icon_img}
                                 <span class="attribute-value" id="magic-defense-value">15</span>
                             </div>
                         </div>
@@ -554,17 +600,17 @@ class UpperAreaWidget(QWidget):
                 <!-- 资源信息区域 -->
                 <div class="resources-section">
                     <div class="resource-item">
-                        <span class="resource-icon">💰</span>
+                        <span class="resource-icon">{gold_icon_img}</span>
                         <span>金币: </span>
                         <span class="resource-value" id="goldValue">xxx</span>
                     </div>
                     <div class="resource-item">
-                        <span class="resource-icon">💎</span>
+                        <span class="resource-icon">{spirit_stone_icon_img}</span>
                         <span>灵石: </span>
                         <span class="resource-value" id="spiritStoneValue">xxx</span>
                     </div>
                     <div class="resource-item">
-                        <span class="resource-icon">🍀</span>
+                        <span class="resource-icon">{cultivation_focus_icon_img}</span>
                         <span>今日气运: </span>
                         <span class="resource-value" id="luckValue">xxx</span>
                     </div>
@@ -575,25 +621,25 @@ class UpperAreaWidget(QWidget):
                 <!-- 功能按钮区域 -->
                 <div class="function-buttons">
                     <div class="function-btn" onclick="selectFunction('backpack')" title="背包">
-                        <div class="function-btn-icon">🎒</div>
+                        {backpack_icon_img}
                     </div>
                     <div class="function-btn" onclick="selectFunction('cave')" title="洞府">
-                        <div class="function-btn-icon">🏠</div>
+                        {cave_icon_img}
                     </div>
                     <div class="function-btn" onclick="selectFunction('farm')" title="农场">
-                        <div class="function-btn-icon">🌱</div>
+                        {farm_icon_img}
                     </div>
                     <div class="function-btn" onclick="selectFunction('alchemy')" title="炼丹">
-                        <div class="function-btn-icon">⚗️</div>
+                        {alchemy_icon_img}
                     </div>
                     <div class="function-btn" onclick="selectFunction('dungeon')" title="副本">
-                        <div class="function-btn-icon">⚔️</div>
+                        {dungeon_icon_img}
                     </div>
                     <div class="function-btn" onclick="selectFunction('worldboss')" title="魔君">
-                        <div class="function-btn-icon">👹</div>
+                        {worldboss_icon_img}
                     </div>
                     <div class="function-btn" onclick="selectFunction('shop')" title="商场">
-                        <div class="function-btn-icon">🏪</div>
+                        {shop_icon_img}
                     </div>
                     <div class="function-btn" onclick="selectFunction('channel')" title="频道">
                         <div class="function-btn-icon">💬</div>
@@ -1042,6 +1088,57 @@ class UpperAreaWidget(QWidget):
         </body>
         </html>
         """
+
+        # 生成图标HTML代码
+        def create_icon_img(base64_data, alt_text, width=20, height=20):
+            if base64_data:
+                return f'<img src="data:image/png;base64,{base64_data}" alt="{alt_text}" style="width: {width}px; height: {height}px;">'
+            else:
+                # 如果图标加载失败，使用emoji作为备用
+                emoji_fallback = {
+                    '签到': '📅',
+                    '体修': '💪',
+                    '力修': '⚔️',
+                    '法修': '🔮',
+                    '护体': '🛡️',
+                    '抗法': '🌟',
+                    '背包': '🎒',
+                    '洞府': '🏠',
+                    '农场': '🌱',
+                    '炼丹': '⚗️',
+                    '副本': '⚔️',
+                    '魔君': '👹',
+                    '商场': '🏪',
+                    '金币': '💰',
+                    '灵石': '💎',
+                    '气运': '🍀'
+                }
+                return f'<div class="function-btn-icon">{emoji_fallback.get(alt_text, "❓")}</div>'
+
+        # 替换图标占位符
+        icon_replacements = {
+            '{check_icon_img}': create_icon_img(icon_base64.get('check_icon'), '签到', 20, 20),
+            '{hp_icon_img}': create_icon_img(icon_base64.get('hp_icon'), '体修', 16, 16),
+            '{physical_attack_icon_img}': create_icon_img(icon_base64.get('physical_attack_icon'), '力修', 16, 16),
+            '{magic_attack_icon_img}': create_icon_img(icon_base64.get('magic_attack_icon'), '法修', 16, 16),
+            '{physical_defense_icon_img}': create_icon_img(icon_base64.get('physical_defense_icon'), '护体', 16, 16),
+            '{magic_defense_icon_img}': create_icon_img(icon_base64.get('magic_defense_icon'), '抗法', 16, 16),
+            '{backpack_icon_img}': create_icon_img(icon_base64.get('backpack_icon'), '背包', 20, 20),
+            '{cave_icon_img}': create_icon_img(icon_base64.get('cave_icon'), '洞府', 20, 20),
+            '{farm_icon_img}': create_icon_img(icon_base64.get('farm_icon'), '农场', 20, 20),
+            '{alchemy_icon_img}': create_icon_img(icon_base64.get('alchemy_icon'), '炼丹', 20, 20),  # 更新的炼丹图标
+            '{dungeon_icon_img}': create_icon_img(icon_base64.get('dungeon_icon'), '副本', 20, 20),
+            '{worldboss_icon_img}': create_icon_img(icon_base64.get('worldboss_icon'), '魔君', 20, 20),
+            '{shop_icon_img}': create_icon_img(icon_base64.get('shop_icon'), '商场', 20, 20),
+            # 新增的资源图标
+            '{gold_icon_img}': create_icon_img(icon_base64.get('gold_icon'), '金币', 14, 14),
+            '{spirit_stone_icon_img}': create_icon_img(icon_base64.get('spirit_stone_icon'), '灵石', 14, 14),
+            '{cultivation_focus_icon_img}': create_icon_img(icon_base64.get('cultivation_focus_icon'), '气运', 14, 14)
+        }
+
+        # 应用所有替换
+        for placeholder, replacement in icon_replacements.items():
+            html_template = html_template.replace(placeholder, replacement)
 
         self.html_display.setHtml(html_template)
 
