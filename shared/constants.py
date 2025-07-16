@@ -599,55 +599,11 @@ EQUIPMENT_ATTRIBUTE_VARIATION = {
     }
 }
 
-# 洞府系统配置
-CAVE_SYSTEM_CONFIG = {
-    # 洞府等级配置 (1-10级)
-    "MAX_CAVE_LEVEL": 10,
-    "CAVE_UPGRADE_COSTS": {
-        2: {"spirit_stone": 1000, "materials": {}},
-        3: {"spirit_stone": 2500, "materials": {}},
-        4: {"spirit_stone": 5000, "materials": {}},
-        5: {"spirit_stone": 10000, "materials": {}},
-        6: {"spirit_stone": 20000, "materials": {}},
-        7: {"spirit_stone": 40000, "materials": {}},
-        8: {"spirit_stone": 80000, "materials": {}},
-        9: {"spirit_stone": 160000, "materials": {}},
-        10: {"spirit_stone": 320000, "materials": {}},
-    },
-
-    # 聚灵阵等级配置 (0-5级)
-    "MAX_SPIRIT_ARRAY_LEVEL": 5,
-    "SPIRIT_ARRAY_UPGRADE_COSTS": {
-        1: {"spirit_stone": 500, "materials": {}},
-        2: {"spirit_stone": 1500, "materials": {}},
-        3: {"spirit_stone": 4000, "materials": {}},
-        4: {"spirit_stone": 10000, "materials": {}},
-        5: {"spirit_stone": 25000, "materials": {}},
-    },
-
-    # 聚灵阵修炼速度加成 (倍率)
-    "SPIRIT_ARRAY_SPEED_BONUS": {
-        0: 1.0,    # 无聚灵阵
-        1: 1.2,    # 1级聚灵阵 +20%
-        2: 1.5,    # 2级聚灵阵 +50%
-        3: 1.8,    # 3级聚灵阵 +80%
-        4: 2.2,    # 4级聚灵阵 +120%
-        5: 2.5,    # 5级聚灵阵 +150%
-    },
-
-    # 洞府等级对应的功能解锁
-    "CAVE_LEVEL_FEATURES": {
-        1: ["突破境界"],
-        2: ["聚灵阵"],
-        3: ["丹房"],
-        4: ["灵田"],
-        5: ["炼器房"],
-        6: ["藏书阁"],
-        7: ["传送阵"],
-        8: ["护山大阵"],
-        9: ["灵兽园"],
-        10: ["仙府升级"],
-    }
+# 突破系统配置
+BREAKTHROUGH_CONFIG = {
+    "DEFAULT_FAILURE_LOSS_RATE": 0.2,  # 默认突破失败损失20%当前修为
+    "BASE_SUCCESS_RATE": 0.5,          # 基础突破成功率50%
+    "REALM_DIFFICULTY_REDUCTION": 0.01, # 每升一个境界等级减少1%成功率
 }
 
 # 灵田系统配置
@@ -910,6 +866,56 @@ ALCHEMY_MATERIALS = {
     "月华露": {"type": "liquid", "rarity": "uncommon", "description": "月光凝聚的露水"},
     "龙血": {"type": "liquid", "rarity": "epic", "description": "传说中的龙族血液"},
     "凤凰羽": {"type": "material", "rarity": "epic", "description": "凤凰的珍贵羽毛"}
+}
+
+# 洞府系统配置
+CAVE_SYSTEM_CONFIG = {
+    # 洞府升级配置
+    "CAVE_UPGRADE": {
+        "MAX_LEVEL": 10,  # 最大等级
+        "LEVEL_BENEFITS": {
+            # 每级减少1%修为损失，每周期获得金币
+            1: {"cultivation_loss_reduction": 0.01, "gold_per_cycle": (2, 6)},
+            2: {"cultivation_loss_reduction": 0.02, "gold_per_cycle": (4, 12)},
+            3: {"cultivation_loss_reduction": 0.03, "gold_per_cycle": (6, 18)},
+            4: {"cultivation_loss_reduction": 0.04, "gold_per_cycle": (8, 24)},
+            5: {"cultivation_loss_reduction": 0.05, "gold_per_cycle": (10, 30)},
+            6: {"cultivation_loss_reduction": 0.06, "gold_per_cycle": (12, 36)},
+            7: {"cultivation_loss_reduction": 0.07, "gold_per_cycle": (14, 42)},
+            8: {"cultivation_loss_reduction": 0.08, "gold_per_cycle": (16, 48)},
+            9: {"cultivation_loss_reduction": 0.09, "gold_per_cycle": (18, 54)},
+            10: {"cultivation_loss_reduction": 0.10, "gold_per_cycle": (20, 60)},
+        },
+        "UPGRADE_COSTS": {
+            # 升级到对应等级所需的灵石
+            2: 1000, 3: 2000, 4: 3000, 5: 4000,
+            6: 5000, 7: 6000, 8: 7000, 9: 8000, 10: 9000
+        }
+    },
+
+    # 聚灵阵配置
+    "SPIRIT_GATHERING_ARRAY": {
+        "MAX_LEVEL": 10,  # 最大等级
+        "UNLOCK_CAVE_LEVEL": 2,  # 需要2级洞府解锁
+        "LEVEL_BENEFITS": {
+            # 每级减少5%修炼间隔，每周期获得灵石
+            1: {"cultivation_interval_reduction": 0.05, "spirit_stone_per_cycle": (1, 3)},
+            2: {"cultivation_interval_reduction": 0.10, "spirit_stone_per_cycle": (2, 6)},
+            3: {"cultivation_interval_reduction": 0.15, "spirit_stone_per_cycle": (3, 9)},
+            4: {"cultivation_interval_reduction": 0.20, "spirit_stone_per_cycle": (4, 12)},
+            5: {"cultivation_interval_reduction": 0.25, "spirit_stone_per_cycle": (5, 15)},
+            6: {"cultivation_interval_reduction": 0.30, "spirit_stone_per_cycle": (6, 18)},
+            7: {"cultivation_interval_reduction": 0.35, "spirit_stone_per_cycle": (7, 21)},
+            8: {"cultivation_interval_reduction": 0.40, "spirit_stone_per_cycle": (8, 24)},
+            9: {"cultivation_interval_reduction": 0.45, "spirit_stone_per_cycle": (9, 27)},
+            10: {"cultivation_interval_reduction": 0.50, "spirit_stone_per_cycle": (10, 30)},
+        },
+        "UPGRADE_COSTS": {
+            # 升级到对应等级所需的灵石
+            1: 500, 2: 1000, 3: 1500, 4: 2000, 5: 2500,
+            6: 3000, 7: 3500, 8: 4000, 9: 4500, 10: 5000
+        }
+    }
 }
 
 # 默认配置

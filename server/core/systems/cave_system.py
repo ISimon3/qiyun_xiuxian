@@ -25,10 +25,8 @@ class CaveSystem:
                 features = CAVE_SYSTEM_CONFIG["CAVE_LEVEL_FEATURES"].get(level, [])
                 available_features.extend(features)
             
-            # 获取修炼速度加成
-            cultivation_speed_bonus = CAVE_SYSTEM_CONFIG["SPIRIT_ARRAY_SPEED_BONUS"].get(
-                spirit_array_level, 1.0
-            )
+            # 聚灵阵现在通过减少修炼间隔来提升效率，不再使用速度加成
+            cultivation_speed_bonus = 1.0
             
             return {
                 "success": True,
@@ -177,7 +175,9 @@ class CaveSystem:
                 "new_level": target_level,
                 "cost_spirit_stone": required_spirit_stone,
                 "remaining_spirit_stone": character.spirit_stone,
-                "new_speed_bonus": CAVE_SYSTEM_CONFIG["SPIRIT_ARRAY_SPEED_BONUS"].get(target_level, 1.0)
+                "new_interval_reduction": CAVE_SYSTEM_CONFIG["SPIRIT_GATHERING_ARRAY"]["LEVEL_BENEFITS"].get(
+                    target_level, {}
+                ).get("cultivation_interval_reduction", 0.0)
             }
         )
         
@@ -202,6 +202,75 @@ class CaveSystem:
         return None
 
     @staticmethod
-    def get_cultivation_speed_bonus(spirit_array_level: int) -> float:
-        """获取聚灵阵修炼速度加成"""
-        return CAVE_SYSTEM_CONFIG["SPIRIT_ARRAY_SPEED_BONUS"].get(spirit_array_level, 1.0)
+    def get_cultivation_interval_reduction(spirit_array_level: int) -> float:
+        """获取聚灵阵修炼间隔减少率"""
+        if "SPIRIT_GATHERING_ARRAY" in CAVE_SYSTEM_CONFIG:
+            array_benefits = CAVE_SYSTEM_CONFIG["SPIRIT_GATHERING_ARRAY"]["LEVEL_BENEFITS"]
+            return array_benefits.get(spirit_array_level, {}).get("cultivation_interval_reduction", 0.0)
+        return 0.0
+
+    @staticmethod
+    async def apply_cycle_rewards(db: AsyncSession, character: Character) -> Dict[str, Any]:
+        """应用洞府系统的周期性奖励"""
+        try:
+            rewards = {
+                "gold_gained": 0,
+                "spirit_stone_gained": 0,
+                "sources": []
+            }
+
+            # 洞府等级奖励 - 每周期获得金币
+            cave_level = character.cave_level
+            if cave_level > 0 and "CAVE_UPGRADE" in CAVE_SYSTEM_CONFIG:
+                cave_benefits = CAVE_SYSTEM_CONFIG["CAVE_UPGRADE"]["LEVEL_BENEFITS"]
+                if cave_level in cave_benefits:
+                    gold_range = cave_benefits[cave_level].get("gold_per_cycle", (0, 0))
+                    if gold_range[1] > 0:
+                        import random
+                        gold_gained = random.randint(gold_range[0], gold_range[1])
+                        character.gold += gold_gained
+                        rewards["gold_gained"] += gold_gained
+                        rewards["sources"].append(f"洞府{cave_level}级")
+
+            # 聚灵阵奖励 - 每周期获得灵石
+            spirit_array_level = character.spirit_gathering_array_level
+            if spirit_array_level > 0 and "SPIRIT_GATHERING_ARRAY" in CAVE_SYSTEM_CONFIG:
+                array_benefits = CAVE_SYSTEM_CONFIG["SPIRIT_GATHERING_ARRAY"]["LEVEL_BENEFITS"]
+                if spirit_array_level in array_benefits:
+                    stone_range = array_benefits[spirit_array_level].get("spirit_stone_per_cycle", (0, 0))
+                    if stone_range[1] > 0:
+                        import random
+                        stone_gained = random.randint(stone_range[0], stone_range[1])
+                        character.spirit_stone += stone_gained
+                        rewards["spirit_stone_gained"] += stone_gained
+                        rewards["sources"].append(f"聚灵阵{spirit_array_level}级")
+
+            # 如果有奖励，记录日志
+            if rewards["gold_gained"] > 0 or rewards["spirit_stone_gained"] > 0:
+                log_message = "洞府周期奖励："
+                reward_parts = []
+                if rewards["gold_gained"] > 0:
+                    reward_parts.append(f"金币+{rewards['gold_gained']}")
+                if rewards["spirit_stone_gained"] > 0:
+                    reward_parts.append(f"灵石+{rewards['spirit_stone_gained']}")
+
+                log_message += "，".join(reward_parts)
+                log_message += f"（来源：{', '.join(rewards['sources'])}）"
+
+                await GameLogCRUD.create_log(
+                    db,
+                    character.id,
+                    "CAVE_CYCLE_REWARD",
+                    log_message,
+                    rewards
+                )
+
+            return rewards
+
+        except Exception as e:
+            print(f"❌ 应用洞府周期奖励失败: {e}")
+            return {
+                "gold_gained": 0,
+                "spirit_stone_gained": 0,
+                "sources": []
+            }

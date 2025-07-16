@@ -168,17 +168,23 @@ class CultivationSystem:
             if not character.cultivation_focus:
                 character.cultivation_focus = "HP"  # 默认体修
 
-            # 计算修炼速度加成（包含聚灵阵加成）
+            # 计算修炼速度加成（包含灵根和聚灵阵加成）
             from server.core.systems.cave_system import CaveSystem
-            spirit_array_bonus = CaveSystem.get_cultivation_speed_bonus(
-                character.spirit_gathering_array_level
-            )
+            from shared.constants import SPIRITUAL_ROOTS
+
+            # 灵根修炼速度加成
+            spiritual_root_bonus = 1.0
+            if character.spiritual_root in SPIRITUAL_ROOTS:
+                spiritual_root_bonus = SPIRITUAL_ROOTS[character.spiritual_root]["multiplier"]
+
+            # 聚灵阵修炼速度加成（现在通过减少间隔实现，这里保持1.0）
+            spirit_array_bonus = 1.0
 
             # 计算修炼收益 (30秒周期)
             cultivation_result = simulate_cultivation_session(
                 character.luck_value,
                 character.cultivation_focus,
-                spirit_array_bonus  # 应用聚灵阵修炼速度加成
+                spiritual_root_bonus  # 应用灵根修炼速度加成
             )
 
             # 30秒周期的收益直接使用，不需要额外倍率
@@ -215,6 +221,9 @@ class CultivationSystem:
                 special_event_result = await LuckSystem.trigger_special_cultivation_event(
                     db, character, cultivation_result["special_event"]
                 )
+
+            # 洞府系统周期性奖励
+            cave_rewards = await CaveSystem.apply_cycle_rewards(db, character)
 
             # 更新最后活跃时间
             character.last_active = datetime.now()
@@ -359,8 +368,22 @@ class CultivationSystem:
                     "exp_consumed": required_exp
                 }
             else:
-                # 突破失败
-                exp_loss = int(required_exp * 0.2)  # 手动突破失败损失20%所需修为
+                # 突破失败 - 考虑洞府等级减少损失
+                from shared.constants import BREAKTHROUGH_CONFIG, CAVE_SYSTEM_CONFIG
+
+                # 基础损失率20%
+                base_loss_rate = BREAKTHROUGH_CONFIG.get("DEFAULT_FAILURE_LOSS_RATE", 0.2)
+
+                # 洞府等级减少损失
+                cave_level = character.cave_level
+                if cave_level > 0 and "CAVE_UPGRADE" in CAVE_SYSTEM_CONFIG:
+                    cave_benefits = CAVE_SYSTEM_CONFIG["CAVE_UPGRADE"]["LEVEL_BENEFITS"]
+                    loss_reduction = cave_benefits.get(cave_level, {}).get("cultivation_loss_reduction", 0)
+                    actual_loss_rate = max(0, base_loss_rate - loss_reduction)
+                else:
+                    actual_loss_rate = base_loss_rate
+
+                exp_loss = int(required_exp * actual_loss_rate)
                 character.cultivation_exp = max(0, character.cultivation_exp - exp_loss)
 
                 # 记录日志

@@ -116,37 +116,51 @@ class CharacterService:
     
     @staticmethod
     def calculate_breakthrough_success_rate(
-        character: Character, 
+        character: Character,
         target_realm: int,
         use_items: Optional[list] = None
     ) -> float:
         """计算突破成功率"""
+        from shared.constants import BREAKTHROUGH_CONFIG
+
         # 基础成功率
-        base_rate = 0.5
-        
+        base_rate = BREAKTHROUGH_CONFIG.get("BASE_SUCCESS_RATE", 0.5)
+
+        # 境界难度影响 - 每升一个境界等级减少1%成功率
+        realm_difficulty_reduction = BREAKTHROUGH_CONFIG.get("REALM_DIFFICULTY_REDUCTION", 0.01)
+        realm_penalty = target_realm * realm_difficulty_reduction
+
         # 气运影响
         luck_bonus = (character.luck_value - 50) * 0.01  # 气运每点影响1%
-        
-        # 灵根影响
+
+        # 灵根影响 - 使用constants中定义的灵根系统
+        from shared.constants import SPIRITUAL_ROOTS
         spiritual_root_bonus = 0.0
-        if character.spiritual_root == "天灵根":
-            spiritual_root_bonus = 0.3
-        elif character.spiritual_root == "变异灵根":
-            spiritual_root_bonus = 0.2
-        elif character.spiritual_root == "单灵根":
-            spiritual_root_bonus = 0.1
-        
+
+        if character.spiritual_root in SPIRITUAL_ROOTS:
+            root_info = SPIRITUAL_ROOTS[character.spiritual_root]
+            # 灵根对突破成功率的影响：修炼倍率越高，突破加成越大
+            # 天灵根(3.0x) -> 20%加成, 变异灵根(2.0x) -> 10%加成, 单灵根(1.5x) -> 5%加成
+            multiplier = root_info["multiplier"]
+            if multiplier >= 3.0:  # 天灵根
+                spiritual_root_bonus = 0.2
+            elif multiplier >= 2.0:  # 变异灵根
+                spiritual_root_bonus = 0.1
+            elif multiplier >= 1.5:  # 单灵根
+                spiritual_root_bonus = 0.05
+            # 其他灵根无突破加成
+
         # TODO: 物品加成
         item_bonus = 0.0
         if use_items:
             # 计算辅助物品的成功率加成
             pass
-        
+
         # 计算最终成功率
-        final_rate = base_rate + luck_bonus + spiritual_root_bonus + item_bonus
-        
-        # 限制在0-1之间
-        return max(0.0, min(1.0, final_rate))
+        final_rate = base_rate - realm_penalty + luck_bonus + spiritual_root_bonus + item_bonus
+
+        # 限制在0.05-0.95之间（最低5%，最高95%）
+        return max(0.05, min(0.95, final_rate))
     
     @staticmethod
     async def can_breakthrough(character: Character, target_realm: int) -> tuple[bool, str]:

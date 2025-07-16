@@ -103,8 +103,8 @@ class GameLoop:
             # 检查是否需要进行修炼周期
             time_diff = (current_time - last_cultivation).total_seconds()
 
-            # 使用标准修炼间隔
-            current_interval = self.cultivation_interval
+            # 计算考虑聚灵阵加成的修炼间隔
+            current_interval = self._get_character_cultivation_interval(character)
 
             logger.info(f"⏰ 角色 {character.name} 距离上次修炼: {time_diff:.1f}秒，需要间隔: {current_interval}秒")
 
@@ -136,8 +136,8 @@ class GameLoop:
         current_time = datetime.now()
         last_cultivation = self.last_cultivation_time.get(character_id)
 
-        # 使用标准修炼间隔
-        current_interval = self.cultivation_interval
+        # 计算考虑聚灵阵加成的修炼间隔
+        current_interval = self._get_character_cultivation_interval(character)
 
         if last_cultivation is None:
             # 如果没有记录，返回当前时间加上修炼间隔
@@ -220,7 +220,28 @@ class GameLoop:
 
         return last_cultivation + timedelta(seconds=self.cultivation_interval)
 
+    def _get_character_cultivation_interval(self, character) -> float:
+        """获取角色的实际修炼间隔（考虑聚灵阵加成）"""
+        try:
+            from shared.constants import CAVE_SYSTEM_CONFIG
 
+            base_interval = self.cultivation_interval
+            spirit_array_level = character.spirit_gathering_array_level
+
+            # 获取聚灵阵的间隔减少效果
+            if spirit_array_level > 0 and "SPIRIT_GATHERING_ARRAY" in CAVE_SYSTEM_CONFIG:
+                array_benefits = CAVE_SYSTEM_CONFIG["SPIRIT_GATHERING_ARRAY"]["LEVEL_BENEFITS"]
+                if spirit_array_level in array_benefits:
+                    interval_reduction = array_benefits[spirit_array_level].get("cultivation_interval_reduction", 0)
+                    # 减少修炼间隔
+                    actual_interval = base_interval * (1 - interval_reduction)
+                    return max(5.0, actual_interval)  # 最小间隔5秒
+
+            return base_interval
+
+        except Exception as e:
+            print(f"❌ 计算修炼间隔失败: {e}")
+            return self.cultivation_interval
 
     def get_status(self) -> Dict[str, Any]:
         """获取游戏循环状态"""

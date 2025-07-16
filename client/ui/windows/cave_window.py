@@ -1,15 +1,19 @@
 # 洞府窗口
 
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
-    QFrame, QScrollArea, QWidget, QMessageBox, QProgressBar, QTextEdit,
-    QGroupBox, QSplitter
-)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QPalette, QColor, QIcon
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QMessageBox
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QIcon
 from typing import Dict, Any, Optional
 
 from client.network.api_client import GameAPIClient
+
+# 检查WebEngine可用性
+try:
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+    WEBENGINE_AVAILABLE = True
+except ImportError:
+    WEBENGINE_AVAILABLE = False
+    print("⚠️ PyQt6-WebEngine不可用，洞府界面将使用备用方案")
 
 
 class CaveWindow(QDialog):
@@ -29,14 +33,18 @@ class CaveWindow(QDialog):
         from client.state_manager import get_state_manager
         self.state_manager = get_state_manager()
 
+        # 连接状态管理器的信号，实时同步数据
+        self.state_manager.user_data_updated.connect(self.on_user_data_updated)
+
         self.cave_data = {}
+        self.html_loaded = False
         self.setup_ui()
         self.load_cave_info()
 
     def setup_ui(self):
         """设置UI"""
         self.setWindowTitle("洞府")
-        self.setFixedSize(800, 600)
+        self.setFixedSize(900, 700)
         self.setModal(False)  # 非模态窗口
 
         # 设置窗口图标
@@ -54,273 +62,720 @@ class CaveWindow(QDialog):
 
         # 主布局
         main_layout = QVBoxLayout()
-        main_layout.setSpacing(10)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # 标题
-        title_label = QLabel("🏠 洞府管理")
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_font = QFont()
-        title_font.setPointSize(16)
-        title_font.setBold(True)
-        title_label.setFont(title_font)
-        main_layout.addWidget(title_label)
+        if WEBENGINE_AVAILABLE:
+            self.create_html_cave_display(main_layout)
+        else:
+            self.create_fallback_display(main_layout)
 
-        # 创建分割器
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-
-        # 左侧：洞府信息和功能
-        left_widget = self.create_left_panel()
-        splitter.addWidget(left_widget)
-
-        # 右侧：详细信息和日志
-        right_widget = self.create_right_panel()
-        splitter.addWidget(right_widget)
-
-        # 设置分割器比例
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 1)
-
-        main_layout.addWidget(splitter)
-
-        # 底部按钮
-        button_layout = QHBoxLayout()
-
-        refresh_btn = QPushButton("🔄 刷新")
-        refresh_btn.clicked.connect(self.load_cave_info)
-        button_layout.addWidget(refresh_btn)
-
-        button_layout.addStretch()
-
-        close_btn = QPushButton("关闭")
-        close_btn.clicked.connect(self.close)
-        button_layout.addWidget(close_btn)
-
-        main_layout.addLayout(button_layout)
         self.setLayout(main_layout)
 
-    def create_left_panel(self) -> QWidget:
-        """创建左侧面板"""
-        widget = QWidget()
-        layout = QVBoxLayout()
-        layout.setSpacing(10)
+    def create_html_cave_display(self, layout):
+        """创建基于HTML的洞府显示区域"""
+        # 洞府显示区域 - 使用HTML渲染
+        self.cave_display = QWebEngineView()
 
-        # 洞府基本信息
-        self.cave_info_group = self.create_cave_info_group()
-        layout.addWidget(self.cave_info_group)
+        # 禁用右键上下文菜单
+        self.cave_display.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
 
-        # 洞府升级
-        self.cave_upgrade_group = self.create_cave_upgrade_group()
-        layout.addWidget(self.cave_upgrade_group)
-
-        # 聚灵阵管理
-        self.spirit_array_group = self.create_spirit_array_group()
-        layout.addWidget(self.spirit_array_group)
-
-        # 洞府功能
-        self.cave_features_group = self.create_cave_features_group()
-        layout.addWidget(self.cave_features_group)
-
-        layout.addStretch()
-        widget.setLayout(layout)
-        return widget
-
-    def create_right_panel(self) -> QWidget:
-        """创建右侧面板"""
-        widget = QWidget()
-        layout = QVBoxLayout()
-        layout.setSpacing(10)
-
-        # 修炼效果信息
-        effect_group = QGroupBox("修炼效果")
-        effect_layout = QVBoxLayout()
-
-        self.cultivation_speed_label = QLabel("修炼速度加成: 计算中...")
-        self.cultivation_speed_label.setStyleSheet("font-size: 14px; color: #2E8B57;")
-        effect_layout.addWidget(self.cultivation_speed_label)
-
-        self.spirit_density_label = QLabel("洞府灵气浓度: 计算中...")
-        self.spirit_density_label.setStyleSheet("font-size: 14px; color: #4169E1;")
-        effect_layout.addWidget(self.spirit_density_label)
-
-        effect_group.setLayout(effect_layout)
-        layout.addWidget(effect_group)
-
-        # 洞府说明
-        description_group = QGroupBox("洞府说明")
-        description_layout = QVBoxLayout()
-
-        self.description_text = QTextEdit()
-        self.description_text.setReadOnly(True)
-        self.description_text.setMaximumHeight(200)
-        self.description_text.setPlainText(
-            "洞府是修仙者的重要居所，提供以下功能：\n\n"
-            "• 境界突破：在洞府中可以安全地进行境界突破\n"
-            "• 聚灵阵：提升修炼速度，加快修为增长\n"
-            "• 洞府升级：解锁更多功能和更高的修炼效率\n\n"
-            "洞府等级越高，可解锁的功能越多：\n"
-            "1级：突破境界\n"
-            "2级：聚灵阵\n"
-            "3级：丹房\n"
-            "4级：灵田\n"
-            "5级及以上：更多高级功能..."
-        )
-        description_layout.addWidget(self.description_text)
-
-        description_group.setLayout(description_layout)
-        layout.addWidget(description_group)
-
-        widget.setLayout(layout)
-        return widget
-
-    def create_cave_info_group(self) -> QGroupBox:
-        """创建洞府信息组"""
-        group = QGroupBox("洞府信息")
-        layout = QGridLayout()
-
-        # 洞府等级
-        layout.addWidget(QLabel("洞府等级:"), 0, 0)
-        self.cave_level_label = QLabel("1级")
-        self.cave_level_label.setStyleSheet("font-weight: bold; color: #8B4513;")
-        layout.addWidget(self.cave_level_label, 0, 1)
-
-        # 聚灵阵等级
-        layout.addWidget(QLabel("聚灵阵等级:"), 1, 0)
-        self.spirit_array_level_label = QLabel("0级")
-        self.spirit_array_level_label.setStyleSheet("font-weight: bold; color: #4169E1;")
-        layout.addWidget(self.spirit_array_level_label, 1, 1)
-
-        # 修炼速度加成
-        layout.addWidget(QLabel("修炼速度:"), 2, 0)
-        self.speed_bonus_label = QLabel("1.0x")
-        self.speed_bonus_label.setStyleSheet("font-weight: bold; color: #2E8B57;")
-        layout.addWidget(self.speed_bonus_label, 2, 1)
-
-        group.setLayout(layout)
-        return group
-
-    def create_cave_upgrade_group(self) -> QGroupBox:
-        """创建洞府升级组"""
-        group = QGroupBox("洞府升级")
-        layout = QVBoxLayout()
-
-        # 升级信息
-        info_layout = QGridLayout()
-
-        info_layout.addWidget(QLabel("当前等级:"), 0, 0)
-        self.current_cave_level_label = QLabel("1级")
-        info_layout.addWidget(self.current_cave_level_label, 0, 1)
-
-        info_layout.addWidget(QLabel("升级费用:"), 1, 0)
-        self.cave_upgrade_cost_label = QLabel("1000 灵石")
-        info_layout.addWidget(self.cave_upgrade_cost_label, 1, 1)
-
-        layout.addLayout(info_layout)
-
-        # 升级按钮
-        self.cave_upgrade_btn = QPushButton("升级洞府")
-        self.cave_upgrade_btn.clicked.connect(self.upgrade_cave)
-        self.cave_upgrade_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #8B4513;
-                color: white;
-                border: none;
-                padding: 8px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #A0522D;
-            }
-            QPushButton:disabled {
-                background-color: #D3D3D3;
-                color: #808080;
+        # 为洞府区域添加边框样式
+        self.cave_display.setStyleSheet("""
+            QWebEngineView {
+                border: 2px solid #e1e5e9;
+                border-radius: 8px;
+                background-color: #ffffff;
             }
         """)
-        layout.addWidget(self.cave_upgrade_btn)
 
-        group.setLayout(layout)
-        return group
+        # 设置初始HTML内容
+        self.init_cave_html()
 
-    def create_spirit_array_group(self) -> QGroupBox:
-        """创建聚灵阵组"""
-        group = QGroupBox("聚灵阵")
-        layout = QVBoxLayout()
+        # 监听页面加载完成事件
+        self.cave_display.loadFinished.connect(self.on_html_load_finished)
 
-        # 聚灵阵信息
-        info_layout = QGridLayout()
+        layout.addWidget(self.cave_display)
 
-        info_layout.addWidget(QLabel("当前等级:"), 0, 0)
-        self.current_spirit_level_label = QLabel("0级")
-        info_layout.addWidget(self.current_spirit_level_label, 0, 1)
+    def create_fallback_display(self, layout):
+        """创建备用的简单显示区域"""
+        from PyQt6.QtWidgets import QLabel
 
-        info_layout.addWidget(QLabel("升级费用:"), 1, 0)
-        self.spirit_upgrade_cost_label = QLabel("500 灵石")
-        info_layout.addWidget(self.spirit_upgrade_cost_label, 1, 1)
+        fallback_label = QLabel("WebEngine不可用，请安装PyQt6-WebEngine")
+        fallback_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        fallback_label.setStyleSheet("color: #e74c3c; font-size: 14px; font-weight: bold;")
+        layout.addWidget(fallback_label)
 
-        info_layout.addWidget(QLabel("速度加成:"), 2, 0)
-        self.spirit_bonus_label = QLabel("+20%")
-        info_layout.addWidget(self.spirit_bonus_label, 2, 1)
+    def get_breakthrough_image_base64(self):
+        """获取突破图片的base64数据"""
+        try:
+            import os
+            import base64
 
-        layout.addLayout(info_layout)
+            # 获取图片路径
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+            image_path = os.path.join(project_root, "client", "assets", "images", "cave", "Breakthrough.png")
 
-        # 升级按钮
-        self.spirit_upgrade_btn = QPushButton("升级聚灵阵")
-        self.spirit_upgrade_btn.clicked.connect(self.upgrade_spirit_array)
-        self.spirit_upgrade_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4169E1;
-                color: white;
-                border: none;
-                padding: 8px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #6495ED;
-            }
-            QPushButton:disabled {
-                background-color: #D3D3D3;
-                color: #808080;
-            }
-        """)
-        layout.addWidget(self.spirit_upgrade_btn)
+            if os.path.exists(image_path):
+                with open(image_path, "rb") as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                    return encoded_string
+            else:
+                print(f"⚠️ 突破图片不存在: {image_path}")
+                return ""
+        except Exception as e:
+            print(f"❌ 获取突破图片失败: {e}")
+            return ""
 
-        group.setLayout(layout)
-        return group
+    def init_cave_html(self):
+        """初始化洞府HTML页面"""
+        # 获取图片的base64数据
+        breakthrough_image_data = self.get_breakthrough_image_base64()
 
-    def create_cave_features_group(self) -> QGroupBox:
-        """创建洞府功能组"""
-        group = QGroupBox("洞府功能")
-        layout = QVBoxLayout()
+        html_template = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>洞府管理</title>
+            <style>
+                * {{
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }}
 
-        # 突破功能
-        breakthrough_btn = QPushButton("🌟 境界突破")
-        breakthrough_btn.clicked.connect(self.show_breakthrough)
-        breakthrough_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FFD700;
-                color: #8B4513;
-                border: none;
-                padding: 10px;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #FFA500;
-            }
-        """)
-        layout.addWidget(breakthrough_btn)
+                body {{
+                    font-family: "Microsoft YaHei", Arial, sans-serif;
+                    font-size: 14px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: #333;
+                    line-height: 1.4;
+                    overflow: hidden;
+                    height: 100vh;
+                    margin: 0;
+                    padding: 0;
+                }}
 
-        # 可用功能列表
-        self.features_label = QLabel("可用功能: 境界突破")
-        self.features_label.setWordWrap(True)
-        self.features_label.setStyleSheet("color: #666; font-size: 12px;")
-        layout.addWidget(self.features_label)
+                .cave-container {{
+                    width: 100%;
+                    height: 100vh;
+                    display: flex;
+                    flex-direction: column;
+                    background: rgba(255, 255, 255, 0.95);
+                    backdrop-filter: blur(10px);
+                    box-sizing: border-box;
+                }}
 
-        group.setLayout(layout)
-        return group
+                .cave-header {{
+                    text-align: center;
+                    padding: 20px 0;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+                }}
+
+                .cave-title {{
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: #ffffff;
+                    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+                    letter-spacing: 2px;
+                }}
+
+                .cave-main {{
+                    flex: 1;
+                    display: flex;
+                    position: relative;
+                    padding: 20px;
+                    gap: 20px;
+                }}
+
+                .cave-left {{
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    background: rgba(255, 255, 255, 0.8);
+                    border-radius: 20px;
+                    padding: 30px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                    backdrop-filter: blur(10px);
+                }}
+
+                .cave-right {{
+                    width: 320px;
+                    min-width: 320px;
+                    background: rgba(255, 255, 255, 0.9);
+                    border-radius: 20px;
+                    padding: 25px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+                    backdrop-filter: blur(10px);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                }}
+
+                .breakthrough-image {{
+                    width: 400px;
+                    height: 500px;
+                    max-width: 100%;
+                    max-height: 50vh;
+                    object-fit: contain;
+                    margin-bottom: 30px;
+                    border-radius: 15px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+                    transition: transform 0.3s ease;
+                }}
+
+                .breakthrough-image:hover {{
+                    transform: scale(1.02);
+                }}
+
+                .progress-container {{
+                    width: 100%;
+                    max-width: 500px;
+                    margin-bottom: 30px;
+                }}
+
+                .progress-label {{
+                    text-align: center;
+                    margin-bottom: 10px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: #4a5568;
+                }}
+
+                .progress-bar {{
+                    width: 100%;
+                    height: 35px;
+                    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e0 100%);
+                    border-radius: 20px;
+                    overflow: hidden;
+                    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+                    position: relative;
+                    border: 2px solid rgba(255, 255, 255, 0.3);
+                }}
+
+                .progress-fill {{
+                    height: 100%;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+                    border-radius: 18px;
+                    position: relative;
+                    overflow: hidden;
+                }}
+
+                .progress-fill::after {{
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%);
+                    animation: shimmer 2s infinite;
+                }}
+
+                @keyframes shimmer {{
+                    0% {{ transform: translateX(-100%); }}
+                    100% {{ transform: translateX(100%); }}
+                }}
+
+                .progress-text {{
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    color: #2d3748;
+                    font-weight: bold;
+                    font-size: 14px;
+                    text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+                    z-index: 10;
+                }}
+
+                .breakthrough-button {{
+                    padding: 15px 40px;
+                    font-size: 18px;
+                    font-weight: bold;
+                    color: #ffffff;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border: none;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                    text-transform: uppercase;
+                    letter-spacing: 1px;
+                }}
+
+                .breakthrough-button:hover {{
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+                    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+                }}
+
+                .breakthrough-button:active {{
+                    transform: translateY(0);
+                }}
+
+                .breakthrough-button:disabled {{
+                    background: linear-gradient(135deg, #a0a0a0 0%, #808080 100%);
+                    cursor: not-allowed;
+                    transform: none;
+                    box-shadow: none;
+                }}
+
+                .function-card {{
+                    background: rgba(255, 255, 255, 0.8);
+                    border-radius: 15px;
+                    padding: 20px;
+                    margin-bottom: 15px;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+                    backdrop-filter: blur(10px);
+                    transition: all 0.3s ease;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                }}
+
+                .function-card:hover {{
+                    transform: translateY(-2px);
+                    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+                }}
+
+                .function-header {{
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 10px;
+                    min-height: 32px;
+                }}
+
+                .function-label {{
+                    font-size: 15px;
+                    font-weight: bold;
+                    color: #2d3748;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    flex: 1;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }}
+
+                .function-icon {{
+                    font-size: 20px;
+                }}
+
+                .function-button {{
+                    padding: 6px 16px;
+                    font-size: 13px;
+                    font-weight: bold;
+                    color: #ffffff;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border: none;
+                    border-radius: 16px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+                    min-width: 60px;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                }}
+
+                .function-button:hover {{
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+                }}
+
+                .function-button:disabled {{
+                    background: linear-gradient(135deg, #cbd5e0 0%, #a0aec0 100%);
+                    cursor: not-allowed;
+                    transform: none;
+                    box-shadow: none;
+                }}
+
+                .function-status {{
+                    font-size: 13px;
+                    margin-top: 8px;
+                    padding: 5px 10px;
+                    border-radius: 10px;
+                    text-align: center;
+                    font-weight: 500;
+                }}
+
+                .status-available {{
+                    background: rgba(72, 187, 120, 0.1);
+                    color: #38a169;
+                    border: 1px solid rgba(72, 187, 120, 0.2);
+                }}
+
+                .status-locked {{
+                    background: rgba(245, 101, 101, 0.1);
+                    color: #e53e3e;
+                    border: 1px solid rgba(245, 101, 101, 0.2);
+                }}
+
+                .status-max-level {{
+                    background: rgba(237, 137, 54, 0.1);
+                    color: #dd6b20;
+                    border: 1px solid rgba(237, 137, 54, 0.2);
+                }}
+
+                .function-benefit {{
+                    font-size: 12px;
+                    margin-top: 8px;
+                    padding: 5px 10px;
+                    border-radius: 10px;
+                    text-align: center;
+                    font-weight: 500;
+                    background: rgba(59, 130, 246, 0.1);
+                    color: #3b82f6;
+                    border: 1px solid rgba(59, 130, 246, 0.2);
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="cave-container">
+                <div class="cave-header">
+                    <div class="cave-title">洞府</div>
+                </div>
+
+                <div class="cave-main">
+                    <div class="cave-left">
+                        <img src="data:image/png;base64,{breakthrough_image_data}"
+                             alt="突破修炼"
+                             class="breakthrough-image"
+                             id="breakthroughImage">
+
+                        <div class="progress-container">
+                            <div class="progress-label">修为进度</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                                <div class="progress-text" id="progressText">0/0</div>
+                            </div>
+                        </div>
+
+                        <button class="breakthrough-button" id="breakthroughBtn" onclick="performBreakthrough()">
+                            🌟 境界突破
+                        </button>
+                    </div>
+
+                    <div class="cave-right">
+                        <div class="function-card">
+                            <div class="function-header">
+                                <div class="function-label">
+                                    <span class="function-icon">🏗️</span>
+                                    <span id="caveLevelLabel">洞府: 1级</span>
+                                </div>
+                                <button class="function-button" id="caveUpgradeBtn" onclick="upgradeCave()">升级</button>
+                            </div>
+                            <div class="function-status status-available" id="caveUpgradeStatus">升级费用: 1000灵石</div>
+                            <div class="function-benefit" id="caveUpgradeBenefit">下一级效益: 减少突破失败修为损失5%</div>
+                        </div>
+
+                        <div class="function-card">
+                            <div class="function-header">
+                                <div class="function-label">
+                                    <span class="function-icon">⚡</span>
+                                    <span id="spiritArrayLabel">聚灵阵: 0级</span>
+                                </div>
+                                <button class="function-button" id="spiritArrayBtn" onclick="upgradeSpiritArray()">未解锁</button>
+                            </div>
+                            <div class="function-status status-locked" id="spiritArrayStatus">需要2级洞府解锁</div>
+                            <div class="function-benefit" id="spiritArrayBenefit">下一级效益: 修炼速度+20%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                // 全局变量
+                let caveData = {{}};
+
+                // 更新洞府信息显示
+                function updateCaveInfo(data) {{
+                    caveData = data;
+
+                    // 更新洞府等级显示
+                    updateCaveLevel();
+
+                    // 更新聚灵阵显示
+                    updateSpiritArray();
+
+                    // 更新修为进度条
+                    updateCultivationProgress();
+                }}
+
+                function updateCaveLevel() {{
+                    const caveLevel = caveData.cave_level || 1;
+                    const maxLevel = caveData.max_cave_level || 10;
+                    const upgradeCost = caveData.cave_upgrade_cost || {{}};
+
+                    document.getElementById('caveLevelLabel').textContent = `洞府: ${{caveLevel}}级`;
+
+                    const statusEl = document.getElementById('caveUpgradeStatus');
+                    const btnEl = document.getElementById('caveUpgradeBtn');
+                    const benefitEl = document.getElementById('caveUpgradeBenefit');
+
+                    if (caveLevel >= maxLevel) {{
+                        statusEl.textContent = '已达最高等级';
+                        statusEl.className = 'function-status status-max-level';
+                        btnEl.disabled = true;
+                        btnEl.textContent = '已满级';
+                        benefitEl.textContent = '已达最高等级';
+                    }} else {{
+                        const cost = upgradeCost.spirit_stone || (caveLevel * 1000);
+                        statusEl.textContent = `升级费用: ${{cost}}灵石`;
+                        statusEl.className = 'function-status status-available';
+                        btnEl.disabled = false;
+                        btnEl.textContent = '升级';
+
+                        // 显示下一级效益
+                        const nextLevel = caveLevel + 1;
+                        const reductionPercent = nextLevel * 1; // 每级减少1%修为损失
+                        const goldMin = nextLevel * 2;
+                        const goldMax = nextLevel * 6;
+                        benefitEl.textContent = `下一级效益: 减少修为损失${{reductionPercent}}%, ${{goldMin}}-${{goldMax}}金币/周期`;
+                    }}
+                }}
+
+                function updateSpiritArray() {{
+                    const spiritLevel = caveData.spirit_gathering_array_level || 0;
+                    const maxLevel = caveData.max_spirit_array_level || 5;
+                    const caveLevel = caveData.cave_level || 1;
+                    const upgradeCost = caveData.spirit_array_upgrade_cost || {{}};
+
+                    document.getElementById('spiritArrayLabel').textContent = `聚灵阵: ${{spiritLevel}}级`;
+
+                    const statusEl = document.getElementById('spiritArrayStatus');
+                    const btnEl = document.getElementById('spiritArrayBtn');
+                    const benefitEl = document.getElementById('spiritArrayBenefit');
+
+                    if (caveLevel < 2) {{
+                        statusEl.textContent = '需要2级洞府解锁';
+                        statusEl.className = 'function-status status-locked';
+                        btnEl.disabled = true;
+                        btnEl.textContent = '未解锁';
+                        benefitEl.textContent = '下一级效益: 减少修炼间隔5%, 1-3灵石/周期';
+                    }} else if (spiritLevel >= maxLevel) {{
+                        statusEl.textContent = '已达最高等级';
+                        statusEl.className = 'function-status status-max-level';
+                        btnEl.disabled = true;
+                        btnEl.textContent = '已满级';
+                        benefitEl.textContent = '已达最高等级';
+                    }} else {{
+                        const cost = upgradeCost.spirit_stone || ((spiritLevel + 1) * 500);
+                        statusEl.textContent = `升级费用: ${{cost}}灵石`;
+                        statusEl.className = 'function-status status-available';
+                        btnEl.disabled = false;
+                        btnEl.textContent = '升级';
+
+                        // 显示下一级效益
+                        const nextLevel = spiritLevel + 1;
+                        const speedReduction = nextLevel * 5; // 每级减少5%修炼间隔
+                        const stoneMin = nextLevel * 1;
+                        const stoneMax = nextLevel * 3;
+                        benefitEl.textContent = `下一级效益: 减少修炼间隔${{speedReduction}}%, ${{stoneMin}}-${{stoneMax}}灵石/周期`;
+                    }}
+                }}
+
+                function updateCultivationProgress() {{
+                    // 使用与主界面相同的修为进度计算方式
+                    const currentExp = caveData.cultivation_exp || 0;
+                    const currentRealm = caveData.cultivation_realm || 0;
+
+                    // 修为需求表（与主界面保持一致）
+                    const expRequirements = {{
+                        0: 0, 1: 100, 2: 250, 3: 450, 4: 700,
+                        5: 1000, 6: 1400, 7: 1900, 8: 2500,
+                        9: 3200, 10: 4000, 11: 4900, 12: 5900,
+                        13: 7000, 14: 8200, 15: 9500, 16: 10900,
+                        17: 12400, 18: 14000, 19: 15700, 20: 17500,
+                        21: 19400, 22: 21400, 23: 23500, 24: 25700,
+                        25: 28000, 26: 30400, 27: 32900, 28: 35500,
+                        29: 38200, 30: 41000, 31: 43900, 32: 46900,
+                        33: 50000
+                    }};
+
+                    // 获取下一境界的突破需求
+                    const nextRealmExp = expRequirements[currentRealm + 1] || 50000;
+
+                    // 计算进度百分比
+                    const progressPercent = nextRealmExp > 0 ? (currentExp / nextRealmExp) * 100 : 100;
+
+                    // 更新进度条
+                    document.getElementById('progressFill').style.width = Math.max(0, Math.min(100, progressPercent)) + '%';
+                    document.getElementById('progressText').textContent = `${{currentExp}}/${{nextRealmExp}}`;
+
+                    // 根据进度更新突破按钮状态
+                    const breakthroughBtn = document.getElementById('breakthroughBtn');
+                    const canBreakthrough = currentExp >= nextRealmExp;
+
+                    if (canBreakthrough) {{
+                        breakthroughBtn.disabled = false;
+                        breakthroughBtn.textContent = '🌟 境界突破';
+                        breakthroughBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                    }} else {{
+                        breakthroughBtn.disabled = false; // 始终可点击查看状态
+                        breakthroughBtn.textContent = '🌟 境界突破';
+                        breakthroughBtn.style.background = 'linear-gradient(135deg, #a0a0a0 0%, #808080 100%)';
+                    }}
+                }}
+
+                // 功能按钮点击事件
+                function performBreakthrough() {{
+                    if (window.pyqtSignal) {{
+                        window.pyqtSignal('breakthrough_requested');
+                    }}
+                }}
+
+                function upgradeCave() {{
+                    if (window.pyqtSignal) {{
+                        window.pyqtSignal('cave_upgrade_requested');
+                    }}
+                }}
+
+                function upgradeSpiritArray() {{
+                    if (window.pyqtSignal) {{
+                        window.pyqtSignal('spirit_array_upgrade_requested');
+                    }}
+                }}
+
+                // 页面加载完成后的初始化
+                document.addEventListener('DOMContentLoaded', function() {{
+                    console.log('洞府页面加载完成');
+
+                    // 等待Python端传入真实数据，不使用模拟数据
+                }});
+            </script>
+        </body>
+        </html>
+        """
+
+        if hasattr(self, 'cave_display'):
+            self.cave_display.setHtml(html_template)
+
+    def on_html_load_finished(self, success):
+        """HTML页面加载完成回调"""
+        if success:
+            self.html_loaded = True
+            print("✅ 洞府HTML页面加载成功")
+
+            # 设置JavaScript桥接
+            self.setup_javascript_bridge()
+
+            # 延迟更新数据，确保JavaScript已准备好
+            QTimer.singleShot(200, self.update_html_display)
+        else:
+            print("❌ 洞府HTML页面加载失败")
+
+    def setup_javascript_bridge(self):
+        """设置JavaScript桥接"""
+        try:
+            # 注入JavaScript桥接函数
+            js_code = """
+            window.pyqtSignal = function(signal, data) {
+                if (signal === 'breakthrough_requested') {
+                    document.title = 'SIGNAL:breakthrough_requested';
+                } else if (signal === 'spirit_array_upgrade_requested') {
+                    document.title = 'SIGNAL:spirit_array_upgrade_requested';
+                } else if (signal === 'cave_upgrade_requested') {
+                    document.title = 'SIGNAL:cave_upgrade_requested';
+                }
+            };
+            console.log('✅ 洞府JavaScript桥接已建立');
+            """
+            self.cave_display.page().runJavaScript(js_code)
+
+            # 监听页面标题变化
+            self.cave_display.page().titleChanged.connect(self.handle_title_change)
+
+        except Exception as e:
+            print(f"❌ 设置洞府JavaScript桥接失败: {e}")
+
+    def handle_title_change(self, title):
+        """处理页面标题变化（用于JavaScript信号）"""
+        if title.startswith('SIGNAL:'):
+            signal = title.replace('SIGNAL:', '')
+            if signal == 'breakthrough_requested':
+                self.show_breakthrough()
+            elif signal == 'spirit_array_upgrade_requested':
+                self.upgrade_spirit_array()
+            elif signal == 'cave_upgrade_requested':
+                self.upgrade_cave()
+
+    def update_html_display(self):
+        """更新HTML显示"""
+        if not hasattr(self, 'cave_display') or not self.html_loaded:
+            return
+
+        if not self.cave_data:
+            return
+
+        try:
+            # 获取修炼状态数据
+            cultivation_data = self.get_cultivation_data()
+
+            # 合并洞府数据和修炼数据
+            combined_data = {**self.cave_data, **cultivation_data}
+
+            # 通过JavaScript更新洞府信息
+            js_code = f"""
+                if (typeof updateCaveInfo === 'function') {{
+                    updateCaveInfo({self.cave_data_to_js(combined_data)});
+                }}
+            """
+
+            self.cave_display.page().runJavaScript(js_code, lambda result: None)
+
+        except Exception as e:
+            print(f"❌ 更新洞府HTML显示失败: {e}")
+
+    def get_cultivation_data(self):
+        """获取修炼状态数据"""
+        try:
+            # 优先从状态管理器获取用户数据（与主界面保持同步）
+            if hasattr(self, 'state_manager') and self.state_manager:
+                user_data = self.state_manager.user_data
+                if user_data:
+                    return {
+                        'cultivation_exp': user_data.get('cultivation_exp', 0),
+                        'cultivation_realm': user_data.get('cultivation_realm', 0),
+                        'current_realm_name': user_data.get('current_realm_name', '凡人'),
+                    }
+
+            # 备用方案：从API获取
+            response = self.api_client.game.get_cultivation_status()
+            if response.get('success'):
+                data = response['data']
+                return {
+                    'cultivation_exp': data.get('current_exp', 0),
+                    'cultivation_realm': data.get('current_realm', 0),
+                    'current_realm_name': data.get('current_realm_name', '凡人'),
+                }
+            else:
+                print(f"⚠️ 获取修炼状态失败: {response.get('message', '未知错误')}")
+                return {}
+        except Exception as e:
+            print(f"❌ 获取修炼状态异常: {e}")
+            return {}
+
+    def cave_data_to_js(self, data=None):
+        """将洞府数据转换为JavaScript格式"""
+        import json
+        if data is None:
+            data = self.cave_data
+        return json.dumps(data)
+
+
+
+
+
+
+
 
     def load_cave_info(self):
         """加载洞府信息"""
@@ -328,88 +783,26 @@ class CaveWindow(QDialog):
             response = self.api_client.game.get_cave_info()
             if response.get('success'):
                 self.cave_data = response['data']
-                self.update_ui()
+                if WEBENGINE_AVAILABLE:
+                    self.update_html_display()
             else:
                 QMessageBox.warning(self, "错误", f"获取洞府信息失败: {response.get('message', '未知错误')}")
         except Exception as e:
             QMessageBox.critical(self, "错误", f"加载洞府信息失败: {str(e)}")
 
-    def update_ui(self):
-        """更新界面显示"""
-        if not self.cave_data:
-            return
-
-        cave_level = self.cave_data.get('cave_level', 1)
-        spirit_level = self.cave_data.get('spirit_gathering_array_level', 0)
-        speed_bonus = self.cave_data.get('cultivation_speed_bonus', 1.0)
-        max_cave_level = self.cave_data.get('max_cave_level', 10)
-        max_spirit_level = self.cave_data.get('max_spirit_array_level', 5)
-        available_features = self.cave_data.get('available_features', [])
-        cave_upgrade_cost = self.cave_data.get('cave_upgrade_cost', {})
-        spirit_upgrade_cost = self.cave_data.get('spirit_array_upgrade_cost', {})
-
-        # 更新基本信息
-        self.cave_level_label.setText(f"{cave_level}级")
-        self.spirit_array_level_label.setText(f"{spirit_level}级")
-        self.speed_bonus_label.setText(f"{speed_bonus:.1f}x")
-
-        # 更新洞府升级信息
-        self.current_cave_level_label.setText(f"{cave_level}级")
-        if cave_level >= max_cave_level:
-            self.cave_upgrade_cost_label.setText("已达最高等级")
-            self.cave_upgrade_btn.setEnabled(False)
-            self.cave_upgrade_btn.setText("已满级")
-        else:
-            cost_spirit = cave_upgrade_cost.get('spirit_stone', 0)
-            self.cave_upgrade_cost_label.setText(f"{cost_spirit} 灵石")
-            self.cave_upgrade_btn.setEnabled(True)
-            self.cave_upgrade_btn.setText(f"升级到{cave_level + 1}级")
-
-        # 更新聚灵阵信息
-        self.current_spirit_level_label.setText(f"{spirit_level}级")
-        if cave_level < 2:
-            self.spirit_upgrade_cost_label.setText("需要2级洞府")
-            self.spirit_upgrade_btn.setEnabled(False)
-            self.spirit_upgrade_btn.setText("洞府等级不足")
-            self.spirit_bonus_label.setText("未解锁")
-        elif spirit_level >= max_spirit_level:
-            self.spirit_upgrade_cost_label.setText("已达最高等级")
-            self.spirit_upgrade_btn.setEnabled(False)
-            self.spirit_upgrade_btn.setText("已满级")
-            self.spirit_bonus_label.setText(f"{(speed_bonus - 1) * 100:.0f}%")
-        else:
-            cost_spirit = spirit_upgrade_cost.get('spirit_stone', 0)
-            self.spirit_upgrade_cost_label.setText(f"{cost_spirit} 灵石")
-            self.spirit_upgrade_btn.setEnabled(True)
-            self.spirit_upgrade_btn.setText(f"升级到{spirit_level + 1}级")
-            next_bonus = self.get_next_spirit_bonus(spirit_level + 1)
-            self.spirit_bonus_label.setText(f"+{(next_bonus - 1) * 100:.0f}%")
-
-        # 更新功能列表
-        features_text = "可用功能: " + ", ".join(available_features) if available_features else "可用功能: 无"
-        self.features_label.setText(features_text)
-
-        # 更新右侧效果信息
-        self.cultivation_speed_label.setText(f"修炼速度加成: {speed_bonus:.1f}x ({(speed_bonus - 1) * 100:.0f}%)")
-        density_level = self.get_spirit_density_description(spirit_level)
-        self.spirit_density_label.setText(f"洞府灵气浓度: {density_level}")
+    def on_user_data_updated(self, user_data):
+        """当用户数据更新时，同步更新洞府界面的修为进度"""
+        try:
+            if WEBENGINE_AVAILABLE and hasattr(self, 'cave_display') and self.html_loaded:
+                # 延迟一点更新，确保数据已经完全更新
+                QTimer.singleShot(100, self.update_html_display)
+        except Exception as e:
+            print(f"❌ 洞府界面同步用户数据失败: {e}")
 
     def get_next_spirit_bonus(self, level: int) -> float:
         """获取下一级聚灵阵的速度加成"""
         bonus_map = {0: 1.0, 1: 1.2, 2: 1.5, 3: 1.8, 4: 2.2, 5: 2.5}
         return bonus_map.get(level, 1.0)
-
-    def get_spirit_density_description(self, level: int) -> str:
-        """获取灵气浓度描述"""
-        descriptions = {
-            0: "普通",
-            1: "微弱",
-            2: "一般",
-            3: "浓郁",
-            4: "极浓",
-            5: "仙境"
-        }
-        return descriptions.get(level, "普通")
 
     def upgrade_cave(self):
         """升级洞府"""
