@@ -847,7 +847,7 @@ class BackpackWindow(QDialog):
         self.max_unlocked_pages = 3  # 默认解锁3页（第三页显示为禁用状态）
         self.total_pages = 5  # 总共5页
 
-        # 仓库相关属性
+        # 物品相关属性
         self.warehouse_visible = False
         self.warehouse_items = []
 
@@ -1114,13 +1114,37 @@ class BackpackWindow(QDialog):
                     background: #d4edda;
                 }
 
-                /* 装备槽位定位 - 根据设计图调整 */
-                .slot-helmet { top: 10px; left: 50%; transform: translateX(-50%); }
-                .slot-weapon { top: 90px; left: 10px; }
-                .slot-bracelet { top: 180px; left: 10px; }
-                .slot-armor { top: 90px; right: 10px; }
-                .slot-magic-weapon { top: 180px; right: 10px; }
-                .slot-boots { bottom: 10px; left: 50%; transform: translateX(-50%); }
+                /* 装备槽位定位 - 根据设计图调整，固定位置避免悬浮移动 */
+                .slot-helmet {
+                    position: absolute;
+                    top: 10px;
+                    left: calc(50% - 35px); /* 固定位置，避免transform导致的移动 */
+                }
+                .slot-weapon {
+                    position: absolute;
+                    top: 90px;
+                    left: 10px;
+                }
+                .slot-bracelet {
+                    position: absolute;
+                    top: 180px;
+                    left: 10px;
+                }
+                .slot-armor {
+                    position: absolute;
+                    top: 90px;
+                    right: 10px;
+                }
+                .slot-magic-weapon {
+                    position: absolute;
+                    top: 180px;
+                    right: 10px;
+                }
+                .slot-boots {
+                    position: absolute;
+                    bottom: 10px;
+                    left: calc(50% - 35px); /* 固定位置，避免transform导致的移动 */
+                }
 
                 /* 空槽位样式 */
                 .equipment-slot.empty {
@@ -1274,6 +1298,18 @@ class BackpackWindow(QDialog):
                     box-sizing: border-box;
                 }
 
+                /* 空槽位显示"空"字 */
+                .item-slot.empty::before {
+                    content: "空";
+                    font-size: 18px;
+                    color: #6c757d;
+                    font-weight: bold;
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                }
+
                 .item-slot:hover {
                     border-color: #007bff;
                     background-color: #e3f2fd;
@@ -1293,9 +1329,10 @@ class BackpackWindow(QDialog):
                 }
 
                 .item-slot.disabled::before {
-                    content: "🔒";
-                    font-size: 24px;
+                    content: "✕";
+                    font-size: 28px;  /* 增大字体 */
                     color: #ffffff;
+                    font-weight: bold;
                     position: absolute;
                     top: 50%;
                     left: 50%;
@@ -1445,9 +1482,9 @@ class BackpackWindow(QDialog):
                         </div>
                     </div>
 
-                    <!-- 仓库按钮 -->
+                    <!-- 物品按钮 -->
                     <button class="warehouse-toggle" onclick="toggleInventory()" id="inventoryToggleBtn">
-                        📦 仓库
+                        物品
                     </button>
                 </div>
 
@@ -1464,11 +1501,11 @@ class BackpackWindow(QDialog):
                         </div>
                     </div>
 
-                    <!-- 仓库面板 -->
+                    <!-- 物品面板 -->
                     <div class="warehouse-panel" id="warehousePanel">
-                        <div class="warehouse-title">仓库存储</div>
+                        <div class="warehouse-title">物品存储</div>
                         <div class="warehouse-grid" id="warehouseGrid">
-                            <!-- 仓库物品将通过JavaScript动态生成 -->
+                            <!-- 物品物品将通过JavaScript动态生成 -->
                         </div>
                     </div>
                 </div>
@@ -1489,7 +1526,7 @@ class BackpackWindow(QDialog):
                     generateEquipmentSlots();
                     generateInventorySlots();
                     generatePaginationControls();
-                    generateWarehouseSlots();  // 添加仓库槽位生成
+                    generateWarehouseSlots();  // 添加物品槽位生成
                     // 延迟调用updateDisplay，确保所有元素都已创建
                     setTimeout(updateDisplay, 100);
                 }
@@ -1536,7 +1573,7 @@ class BackpackWindow(QDialog):
 
                     for (let i = 0; i < 48; i++) {  // 改为48个槽位（6列×8行）
                         const slotElement = document.createElement('div');
-                        slotElement.className = 'item-slot';
+                        slotElement.className = 'item-slot empty';  // 初始状态添加empty类
                         slotElement.id = 'item-' + i;
                         slotElement.onclick = () => onItemClick(i);
                         slotElement.oncontextmenu = (e) => {
@@ -1577,9 +1614,9 @@ class BackpackWindow(QDialog):
 
                     if (inventoryVisible) {
                         rightPanel.classList.add('visible');
-                        toggleBtn.textContent = '📦 关闭仓库';
+                        toggleBtn.textContent = '关闭物品';
                         // 调整窗口大小以适应展开的内容
-                        console.log('展开仓库，调整窗口大小到 1000x800');
+                        console.log('展开物品，调整窗口大小到 1000x800');
                         if (window.pyBackpack && window.pyBackpack.resizeWindow) {
                             window.pyBackpack.resizeWindow(1000, 800);
                         } else {
@@ -1588,9 +1625,9 @@ class BackpackWindow(QDialog):
                         }
                     } else {
                         rightPanel.classList.remove('visible');
-                        toggleBtn.textContent = '📦 打开仓库';
+                        toggleBtn.textContent = '打开物品';
                         // 恢复窗口大小
-                        console.log('收起仓库，调整窗口大小到 400x800');
+                        console.log('收起物品，调整窗口大小到 400x800');
                         if (window.pyBackpack && window.pyBackpack.resizeWindow) {
                             window.pyBackpack.resizeWindow(400, 800);
                         } else {
@@ -1600,14 +1637,14 @@ class BackpackWindow(QDialog):
                     }
                 }
 
-                // 生成仓库槽位
+                // 生成物品槽位
                 function generateWarehouseSlots() {
                     const warehouseGrid = document.getElementById('warehouseGrid');
                     warehouseGrid.innerHTML = '';
 
                     for (let i = 0; i < 35; i++) {  // 改为35个槽位（5列×7行）
                         const slotElement = document.createElement('div');
-                        slotElement.className = 'item-slot';
+                        slotElement.className = 'item-slot empty';  // 初始状态添加empty类
                         slotElement.id = 'warehouse-' + i;
                         slotElement.onclick = () => onWarehouseItemClick(i);
                         slotElement.oncontextmenu = (e) => {
@@ -1685,6 +1722,7 @@ class BackpackWindow(QDialog):
                     const itemInfo = item.item_info || {};
                     const quantity = item.quantity || 1;
 
+                    slotElement.classList.remove('empty');  // 移除empty类
                     slotElement.classList.add('has-item');
                     slotElement.innerHTML = `
                         <div class="quality-indicator quality-${(itemInfo.quality || 'common').toLowerCase()}"></div>
@@ -1700,7 +1738,7 @@ class BackpackWindow(QDialog):
                 function clearItemSlot(slotElement) {
                     slotElement.classList.remove('has-item');
                     slotElement.classList.remove('disabled');
-                    slotElement.className = 'item-slot';  // 重置为基础样式（灰色背景）
+                    slotElement.className = 'item-slot empty';  // 添加empty类显示"空"字
                     slotElement.innerHTML = '';
                     slotElement.title = '';
                 }
@@ -1714,7 +1752,7 @@ class BackpackWindow(QDialog):
 
                     // 更新用户名显示
                     const username = characterAttributes.username || 'User';
-                    usernameDisplay.textContent = `用户名: ${username}`;
+                    usernameDisplay.textContent = `${username}`;
 
                     // 更新生命值显示
                     hpDisplay.textContent = `生命值: ${attributes.hp || 100}`;
