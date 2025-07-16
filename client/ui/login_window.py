@@ -212,7 +212,7 @@ class LoginTab(QWidget):
         layout.addSpacing(8)
 
         # 登录按钮
-        self.login_button = QPushButton("🚀 立即登录")
+        self.login_button = QPushButton("立即登录")
         self.login_button.setMinimumHeight(42)
         self.login_button.setMaximumHeight(42)
         self.login_button.clicked.connect(self.on_login_clicked)
