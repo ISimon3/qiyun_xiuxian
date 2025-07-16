@@ -1,5 +1,7 @@
 # 背包窗口
 
+import os
+import base64
 from typing import Dict, List, Optional, Any
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
@@ -9,8 +11,49 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint
 from PyQt6.QtGui import QPixmap, QFont, QCursor, QAction, QIcon
 
+# 检查WebEngine是否可用
+try:
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+    from PyQt6.QtWebChannel import QWebChannel
+    WEBENGINE_AVAILABLE = True
+except ImportError:
+    WEBENGINE_AVAILABLE = False
+    print("⚠️ WebEngine不可用，背包界面将使用传统PyQt组件")
+
 from client.network.api_client import GameAPIClient
 from shared.constants import ITEM_QUALITY, EQUIPMENT_SLOTS, ITEM_TYPES
+
+
+class BackpackJSBridge(QWidget):
+    """背包界面JavaScript桥接类"""
+
+    # 定义信号
+    resize_window_signal = pyqtSignal(int, int)
+
+    def __init__(self, backpack_window):
+        super().__init__()
+        self.backpack_window = backpack_window
+
+    def resizeWindow(self, width: int, height: int):
+        """调整窗口大小（JavaScript调用的方法）"""
+        try:
+            self.backpack_window.resize_window_from_js(width, height)
+        except Exception as e:
+            print(f"❌ 桥接调用窗口大小调整失败: {e}")
+
+    def on_equipment_click(self, slot: str):
+        """装备点击事件"""
+        if slot in self.backpack_window.equipment_items:
+            equipment_data = self.backpack_window.equipment_items[slot]
+            self.backpack_window.on_equipment_clicked(equipment_data, slot)
+
+    def on_item_click(self, index: int):
+        """物品点击事件"""
+        start_index = self.backpack_window.current_page * self.backpack_window.items_per_page
+        actual_index = start_index + index
+        if actual_index < len(self.backpack_window.inventory_items):
+            item_data = self.backpack_window.inventory_items[actual_index]
+            self.backpack_window.on_item_clicked(item_data)
 
 
 class CharacterAttributesWidget(QFrame):
@@ -804,8 +847,1074 @@ class BackpackWindow(QDialog):
         self.max_unlocked_pages = 2  # 默认解锁2页
         self.total_pages = 5  # 总共5页
 
-        self.setup_ui()
-        self.load_data()
+        # 仓库相关属性
+        self.warehouse_visible = False
+        self.warehouse_items = []
+
+        # 根据WebEngine可用性选择实现方式
+        if WEBENGINE_AVAILABLE:
+            self.setup_html_ui()
+            # HTML版本通过loadFinished信号加载数据
+        else:
+            self.setup_ui()
+            self.load_data()
+
+    def get_character_image_base64(self):
+        """获取角色图片的base64编码"""
+        try:
+            # 获取项目根目录
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
+            image_path = os.path.join(project_root, "client", "assets", "images", "backpack", "Taoistmonk.png")
+
+            if os.path.exists(image_path):
+                with open(image_path, "rb") as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                    return f"data:image/png;base64,{encoded_string}"
+            else:
+                print(f"⚠️ 角色图片文件不存在: {image_path}")
+                return None
+        except Exception as e:
+            print(f"❌ 读取角色图片失败: {e}")
+            return None
+
+    def setup_html_ui(self):
+        """设置HTML版本的UI"""
+        self.setWindowTitle("背包")
+        self.setFixedSize(400, 800)  # 默认只显示左侧面板的宽度
+        self.setModal(False)  # 改为非模态窗口
+
+        # 设置窗口图标
+        try:
+            import os
+            # 获取项目根目录
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+            icon_path = os.path.join(project_root, "appicon.ico")
+            if os.path.exists(icon_path):
+                self.setWindowIcon(QIcon(icon_path))
+            else:
+                print(f"⚠️ 图标文件不存在: {icon_path}")
+        except Exception as e:
+            print(f"❌ 设置窗口图标失败: {e}")
+
+        # 主布局
+        main_layout = QVBoxLayout()
+        main_layout.setSpacing(5)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+
+        # 顶部工具栏
+        toolbar_layout = QHBoxLayout()
+
+        # 标题
+        title_label = QLabel("背包管理")
+        title_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        title_label.setStyleSheet("color: #2c3e50; font-weight: bold;")
+        toolbar_layout.addWidget(title_label)
+
+        toolbar_layout.addStretch()
+
+        # 刷新按钮
+        refresh_btn = QPushButton("🔄 刷新")
+        refresh_btn.clicked.connect(self.load_data)
+        refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        toolbar_layout.addWidget(refresh_btn)
+
+        main_layout.addLayout(toolbar_layout)
+
+        # HTML显示区域
+        self.backpack_display = QWebEngineView()
+        self.backpack_display.setMinimumHeight(700)
+
+        # 禁用右键上下文菜单
+        self.backpack_display.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+
+        # 设置样式（与聊天界面、修炼日志保持一致）
+        self.backpack_display.setStyleSheet("""
+            QWebEngineView {
+                border: 2px solid #e1e5e9;
+                border-radius: 8px;
+                background-color: #ffffff;
+            }
+        """)
+
+        # 初始化HTML内容
+        self.init_backpack_html()
+
+        # 设置JavaScript桥接
+        self.setup_js_bridge()
+
+        main_layout.addWidget(self.backpack_display)
+
+        # 存储原始窗口大小
+        self.collapsed_size = (400, 800)
+        self.expanded_size = (1000, 800)
+
+        self.setLayout(main_layout)
+
+        # 标记HTML是否已加载完成
+        self.html_loaded = False
+
+    def init_backpack_html(self):
+        """初始化背包HTML页面"""
+        # 获取角色图片
+        character_image_data = self.get_character_image_base64()
+
+        html_template = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>背包管理</title>
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+
+                body {
+                    font-family: "Microsoft YaHei", Arial, sans-serif;
+                    font-size: 14px;
+                    background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
+                    color: #333;
+                    line-height: 1.4;
+                    overflow: hidden;
+                    height: 100vh;
+                    margin: 0;
+                    padding: 0;
+                }
+
+                .backpack-container {
+                    padding: 10px;
+                    margin: 0;
+                    width: 100%;
+                    height: 100vh;
+                    display: flex;
+                    gap: 10px;
+                    background-color: #fafbfc;
+                    box-sizing: border-box;
+                    transition: all 0.3s ease;
+                    overflow: hidden;
+                }
+
+                /* 左列 - 装备面板 */
+                .left-panel {
+                    width: 380px;
+                    height: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    flex-shrink: 0;
+                    overflow: hidden;
+                }
+
+                .equipment-panel {
+                    background: #ffffff;
+                    border: 2px solid #e1e5e9;
+                    border-radius: 8px;
+                    padding: 15px;
+                    flex: 1;
+                    position: relative;
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                /* 用户名显示 */
+                .username-display {
+                    font-size: 14px;
+                    font-weight: bold;
+                    color: #2c3e50;
+                    text-align: center;
+                    margin-bottom: 15px;
+                    padding: 8px;
+                    background: #f8f9fa;
+                    border-radius: 4px;
+                    border: 1px solid #e1e5e9;
+                    flex-shrink: 0;
+                }
+
+                .character-model-container {
+                    position: relative;
+                    width: 100%;
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 0;
+                    padding: 80px 80px 80px 80px;
+                }
+
+                .character-model {
+                    width: 200px;
+                    height: 200px;
+                    background: transparent;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    position: relative;
+                    z-index: 1;
+                    overflow: hidden;
+                }
+
+                .character-image {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    border-radius: 6px;
+                }
+
+                .character-placeholder {
+                    font-size: 40px;
+                    color: #6c757d;
+                }
+
+                .equipment-slot {
+                    position: absolute;
+                    width: 70px;
+                    height: 70px;
+                    background: #f8f9fa;
+                    border: 2px solid #dee2e6;
+                    border-radius: 6px;
+                    padding: 4px;
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                }
+
+                .equipment-slot:hover {
+                    border-color: #3498db;
+                    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+                    transform: translateY(-1px);
+                    background: #e3f2fd;
+                }
+
+                .equipment-slot.equipped {
+                    border: 2px solid #28a745;
+                    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+                    background: #d4edda;
+                }
+
+                /* 装备槽位定位 - 根据设计图调整 */
+                .slot-helmet { top: 10px; left: 50%; transform: translateX(-50%); }
+                .slot-weapon { top: 90px; left: 10px; }
+                .slot-bracelet { top: 180px; left: 10px; }
+                .slot-armor { top: 90px; right: 10px; }
+                .slot-magic-weapon { top: 180px; right: 10px; }
+                .slot-boots { bottom: 10px; left: 50%; transform: translateX(-50%); }
+
+                /* 空槽位样式 */
+                .equipment-slot.empty {
+                    background: #ffffff;
+                    border: 2px dashed #ced4da;
+                }
+
+                .equipment-icon {
+                    font-size: 20px;
+                    margin-bottom: 2px;
+                }
+
+                .equipment-name {
+                    font-size: 8px;
+                    font-weight: bold;
+                    color: #495057;
+                    text-align: center;
+                    line-height: 1.0;
+                    max-width: 60px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                .slot-label {
+                    font-size: 7px;
+                    color: #6c757d;
+                    margin-top: 1px;
+                }
+
+                /* 角色属性面板 - 重新设计 */
+                .character-attributes {
+                    background-color: #ffffff;
+                    border: 1px solid #e1e5e9;
+                    border-radius: 6px;
+                    padding: 12px;
+                    flex-shrink: 0;
+                }
+
+                .attributes-title {
+                    font-size: 12px;
+                    font-weight: bold;
+                    color: #2c3e50;
+                    margin-bottom: 10px;
+                    text-align: center;
+                }
+
+                /* 角色属性网格布局 - 按设计图排列 */
+                .attributes-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    grid-template-rows: repeat(4, 1fr);
+                    gap: 6px;
+                    margin-bottom: 10px;
+                }
+
+                .attribute-item {
+                    font-size: 11px;
+                    color: #495057;
+                    padding: 4px 6px;
+                    background-color: #f8f9fa;
+                    border: 1px solid #e9ecef;
+                    border-radius: 4px;
+                    text-align: center;
+                    font-weight: bold;
+                }
+
+                /* 生命值单独显示 */
+                .hp-display {
+                    font-size: 12px;
+                    color: #dc3545;
+                    padding: 6px;
+                    background-color: #fff5f5;
+                    border: 1px solid #f5c6cb;
+                    border-radius: 4px;
+                    text-align: center;
+                    font-weight: bold;
+                    margin-bottom: 8px;
+                }
+
+                .warehouse-toggle {
+                    background-color: #17a2b8;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px;
+                    font-size: 12px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: background-color 0.3s ease;
+                    flex-shrink: 0;
+                }
+
+                .warehouse-toggle:hover {
+                    background-color: #138496;
+                }
+
+                /* 右列 - 背包物品栏 */
+                .right-panel {
+                    flex: 1;
+                    display: none; /* 默认隐藏 */
+                    flex-direction: column;
+                    gap: 10px;
+                    min-width: 600px;
+                }
+
+                .right-panel.visible {
+                    display: flex; /* 展开时显示 */
+                }
+
+                .inventory-panel {
+                    background-color: #ffffff;
+                    border: 1px solid #e1e5e9;
+                    border-radius: 8px;
+                    padding: 15px;
+                    flex: 1;
+                }
+
+                .inventory-title {
+                    font-size: 16px;
+                    font-weight: bold;
+                    color: #2c3e50;
+                    margin-bottom: 15px;
+                    text-align: center;
+                }
+
+                .inventory-grid {
+                    display: grid;
+                    grid-template-columns: repeat(6, 1fr);
+                    grid-template-rows: repeat(6, 1fr);
+                    gap: 8px;
+                    margin-bottom: 15px;
+                }
+
+                .item-slot {
+                    background-color: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                    padding: 4px;
+                    text-align: center;
+                    min-height: 70px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    position: relative;
+                }
+
+                .item-slot:hover {
+                    border-color: #007bff;
+                    background-color: #e3f2fd;
+                }
+
+                .item-slot.has-item {
+                    border-color: #28a745;
+                }
+
+                .item-icon {
+                    font-size: 20px;
+                    margin-bottom: 2px;
+                }
+
+                .item-name {
+                    font-size: 8px;
+                    font-weight: bold;
+                    color: #495057;
+                    text-align: center;
+                    line-height: 1.1;
+                    max-height: 16px;
+                    overflow: hidden;
+                }
+
+                .item-quantity {
+                    position: absolute;
+                    bottom: 2px;
+                    right: 2px;
+                    background-color: #007bff;
+                    color: white;
+                    border-radius: 8px;
+                    padding: 1px 4px;
+                    font-size: 8px;
+                    font-weight: bold;
+                }
+
+                .quality-indicator {
+                    position: absolute;
+                    top: 2px;
+                    left: 2px;
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                }
+
+                .pagination-controls {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 10px 0;
+                }
+
+                .page-btn {
+                    background-color: #6c757d;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 6px 12px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    transition: background-color 0.3s ease;
+                }
+
+                .page-btn:hover {
+                    background-color: #5a6268;
+                }
+
+                .page-btn.active {
+                    background-color: #007bff;
+                }
+
+                .page-btn:disabled {
+                    background-color: #dee2e6;
+                    color: #6c757d;
+                    cursor: not-allowed;
+                }
+
+                .warehouse-panel {
+                    background-color: #ffffff;
+                    border: 1px solid #e1e5e9;
+                    border-radius: 8px;
+                    padding: 15px;
+                    display: none;
+                }
+
+                .warehouse-panel.visible {
+                    display: block;
+                }
+
+                .warehouse-title {
+                    font-size: 14px;
+                    font-weight: bold;
+                    color: #2c3e50;
+                    margin-bottom: 10px;
+                    text-align: center;
+                }
+
+                .warehouse-grid {
+                    display: grid;
+                    grid-template-columns: repeat(8, 1fr);
+                    grid-template-rows: repeat(4, 1fr);
+                    gap: 6px;
+                }
+
+                /* 品质颜色 */
+                .quality-common { background-color: #6c757d; }
+                .quality-uncommon { background-color: #28a745; }
+                .quality-rare { background-color: #007bff; }
+                .quality-epic { background-color: #6f42c1; }
+                .quality-legendary { background-color: #fd7e14; }
+                .quality-mythic { background-color: #dc3545; }
+            </style>
+        </head>
+        <body>
+            <div class="backpack-container" id="backpackContainer">
+                <!-- 左列 - 装备面板 -->
+                <div class="left-panel">
+                    <!-- 装备面板 -->
+                    <div class="equipment-panel">
+                        <!-- 用户名显示 -->
+                        <div class="username-display" id="usernameDisplay">
+                            用户名: User
+                        </div>
+
+                        <div class="character-model-container" id="equipmentContainer">
+                            <!-- 中央角色模型 -->
+                            <div class="character-model" id="characterModel">
+                                <!-- 角色图片将通过JavaScript动态设置 -->
+                            </div>
+                            <!-- 装备槽位将通过JavaScript动态生成并定位 -->
+                        </div>
+                    </div>
+
+                    <!-- 角色属性 -->
+                    <div class="character-attributes">
+                        <div class="attributes-title">角色属性</div>
+                        <!-- 生命值单独显示 -->
+                        <div class="hp-display" id="hpDisplay">
+                            生命值: 100
+                        </div>
+                        <div class="attributes-grid" id="attributesGrid">
+                            <!-- 属性将通过JavaScript动态更新 -->
+                        </div>
+                    </div>
+
+                    <!-- 仓库按钮 -->
+                    <button class="warehouse-toggle" onclick="toggleInventory()" id="inventoryToggleBtn">
+                        📦 仓库
+                    </button>
+                </div>
+
+                <!-- 右列 - 背包物品栏 -->
+                <div class="right-panel" id="rightPanel">
+                    <!-- 背包面板 -->
+                    <div class="inventory-panel">
+                        <div class="inventory-title">背包物品</div>
+                        <div class="inventory-grid" id="inventoryGrid">
+                            <!-- 物品槽位将通过JavaScript动态生成 -->
+                        </div>
+                        <div class="pagination-controls" id="paginationControls">
+                            <!-- 翻页控件将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 仓库面板 -->
+                    <div class="warehouse-panel" id="warehousePanel">
+                        <div class="warehouse-title">仓库存储</div>
+                        <div class="warehouse-grid" id="warehouseGrid">
+                            <!-- 仓库物品将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                // 全局变量
+                let currentPage = 0;
+                let maxPages = 2;
+                let totalPages = 5;
+                let inventoryItems = [];
+                let equipmentItems = {};
+                let characterAttributes = {};
+                let inventoryVisible = false;
+
+                // 初始化背包界面
+                function initBackpack() {
+                    generateEquipmentSlots();
+                    generateInventorySlots();
+                    generatePaginationControls();
+                    // 延迟调用updateDisplay，确保所有元素都已创建
+                    setTimeout(updateDisplay, 100);
+                }
+
+                // 生成装备槽位
+                function generateEquipmentSlots() {
+                    const equipmentContainer = document.getElementById('equipmentContainer');
+                    const slots = [
+                        {key: 'HELMET', name: '头盔', icon: '⛑️', class: 'slot-helmet'},
+                        {key: 'WEAPON', name: '武器', icon: '⚔️', class: 'slot-weapon'},
+                        {key: 'BRACELET', name: '手镯', icon: '📿', class: 'slot-bracelet'},
+                        {key: 'ARMOR', name: '护甲', icon: '🛡️', class: 'slot-armor'},
+                        {key: 'MAGIC_WEAPON', name: '法宝', icon: '🔮', class: 'slot-magic-weapon'},
+                        {key: 'BOOTS', name: '靴子', icon: '👢', class: 'slot-boots'}
+                    ];
+
+                    // 为每个装备槽位创建元素并定位
+                    slots.forEach(slot => {
+                        const slotElement = document.createElement('div');
+                        slotElement.className = `equipment-slot empty ${slot.class}`;
+                        slotElement.id = 'equipment-' + slot.key;
+                        slotElement.innerHTML = `
+                            <div class="equipment-icon">${slot.icon}</div>
+                            <div class="equipment-name" id="name-${slot.key}">空</div>
+                            <div class="slot-label">${slot.name}</div>
+                        `;
+                        slotElement.onclick = () => onEquipmentClick(slot.key);
+                        slotElement.oncontextmenu = (e) => {
+                            e.preventDefault();
+                            onEquipmentRightClick(slot.key, e);
+                        };
+
+                        // 添加悬浮提示
+                        slotElement.title = `${slot.name}槽位`;
+
+                        equipmentContainer.appendChild(slotElement);
+                    });
+                }
+
+                // 生成背包物品槽位
+                function generateInventorySlots() {
+                    const inventoryGrid = document.getElementById('inventoryGrid');
+                    inventoryGrid.innerHTML = '';
+
+                    for (let i = 0; i < 36; i++) {
+                        const slotElement = document.createElement('div');
+                        slotElement.className = 'item-slot';
+                        slotElement.id = 'item-' + i;
+                        slotElement.onclick = () => onItemClick(i);
+                        slotElement.oncontextmenu = (e) => {
+                            e.preventDefault();
+                            onItemRightClick(i, e);
+                        };
+                        inventoryGrid.appendChild(slotElement);
+                    }
+                }
+
+                // 生成翻页控件
+                function generatePaginationControls() {
+                    const paginationControls = document.getElementById('paginationControls');
+                    paginationControls.innerHTML = `
+                        <button class="page-btn" id="prevBtn" onclick="prevPage()">◀ 上一页</button>
+                        <span id="pageInfo">第 ${currentPage + 1} 页 / 共 ${maxPages} 页</span>
+                        <button class="page-btn" id="nextBtn" onclick="nextPage()">下一页 ▶</button>
+                    `;
+                    updatePaginationState();
+                }
+
+                // 更新翻页状态
+                function updatePaginationState() {
+                    const prevBtn = document.getElementById('prevBtn');
+                    const nextBtn = document.getElementById('nextBtn');
+                    const pageInfo = document.getElementById('pageInfo');
+
+                    if (prevBtn) prevBtn.disabled = currentPage <= 0;
+                    if (nextBtn) nextBtn.disabled = currentPage >= maxPages - 1;
+                    if (pageInfo) pageInfo.textContent = `第 ${currentPage + 1} 页 / 共 ${maxPages} 页`;
+                }
+
+                // 切换背包物品栏显示
+                function toggleInventory() {
+                    inventoryVisible = !inventoryVisible;
+                    const rightPanel = document.getElementById('rightPanel');
+                    const toggleBtn = document.getElementById('inventoryToggleBtn');
+
+                    if (inventoryVisible) {
+                        rightPanel.classList.add('visible');
+                        toggleBtn.textContent = '📦 关闭仓库';
+                        // 调整窗口大小以适应展开的内容
+                        console.log('展开仓库，调整窗口大小到 1000x800');
+                        if (window.pyBackpack && window.pyBackpack.resizeWindow) {
+                            window.pyBackpack.resizeWindow(1000, 800);
+                        } else {
+                            // 回退方案：通过标题传递消息
+                            document.title = 'RESIZE:1000,800';
+                        }
+                    } else {
+                        rightPanel.classList.remove('visible');
+                        toggleBtn.textContent = '📦 打开仓库';
+                        // 恢复窗口大小
+                        console.log('收起仓库，调整窗口大小到 400x800');
+                        if (window.pyBackpack && window.pyBackpack.resizeWindow) {
+                            window.pyBackpack.resizeWindow(400, 800);
+                        } else {
+                            // 回退方案：通过标题传递消息
+                            document.title = 'RESIZE:400,800';
+                        }
+                    }
+                }
+
+                // 生成仓库槽位
+                function generateWarehouseSlots() {
+                    const warehouseGrid = document.getElementById('warehouseGrid');
+                    warehouseGrid.innerHTML = '';
+
+                    for (let i = 0; i < 32; i++) {
+                        const slotElement = document.createElement('div');
+                        slotElement.className = 'item-slot';
+                        slotElement.id = 'warehouse-' + i;
+                        slotElement.onclick = () => onWarehouseItemClick(i);
+                        slotElement.oncontextmenu = (e) => {
+                            e.preventDefault();
+                            onWarehouseItemRightClick(i, e);
+                        };
+                        warehouseGrid.appendChild(slotElement);
+                    }
+                }
+
+                // 更新显示
+                function updateDisplay() {
+                    updateEquipmentDisplay();
+                    updateInventoryDisplay();
+                    updateAttributesDisplay();
+                }
+
+                // 更新装备显示
+                function updateEquipmentDisplay() {
+                    const slots = ['HELMET', 'ARMOR', 'WEAPON', 'BOOTS', 'BRACELET', 'MAGIC_WEAPON'];
+                    slots.forEach(slot => {
+                        const slotElement = document.getElementById('equipment-' + slot);
+                        const nameElement = document.getElementById('name-' + slot);
+
+                        if (equipmentItems[slot]) {
+                            const equipment = equipmentItems[slot];
+                            const itemInfo = equipment.item_info || {};
+                            slotElement.classList.remove('empty');
+                            slotElement.classList.add('equipped');
+                            nameElement.textContent = itemInfo.name || '未知';
+                            nameElement.style.color = getQualityColor(itemInfo.quality || 'COMMON');
+
+                            // 更新悬浮提示
+                            slotElement.title = buildEquipmentTooltip(equipment);
+                        } else {
+                            slotElement.classList.remove('equipped');
+                            slotElement.classList.add('empty');
+                            nameElement.textContent = '空';
+                            nameElement.style.color = '#bdc3c7';
+
+                            // 恢复默认提示
+                            const slotNames = {
+                                'HELMET': '头盔', 'ARMOR': '护甲', 'WEAPON': '武器',
+                                'BOOTS': '靴子', 'BRACELET': '手镯', 'MAGIC_WEAPON': '法宝'
+                            };
+                            slotElement.title = `${slotNames[slot]}槽位`;
+                        }
+                    });
+                }
+
+                // 更新背包显示
+                function updateInventoryDisplay() {
+                    const startIndex = currentPage * 36;
+                    const endIndex = startIndex + 36;
+                    const pageItems = inventoryItems.slice(startIndex, endIndex);
+
+                    for (let i = 0; i < 36; i++) {
+                        const slotElement = document.getElementById('item-' + i);
+                        const item = pageItems[i];
+
+                        if (item) {
+                            updateItemSlot(slotElement, item);
+                        } else {
+                            clearItemSlot(slotElement);
+                        }
+                    }
+                }
+
+                // 更新物品槽位
+                function updateItemSlot(slotElement, item) {
+                    const itemInfo = item.item_info || {};
+                    const quantity = item.quantity || 1;
+
+                    slotElement.classList.add('has-item');
+                    slotElement.innerHTML = `
+                        <div class="quality-indicator quality-${(itemInfo.quality || 'common').toLowerCase()}"></div>
+                        <div class="item-icon">${getItemIcon(itemInfo.item_type)}</div>
+                        <div class="item-name" style="color: ${getQualityColor(itemInfo.quality)}">${itemInfo.name || '未知物品'}</div>
+                        ${quantity > 1 ? `<div class="item-quantity">${quantity}</div>` : ''}
+                    `;
+
+                    slotElement.title = buildItemTooltip(item);
+                }
+
+                // 清空物品槽位
+                function clearItemSlot(slotElement) {
+                    slotElement.classList.remove('has-item');
+                    slotElement.innerHTML = '';
+                    slotElement.title = '';
+                }
+
+                // 更新属性显示
+                function updateAttributesDisplay() {
+                    const attributesGrid = document.getElementById('attributesGrid');
+                    const hpDisplay = document.getElementById('hpDisplay');
+                    const usernameDisplay = document.getElementById('usernameDisplay');
+                    const attributes = characterAttributes.attributes || {};
+
+                    // 更新用户名显示
+                    const username = characterAttributes.username || 'User';
+                    usernameDisplay.textContent = `用户名: ${username}`;
+
+                    // 更新生命值显示
+                    hpDisplay.textContent = `生命值: ${attributes.hp || 100}`;
+
+                    // 更新其他属性（按设计图布局）
+                    attributesGrid.innerHTML = `
+                        <div class="attribute-item">物理攻击: ${attributes.physical_attack || 100}</div>
+                        <div class="attribute-item">法术攻击: ${attributes.magic_attack || 100}</div>
+                        <div class="attribute-item">物理防御: ${attributes.physical_defense || 100}</div>
+                        <div class="attribute-item">法术防御: ${attributes.magic_defense || 100}</div>
+                        <div class="attribute-item">暴击率: ${(attributes.critical_rate || 20).toFixed(0)}%</div>
+                        <div class="attribute-item">暴击伤害: ${(attributes.critical_damage || 150).toFixed(0)}%</div>
+                    `;
+                }
+
+                // 获取物品图标
+                function getItemIcon(itemType) {
+                    const icons = {
+                        'EQUIPMENT': '⚔️',
+                        'CONSUMABLE': '🧪',
+                        'PILL': '💊',
+                        'MATERIAL': '🔧',
+                        'SEED': '🌱',
+                        'MISC': '📦'
+                    };
+                    return icons[itemType] || '📦';
+                }
+
+                // 获取品质颜色
+                function getQualityColor(quality) {
+                    const colors = {
+                        'COMMON': '#6c757d',
+                        'UNCOMMON': '#28a745',
+                        'RARE': '#007bff',
+                        'EPIC': '#6f42c1',
+                        'LEGENDARY': '#fd7e14',
+                        'MYTHIC': '#dc3545'
+                    };
+                    return colors[quality] || colors['COMMON'];
+                }
+
+                // 构建物品提示
+                function buildItemTooltip(item) {
+                    const itemInfo = item.item_info || {};
+                    const quantity = item.quantity || 1;
+
+                    let tooltip = `${itemInfo.name || '未知物品'}\\n`;
+                    tooltip += `品质: ${getQualityName(itemInfo.quality)}\\n`;
+                    tooltip += `类型: ${getTypeName(itemInfo.item_type)}\\n`;
+                    tooltip += `数量: ${quantity}`;
+
+                    if (itemInfo.description) {
+                        tooltip += `\\n\\n${itemInfo.description}`;
+                    }
+
+                    return tooltip;
+                }
+
+                // 构建装备提示
+                function buildEquipmentTooltip(equipment) {
+                    const itemInfo = equipment.item_info || {};
+                    const attributes = equipment.actual_attributes || {};
+
+                    let tooltip = `${itemInfo.name || '未知装备'}\\n`;
+                    tooltip += `品质: ${getQualityName(itemInfo.quality)}\\n`;
+                    tooltip += `类型: 装备\\n`;
+
+                    // 添加属性信息
+                    const attrNames = {
+                        'hp': '生命值',
+                        'physical_attack': '物理攻击',
+                        'magic_attack': '法术攻击',
+                        'physical_defense': '物理防御',
+                        'magic_defense': '法术防御',
+                        'critical_rate': '暴击率',
+                        'critical_damage': '暴击伤害'
+                    };
+
+                    Object.keys(attributes).forEach(key => {
+                        if (attributes[key] > 0) {
+                            const name = attrNames[key] || key;
+                            const value = key.includes('rate') || key.includes('damage') ?
+                                attributes[key].toFixed(1) + '%' : attributes[key];
+                            tooltip += `\\n${name}: +${value}`;
+                        }
+                    });
+
+                    if (itemInfo.description) {
+                        tooltip += `\\n\\n${itemInfo.description}`;
+                    }
+
+                    return tooltip;
+                }
+
+                // 获取品质名称
+                function getQualityName(quality) {
+                    const names = {
+                        'COMMON': '普通',
+                        'UNCOMMON': '优秀',
+                        'RARE': '稀有',
+                        'EPIC': '史诗',
+                        'LEGENDARY': '传说',
+                        'MYTHIC': '神话'
+                    };
+                    return names[quality] || names['COMMON'];
+                }
+
+                // 获取类型名称
+                function getTypeName(itemType) {
+                    const names = {
+                        'EQUIPMENT': '装备',
+                        'CONSUMABLE': '消耗品',
+                        'PILL': '丹药',
+                        'MATERIAL': '材料',
+                        'SEED': '种子',
+                        'MISC': '杂物'
+                    };
+                    return names[itemType] || names['MISC'];
+                }
+
+                // 翻页功能
+                function prevPage() {
+                    if (currentPage > 0) {
+                        currentPage--;
+                        updateInventoryDisplay();
+                        updatePaginationState();
+                    }
+                }
+
+                function nextPage() {
+                    if (currentPage < maxPages - 1) {
+                        currentPage++;
+                        updateInventoryDisplay();
+                        updatePaginationState();
+                    }
+                }
+
+                // 事件处理函数（这些将通过Python调用）
+                function onEquipmentClick(slot) {
+                    // 通过Qt的JavaScript桥接调用Python方法
+                    if (window.pyBackpack) {
+                        window.pyBackpack.onEquipmentClick(slot);
+                    }
+                }
+
+                function onEquipmentRightClick(slot, event) {
+                    if (window.pyBackpack) {
+                        window.pyBackpack.onEquipmentRightClick(slot, event.clientX, event.clientY);
+                    }
+                }
+
+                function onItemClick(index) {
+                    if (window.pyBackpack) {
+                        window.pyBackpack.onItemClick(index);
+                    }
+                }
+
+                function onItemRightClick(index, event) {
+                    if (window.pyBackpack) {
+                        window.pyBackpack.onItemRightClick(index, event.clientX, event.clientY);
+                    }
+                }
+
+                function onWarehouseItemClick(index) {
+                    if (window.pyBackpack) {
+                        window.pyBackpack.onWarehouseItemClick(index);
+                    }
+                }
+
+                function onWarehouseItemRightClick(index, event) {
+                    if (window.pyBackpack) {
+                        window.pyBackpack.onWarehouseItemRightClick(index, event.clientX, event.clientY);
+                    }
+                }
+
+                // 设置角色图片
+                function setCharacterImage(imageData) {
+                    const characterModel = document.getElementById('characterModel');
+                    if (imageData && characterModel) {
+                        characterModel.innerHTML = `
+                            <img src="${imageData}"
+                                 alt="角色模型"
+                                 class="character-image"
+                                 onerror="this.style.display='none';">
+                        `;
+                    } else if (characterModel) {
+                        // 如果没有图片数据，显示占位符
+                        characterModel.innerHTML = '<div class="character-placeholder">👤</div>';
+                    }
+                }
+
+                // 页面加载完成后初始化
+                document.addEventListener('DOMContentLoaded', function() {
+                    initBackpack();
+
+                    // 设置角色图片
+                    if (window.characterImageData) {
+                        setCharacterImage(window.characterImageData);
+                    } else {
+                        // 如果没有角色图片数据，显示占位符
+                        setCharacterImage(null);
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
+
+        # 将角色图片数据注入到HTML中
+        if character_image_data:
+            html_template = html_template.replace(
+                '</body>',
+                f'<script>window.characterImageData = "{character_image_data}";</script></body>'
+            )
+
+        self.backpack_display.setHtml(html_template)
+
+        # 监听页面加载完成事件
+        self.backpack_display.loadFinished.connect(self.on_html_load_finished)
+
+    def on_html_load_finished(self, success: bool):
+        """HTML页面加载完成回调"""
+        if success:
+            print("✅ HTML页面加载完成")
+            self.html_loaded = True
+            # 页面加载完成后，延迟一点时间再加载数据，确保JavaScript也初始化完成
+            QTimer.singleShot(100, self.load_initial_data)
+        else:
+            print("❌ HTML页面加载失败")
+
+    def load_initial_data(self):
+        """加载初始数据（仅用于HTML版本）"""
+        if hasattr(self, 'html_loaded') and self.html_loaded:
+            print("🔄 开始加载初始数据...")
+            self.load_data()
 
     def setup_ui(self):
         """设置UI"""
@@ -1005,12 +2114,21 @@ class BackpackWindow(QDialog):
 
     def load_data(self):
         """加载数据"""
+        # 如果没有API客户端，跳过数据加载
+        if not self.api_client:
+            print("⚠️ 没有API客户端，跳过数据加载")
+            # 如果使用HTML版本，更新HTML显示
+            if WEBENGINE_AVAILABLE and hasattr(self, 'backpack_display'):
+                self.update_html_display()
+            return
+
         try:
             # 加载角色属性数据
             character_response = self.api_client.user.get_character_detail()
             if character_response.get('success'):
                 self.character_data = character_response['data']
-                self.attributes_widget.update_attributes(self.character_data)
+                if hasattr(self, 'attributes_widget'):
+                    self.attributes_widget.update_attributes(self.character_data)
 
             # 加载背包数据
             inventory_response = self.api_client.inventory.get_inventory()
@@ -1026,7 +2144,86 @@ class BackpackWindow(QDialog):
                 self.update_equipment_display()
 
         except Exception as e:
-            QMessageBox.warning(self, "错误", f"加载数据失败: {str(e)}")
+            print(f"❌ 加载数据失败: {str(e)}")
+            # 不显示错误对话框，避免影响用户体验
+
+        # 如果使用HTML版本，更新HTML显示
+        if WEBENGINE_AVAILABLE and hasattr(self, 'backpack_display'):
+            self.update_html_display()
+
+    def update_html_display(self):
+        """更新HTML显示"""
+        if not hasattr(self, 'backpack_display'):
+            return
+
+        # 确保HTML页面已加载完成
+        if hasattr(self, 'html_loaded') and not self.html_loaded:
+            print("⚠️ HTML页面尚未加载完成，跳过数据更新")
+            return
+
+        try:
+            # 更新JavaScript变量
+            js_code = f"""
+                if (typeof inventoryItems !== 'undefined') {{
+                    inventoryItems = {self.inventory_items_to_js()};
+                    equipmentItems = {self.equipment_items_to_js()};
+                    characterAttributes = {self.character_data_to_js()};
+                    currentPage = {self.current_page};
+                    maxPages = {self.max_unlocked_pages};
+                    totalPages = {self.total_pages};
+                    if (typeof updateDisplay === 'function') {{
+                        updateDisplay();
+                    }}
+                }}
+            """
+
+            # 异步执行JavaScript
+            self.backpack_display.page().runJavaScript(js_code, lambda result: None)
+
+        except Exception as e:
+            print(f"❌ 更新HTML显示失败: {e}")
+
+    def inventory_items_to_js(self):
+        """将背包物品转换为JavaScript格式"""
+        import json
+        try:
+            return json.dumps(self.inventory_items, ensure_ascii=False)
+        except:
+            return "[]"
+
+    def equipment_items_to_js(self):
+        """将装备物品转换为JavaScript格式"""
+        import json
+        try:
+            return json.dumps(self.equipment_items, ensure_ascii=False)
+        except:
+            return "{}"
+
+    def character_data_to_js(self):
+        """将角色数据转换为JavaScript格式"""
+        import json
+        try:
+            # 确保包含用户名信息
+            data = self.character_data.copy() if self.character_data else {}
+
+            # 用户名应该从状态管理器的user_info中获取，而不是从character_data
+            # 因为character_data只包含角色游戏数据，不包含登录用户名
+            if hasattr(self, 'state_manager') and self.state_manager:
+                user_info = self.state_manager.user_info  # 使用属性而不是方法
+                if user_info and 'username' in user_info:
+                    data['username'] = user_info['username']
+                    print(f"✅ 从状态管理器获取用户名: {user_info['username']}")
+                else:
+                    data['username'] = 'User'
+                    print(f"⚠️ 状态管理器中没有用户名，user_info: {user_info}")
+            else:
+                data['username'] = 'User'
+                print("⚠️ 没有状态管理器，使用默认用户名")
+
+            return json.dumps(data, ensure_ascii=False)
+        except Exception as e:
+            print(f"❌ 转换角色数据到JS失败: {e}")
+            return '{"username": "User"}'
 
     def load_equipment_and_inventory(self):
         """仅加载装备和背包数据，不加载角色属性"""
@@ -1047,8 +2244,93 @@ class BackpackWindow(QDialog):
         except Exception as e:
             print(f"加载装备和背包数据失败: {str(e)}")
 
+        # 如果使用HTML版本，更新HTML显示
+        if WEBENGINE_AVAILABLE and hasattr(self, 'backpack_display'):
+            self.update_html_display()
+
+    def setup_js_bridge(self):
+        """设置JavaScript桥接"""
+        if not WEBENGINE_AVAILABLE or not hasattr(self, 'backpack_display'):
+            return
+
+        # 直接使用简单的桥接方案
+        self.setup_simple_js_bridge()
+
+    def setup_simple_js_bridge(self):
+        """设置简单的JavaScript桥接（回退方案）"""
+        def inject_simple_bridge():
+            js_code = """
+                window.pyBackpack = {
+                    resizeWindow: function(width, height) {
+                        console.log('请求调整窗口大小:', width, height);
+                        // 通过修改页面标题来传递消息给Python
+                        document.title = 'RESIZE:' + width + ',' + height;
+                        // 延迟恢复标题，避免重复触发
+                        setTimeout(function() {
+                            document.title = '背包管理';
+                        }, 100);
+                    },
+                    onEquipmentClick: function(slot) {
+                        console.log('装备点击:', slot);
+                        document.title = 'EQUIPMENT_CLICK:' + slot;
+                        setTimeout(function() { document.title = '背包管理'; }, 100);
+                    },
+                    onItemClick: function(index) {
+                        console.log('物品点击:', index);
+                        document.title = 'ITEM_CLICK:' + index;
+                        setTimeout(function() { document.title = '背包管理'; }, 100);
+                    }
+                };
+                console.log('✅ 简单JavaScript桥接已建立');
+            """
+            self.backpack_display.page().runJavaScript(js_code, lambda result: None)
+
+        QTimer.singleShot(500, inject_simple_bridge)  # 减少延迟，更快建立桥接
+
+        # 监听标题变化
+        self.backpack_display.titleChanged.connect(self.handle_title_message)
+
+    def handle_title_message(self, title: str):
+        """处理通过标题传递的消息"""
+        try:
+            if title.startswith('RESIZE:'):
+                size_str = title[7:]  # 移除'RESIZE:'前缀
+                width, height = map(int, size_str.split(','))
+                print(f"📏 收到窗口大小调整请求: {width}x{height}")
+                self.resize_window_from_js(width, height)
+            elif title.startswith('EQUIPMENT_CLICK:'):
+                slot = title[16:]  # 移除'EQUIPMENT_CLICK:'前缀
+                print(f"⚔️ 装备点击: {slot}")
+                # TODO: 处理装备点击
+            elif title.startswith('ITEM_CLICK:'):
+                index = int(title[11:])  # 移除'ITEM_CLICK:'前缀
+                print(f"📦 物品点击: {index}")
+                # TODO: 处理物品点击
+        except Exception as e:
+            print(f"❌ 处理标题消息失败: {e}")
+
+    def resize_window_from_js(self, width: int, height: int):
+        """从JavaScript调用的窗口大小调整方法"""
+        try:
+            # 先设置最小大小，然后调整到目标大小
+            self.setMinimumSize(width, height)
+            self.setMaximumSize(width, height)
+            self.resize(width, height)
+            print(f"✅ 窗口大小已调整为: {width}x{height}")
+        except Exception as e:
+            print(f"❌ 调整窗口大小失败: {e}")
+
     def update_inventory_display(self):
         """更新背包显示"""
+        # 如果使用HTML版本
+        if WEBENGINE_AVAILABLE and hasattr(self, 'backpack_display'):
+            self.update_html_display()
+            return
+
+        # 传统PyQt版本的更新逻辑
+        if not hasattr(self, 'inventory_slots'):
+            return
+
         # 清空所有格子
         for slot in self.inventory_slots:
             slot.item_data = None
@@ -1072,6 +2354,15 @@ class BackpackWindow(QDialog):
 
     def update_equipment_display(self):
         """更新装备显示"""
+        # 如果使用HTML版本
+        if WEBENGINE_AVAILABLE and hasattr(self, 'backpack_display'):
+            self.update_html_display()
+            return
+
+        # 传统PyQt版本的更新逻辑
+        if not hasattr(self, 'equipment_slots'):
+            return
+
         # 清空所有装备槽
         for slot_widget in self.equipment_slots.values():
             slot_widget.set_equipment(None)
@@ -1289,9 +2580,10 @@ class BackpackWindow(QDialog):
 
             response = self.api_client.inventory.equip_item(item_id, equipment_slot)
             if response.get('success'):
-                # 立即刷新属性显示
-                self.attributes_widget.refresh_attributes_only()
-                # 然后刷新装备和背包数据
+                # 如果使用传统UI，刷新属性显示
+                if hasattr(self, 'attributes_widget'):
+                    self.attributes_widget.refresh_attributes_only()
+                # 刷新装备和背包数据
                 self.load_equipment_and_inventory()
                 QMessageBox.information(self, "成功", response.get('message', '装备成功'))
             else:
@@ -1305,9 +2597,10 @@ class BackpackWindow(QDialog):
         try:
             response = self.api_client.inventory.unequip_item(slot)
             if response.get('success'):
-                # 立即刷新属性显示
-                self.attributes_widget.refresh_attributes_only()
-                # 然后刷新装备和背包数据
+                # 如果使用传统UI，刷新属性显示
+                if hasattr(self, 'attributes_widget'):
+                    self.attributes_widget.refresh_attributes_only()
+                # 刷新装备和背包数据
                 self.load_equipment_and_inventory()
                 QMessageBox.information(self, "成功", f"成功卸下{equipment_name}")
             else:
