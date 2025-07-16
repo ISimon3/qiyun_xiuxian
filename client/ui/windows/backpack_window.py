@@ -843,8 +843,8 @@ class BackpackWindow(QDialog):
 
         # 翻页相关属性
         self.current_page = 0
-        self.items_per_page = 36  # 6x6 = 36个格子
-        self.max_unlocked_pages = 2  # 默认解锁2页
+        self.items_per_page = 48  # 6x8 = 48个格子
+        self.max_unlocked_pages = 3  # 默认解锁3页（第三页显示为禁用状态）
         self.total_pages = 5  # 总共5页
 
         # 仓库相关属性
@@ -1224,7 +1224,7 @@ class BackpackWindow(QDialog):
                     display: none; /* 默认隐藏 */
                     flex-direction: column;
                     gap: 10px;
-                    min-width: 600px;
+                    min-width: 500px;  /* 6×70px + 5×8px间距 + 左右padding = 420 + 40 + 40 ≈ 500px */
                 }
 
                 .right-panel.visible {
@@ -1249,19 +1249,21 @@ class BackpackWindow(QDialog):
 
                 .inventory-grid {
                     display: grid;
-                    grid-template-columns: repeat(6, 1fr);
-                    grid-template-rows: repeat(6, 1fr);
+                    grid-template-columns: repeat(6, 70px);  /* 改为6列 */
+                    grid-template-rows: repeat(8, 70px);     /* 改为8行 */
                     gap: 8px;
                     margin-bottom: 15px;
+                    justify-content: center;  /* 居中对齐 */
                 }
 
                 .item-slot {
-                    background-color: #f8f9fa;
-                    border: 1px solid #dee2e6;
+                    width: 70px;
+                    height: 70px;
+                    background-color: #e9ecef;  /* 空槽位灰色背景 */
+                    border: 1px solid #ced4da;
                     border-radius: 4px;
                     padding: 4px;
                     text-align: center;
-                    min-height: 70px;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
@@ -1269,6 +1271,7 @@ class BackpackWindow(QDialog):
                     cursor: pointer;
                     transition: all 0.3s ease;
                     position: relative;
+                    box-sizing: border-box;
                 }
 
                 .item-slot:hover {
@@ -1278,6 +1281,30 @@ class BackpackWindow(QDialog):
 
                 .item-slot.has-item {
                     border-color: #28a745;
+                    background-color: #f8f9fa;  /* 有物品时恢复浅色背景 */
+                }
+
+                /* 禁用的槽位样式（需要解锁） */
+                .item-slot.disabled {
+                    background-color: #6c757d;
+                    border: 1px solid #495057;
+                    cursor: not-allowed;
+                    opacity: 0.6;
+                }
+
+                .item-slot.disabled::before {
+                    content: "🔒";
+                    font-size: 24px;
+                    color: #ffffff;
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                }
+
+                .item-slot.disabled:hover {
+                    border-color: #495057;
+                    background-color: #6c757d;
                 }
 
                 .item-icon {
@@ -1371,9 +1398,10 @@ class BackpackWindow(QDialog):
 
                 .warehouse-grid {
                     display: grid;
-                    grid-template-columns: repeat(8, 1fr);
-                    grid-template-rows: repeat(4, 1fr);
+                    grid-template-columns: repeat(5, 70px);  /* 固定每列70px */
+                    grid-template-rows: repeat(7, 70px);     /* 固定每行70px */
                     gap: 6px;
+                    justify-content: center;  /* 居中对齐 */
                 }
 
                 /* 品质颜色 */
@@ -1449,7 +1477,7 @@ class BackpackWindow(QDialog):
             <script>
                 // 全局变量
                 let currentPage = 0;
-                let maxPages = 2;
+                let maxPages = 3;  // 增加第三页
                 let totalPages = 5;
                 let inventoryItems = [];
                 let equipmentItems = {};
@@ -1461,6 +1489,7 @@ class BackpackWindow(QDialog):
                     generateEquipmentSlots();
                     generateInventorySlots();
                     generatePaginationControls();
+                    generateWarehouseSlots();  // 添加仓库槽位生成
                     // 延迟调用updateDisplay，确保所有元素都已创建
                     setTimeout(updateDisplay, 100);
                 }
@@ -1505,7 +1534,7 @@ class BackpackWindow(QDialog):
                     const inventoryGrid = document.getElementById('inventoryGrid');
                     inventoryGrid.innerHTML = '';
 
-                    for (let i = 0; i < 36; i++) {
+                    for (let i = 0; i < 48; i++) {  // 改为48个槽位（6列×8行）
                         const slotElement = document.createElement('div');
                         slotElement.className = 'item-slot';
                         slotElement.id = 'item-' + i;
@@ -1576,7 +1605,7 @@ class BackpackWindow(QDialog):
                     const warehouseGrid = document.getElementById('warehouseGrid');
                     warehouseGrid.innerHTML = '';
 
-                    for (let i = 0; i < 32; i++) {
+                    for (let i = 0; i < 35; i++) {  // 改为35个槽位（5列×7行）
                         const slotElement = document.createElement('div');
                         slotElement.className = 'item-slot';
                         slotElement.id = 'warehouse-' + i;
@@ -1631,15 +1660,19 @@ class BackpackWindow(QDialog):
 
                 // 更新背包显示
                 function updateInventoryDisplay() {
-                    const startIndex = currentPage * 36;
-                    const endIndex = startIndex + 36;
+                    const startIndex = currentPage * 48;  // 改为48
+                    const endIndex = startIndex + 48;     // 改为48
                     const pageItems = inventoryItems.slice(startIndex, endIndex);
 
-                    for (let i = 0; i < 36; i++) {
+                    for (let i = 0; i < 48; i++) {        // 改为48
                         const slotElement = document.getElementById('item-' + i);
                         const item = pageItems[i];
 
-                        if (item) {
+                        // 第三页（currentPage === 2）的槽位显示为禁用状态
+                        if (currentPage === 2) {
+                            slotElement.className = 'item-slot disabled';
+                            slotElement.innerHTML = '';  // 清空内容，显示锁图标
+                        } else if (item) {
                             updateItemSlot(slotElement, item);
                         } else {
                             clearItemSlot(slotElement);
@@ -1666,6 +1699,8 @@ class BackpackWindow(QDialog):
                 // 清空物品槽位
                 function clearItemSlot(slotElement) {
                     slotElement.classList.remove('has-item');
+                    slotElement.classList.remove('disabled');
+                    slotElement.className = 'item-slot';  // 重置为基础样式（灰色背景）
                     slotElement.innerHTML = '';
                     slotElement.title = '';
                 }
