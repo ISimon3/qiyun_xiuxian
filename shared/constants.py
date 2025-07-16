@@ -182,19 +182,24 @@ LUCK_SPECIAL_EVENTS = {
             "description": "修炼时突然顿悟，修为大增",
             "exp_bonus_min": 100,
             "exp_bonus_max": 200,
-            "probability_weight": 20
+            "probability_weight": 18
         },
         "灵气共鸣": {
             "description": "与天地灵气产生共鸣，获得灵石",
             "spirit_stone_bonus_min": 10,
             "spirit_stone_bonus_max": 50,
-            "probability_weight": 30
+            "probability_weight": 27
         },
-
         "天材地宝": {
             "description": "偶遇天材地宝，属性永久提升",
             "attribute_bonus": 20,
-            "probability_weight": 50
+            "probability_weight": 37
+        },
+        "福运降临": {
+            "description": "天降福运，气运值提升",
+            "luck_bonus_min": 1,
+            "luck_bonus_max": 3,
+            "probability_weight": 18
         }
     },
 
@@ -221,7 +226,8 @@ LUCK_SPECIAL_EVENTS = {
         },
         "气运受损": {
             "description": "修炼时触犯禁忌，气运受损",
-            "luck_penalty": 1,
+            "luck_penalty_min": 1,
+            "luck_penalty_max": 3,
             "probability_weight": 18
         }
     },

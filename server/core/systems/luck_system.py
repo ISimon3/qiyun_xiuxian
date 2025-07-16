@@ -394,6 +394,17 @@ class LuckSystem:
                     result["message"] = f"偶遇天材地宝，{attr_name}永久提升！(+{bonus})"
                     result["effects"][chosen_attr] = bonus
 
+                elif event_type == "福运降临":
+                    luck_bonus = random.randint(
+                        event_config.get("luck_bonus_min", 1),
+                        event_config.get("luck_bonus_max", 3)
+                    )
+                    old_luck = character.luck_value
+                    character.luck_value = min(DEFAULT_CONFIG["MAX_LUCK_VALUE"], character.luck_value + luck_bonus)
+                    actual_bonus = character.luck_value - old_luck
+                    result["message"] = f"天降福运，气运值提升！(+{actual_bonus})"
+                    result["effects"]["luck_value"] = actual_bonus
+
             else:
                 # 处理负面事件
                 event_config = LUCK_SPECIAL_EVENTS["NEGATIVE_EVENTS"].get(event_type, {})
@@ -426,7 +437,10 @@ class LuckSystem:
                     result["effects"]["gold"] = -gold_penalty
 
                 elif event_type == "气运受损":
-                    luck_penalty = event_config.get("luck_penalty", 1)
+                    luck_penalty = random.randint(
+                        event_config.get("luck_penalty_min", 1),
+                        event_config.get("luck_penalty_max", 3)
+                    )
                     old_luck = character.luck_value
                     character.luck_value = max(0, character.luck_value - luck_penalty)
                     actual_penalty = old_luck - character.luck_value
