@@ -15,61 +15,61 @@ CULTIVATION_REALMS = [
     "仙人"
 ]
 
-# 境界对应的修为需求 (累计修为) - 完整平滑成长曲线
+# 境界对应的修为需求 - 突破后修为清空的平滑成长曲线
 CULTIVATION_EXP_REQUIREMENTS = {
     # 凡人阶段
     0: 0,        # 凡人
 
-    # 练气期 (1-4)
+    # 练气期 (1-4) - 基础阶段，需求较低
     1: 100,      # 练气初期
-    2: 250,      # 练气中期
-    3: 450,      # 练气后期
-    4: 700,      # 练气大圆满
+    2: 150,      # 练气中期
+    3: 200,      # 练气后期
+    4: 300,      # 练气大圆满
 
-    # 筑基期 (5-8)
-    5: 1000,     # 筑基初期
-    6: 1400,     # 筑基中期
-    7: 1900,     # 筑基后期
-    8: 2500,     # 筑基大圆满
+    # 筑基期 (5-8) - 进阶阶段，需求适中
+    5: 400,      # 筑基初期
+    6: 500,      # 筑基中期
+    7: 600,      # 筑基后期
+    8: 800,      # 筑基大圆满
 
-    # 金丹期 (9-12)
-    9: 3200,     # 金丹初期
-    10: 4000,    # 金丹中期
-    11: 4900,    # 金丹后期
-    12: 5900,    # 金丹大圆满
+    # 金丹期 (9-12) - 中级阶段，需求增加
+    9: 1000,     # 金丹初期
+    10: 1200,    # 金丹中期
+    11: 1500,    # 金丹后期
+    12: 1800,    # 金丹大圆满
 
-    # 元婴期 (13-16)
-    13: 7000,    # 元婴初期
-    14: 8200,    # 元婴中期
-    15: 9500,    # 元婴后期
-    16: 10900,   # 元婴大圆满
+    # 元婴期 (13-16) - 高级阶段，需求较高
+    13: 2200,    # 元婴初期
+    14: 2600,    # 元婴中期
+    15: 3000,    # 元婴后期
+    16: 3500,    # 元婴大圆满
 
-    # 化神期 (17-20)
-    17: 12400,   # 化神初期
-    18: 14000,   # 化神中期
-    19: 15700,   # 化神后期
-    20: 17500,   # 化神大圆满
+    # 化神期 (17-20) - 顶级阶段，需求很高
+    17: 4000,    # 化神初期
+    18: 4500,    # 化神中期
+    19: 5000,    # 化神后期
+    20: 5500,    # 化神大圆满
 
-    # 炼虚期 (21-24)
-    21: 19400,   # 炼虚初期
-    22: 21400,   # 炼虚中期
-    23: 23500,   # 炼虚后期
-    24: 25700,   # 炼虚大圆满
+    # 炼虚期 (21-24) - 超级阶段，需求极高
+    21: 6000,    # 炼虚初期
+    22: 6500,    # 炼虚中期
+    23: 7000,    # 炼虚后期
+    24: 7500,    # 炼虚大圆满
 
-    # 合体期 (25-28)
-    25: 28000,   # 合体初期
-    26: 30400,   # 合体中期
-    27: 32900,   # 合体后期
-    28: 35500,   # 合体大圆满
+    # 合体期 (25-28) - 准仙级阶段
+    25: 8000,    # 合体初期
+    26: 8500,    # 合体中期
+    27: 9000,    # 合体后期
+    28: 9500,    # 合体大圆满
 
-    # 大乘期 (29-32)
-    29: 38200,   # 大乘初期
-    30: 41000,   # 大乘中期
-    31: 43900,   # 大乘后期
-    32: 46900,   # 大乘大圆满
+    # 大乘期 (29-32) - 仙级前期
+    29: 10000,   # 大乘初期
+    30: 11000,   # 大乘中期
+    31: 12000,   # 大乘后期
+    32: 13000,   # 大乘大圆满
 
-    # 仙人 (33)
-    33: 50000,   # 仙人
+    # 仙人 (33) - 最终境界
+    33: 15000,   # 仙人
 }
 
 # 灵根类型
@@ -244,7 +244,7 @@ LUCK_SPECIAL_EVENTS = {
     }
 }
 
-# 境界对应的基础战斗属性 - 完整属性表
+# 境界对应的基础战斗属性 - 平滑成长曲线
 REALM_BASE_ATTRIBUTES = {
     # 凡人阶段
     0: {  # 凡人
@@ -255,59 +255,89 @@ REALM_BASE_ATTRIBUTES = {
         "MAGIC_DEFENSE": 15
     },
 
-    # 练气期 (1-4)
+    # 练气期 (1-4) - 基础修士阶段
     1: {  # 练气初期
-        "HP": 200,
-        "PHYSICAL_ATTACK": 40,
-        "MAGIC_ATTACK": 40,
-        "PHYSICAL_DEFENSE": 30,
-        "MAGIC_DEFENSE": 30
+        "HP": 180,
+        "PHYSICAL_ATTACK": 35,
+        "MAGIC_ATTACK": 35,
+        "PHYSICAL_DEFENSE": 25,
+        "MAGIC_DEFENSE": 25
     },
     2: {  # 练气中期
-        "HP": 350,
-        "PHYSICAL_ATTACK": 70,
-        "MAGIC_ATTACK": 70,
-        "PHYSICAL_DEFENSE": 50,
-        "MAGIC_DEFENSE": 50
+        "HP": 280,
+        "PHYSICAL_ATTACK": 55,
+        "MAGIC_ATTACK": 55,
+        "PHYSICAL_DEFENSE": 40,
+        "MAGIC_DEFENSE": 40
     },
     3: {  # 练气后期
+        "HP": 400,
+        "PHYSICAL_ATTACK": 80,
+        "MAGIC_ATTACK": 80,
+        "PHYSICAL_DEFENSE": 60,
+        "MAGIC_DEFENSE": 60
+    },
+    4: {  # 练气大圆满
         "HP": 550,
         "PHYSICAL_ATTACK": 110,
         "MAGIC_ATTACK": 110,
-        "PHYSICAL_DEFENSE": 80,
-        "MAGIC_DEFENSE": 80
-    },
-    4: {  # 练气大圆满
-        "HP": 800,
-        "PHYSICAL_ATTACK": 160,
-        "MAGIC_ATTACK": 160,
-        "PHYSICAL_DEFENSE": 120,
-        "MAGIC_DEFENSE": 120
+        "PHYSICAL_DEFENSE": 85,
+        "MAGIC_DEFENSE": 85
     },
 
-    # 筑基期 (5-8)
+    # 筑基期 (5-8) - 进阶修士阶段
     5: {  # 筑基初期
-        "HP": 1200,
-        "PHYSICAL_ATTACK": 240,
-        "MAGIC_ATTACK": 240,
-        "PHYSICAL_DEFENSE": 180,
-        "MAGIC_DEFENSE": 180
+        "HP": 750,
+        "PHYSICAL_ATTACK": 150,
+        "MAGIC_ATTACK": 150,
+        "PHYSICAL_DEFENSE": 115,
+        "MAGIC_DEFENSE": 115
     },
     6: {  # 筑基中期
-        "HP": 1800,
-        "PHYSICAL_ATTACK": 360,
-        "MAGIC_ATTACK": 360,
-        "PHYSICAL_DEFENSE": 270,
-        "MAGIC_DEFENSE": 270
+        "HP": 1000,
+        "PHYSICAL_ATTACK": 200,
+        "MAGIC_ATTACK": 200,
+        "PHYSICAL_DEFENSE": 150,
+        "MAGIC_DEFENSE": 150
     },
     7: {  # 筑基后期
-        "HP": 2600,
-        "PHYSICAL_ATTACK": 520,
-        "MAGIC_ATTACK": 520,
-        "PHYSICAL_DEFENSE": 390,
-        "MAGIC_DEFENSE": 390
+        "HP": 1300,
+        "PHYSICAL_ATTACK": 260,
+        "MAGIC_ATTACK": 260,
+        "PHYSICAL_DEFENSE": 195,
+        "MAGIC_DEFENSE": 195
     },
     8: {  # 筑基大圆满
+        "HP": 1650,
+        "PHYSICAL_ATTACK": 330,
+        "MAGIC_ATTACK": 330,
+        "PHYSICAL_DEFENSE": 250,
+        "MAGIC_DEFENSE": 250
+    },
+
+    # 金丹期 (9-12) - 中级修士阶段
+    9: {  # 金丹初期
+        "HP": 2050,
+        "PHYSICAL_ATTACK": 410,
+        "MAGIC_ATTACK": 410,
+        "PHYSICAL_DEFENSE": 310,
+        "MAGIC_DEFENSE": 310
+    },
+    10: {  # 金丹中期
+        "HP": 2500,
+        "PHYSICAL_ATTACK": 500,
+        "MAGIC_ATTACK": 500,
+        "PHYSICAL_DEFENSE": 380,
+        "MAGIC_DEFENSE": 380
+    },
+    11: {  # 金丹后期
+        "HP": 3000,
+        "PHYSICAL_ATTACK": 600,
+        "MAGIC_ATTACK": 600,
+        "PHYSICAL_DEFENSE": 450,
+        "MAGIC_DEFENSE": 450
+    },
+    12: {  # 金丹大圆满
         "HP": 3600,
         "PHYSICAL_ATTACK": 720,
         "MAGIC_ATTACK": 720,
@@ -315,199 +345,169 @@ REALM_BASE_ATTRIBUTES = {
         "MAGIC_DEFENSE": 540
     },
 
-    # 金丹期 (9-12)
-    9: {  # 金丹初期
-        "HP": 5000,
-        "PHYSICAL_ATTACK": 1000,
-        "MAGIC_ATTACK": 1000,
-        "PHYSICAL_DEFENSE": 750,
-        "MAGIC_DEFENSE": 750
+    # 元婴期 (13-16) - 高级修士阶段
+    13: {  # 元婴初期
+        "HP": 4300,
+        "PHYSICAL_ATTACK": 860,
+        "MAGIC_ATTACK": 860,
+        "PHYSICAL_DEFENSE": 645,
+        "MAGIC_DEFENSE": 645
     },
-    10: {  # 金丹中期
+    14: {  # 元婴中期
+        "HP": 5100,
+        "PHYSICAL_ATTACK": 1020,
+        "MAGIC_ATTACK": 1020,
+        "PHYSICAL_DEFENSE": 765,
+        "MAGIC_DEFENSE": 765
+    },
+    15: {  # 元婴后期
+        "HP": 6000,
+        "PHYSICAL_ATTACK": 1200,
+        "MAGIC_ATTACK": 1200,
+        "PHYSICAL_DEFENSE": 900,
+        "MAGIC_DEFENSE": 900
+    },
+    16: {  # 元婴大圆满
         "HP": 7000,
         "PHYSICAL_ATTACK": 1400,
         "MAGIC_ATTACK": 1400,
         "PHYSICAL_DEFENSE": 1050,
         "MAGIC_DEFENSE": 1050
     },
-    11: {  # 金丹后期
-        "HP": 9500,
-        "PHYSICAL_ATTACK": 1900,
-        "MAGIC_ATTACK": 1900,
-        "PHYSICAL_DEFENSE": 1425,
-        "MAGIC_DEFENSE": 1425
-    },
-    12: {  # 金丹大圆满
-        "HP": 12500,
-        "PHYSICAL_ATTACK": 2500,
-        "MAGIC_ATTACK": 2500,
-        "PHYSICAL_DEFENSE": 1875,
-        "MAGIC_DEFENSE": 1875
-    },
 
-    # 元婴期 (13-16)
-    13: {  # 元婴初期
-        "HP": 16000,
-        "PHYSICAL_ATTACK": 3200,
-        "MAGIC_ATTACK": 3200,
-        "PHYSICAL_DEFENSE": 2400,
-        "MAGIC_DEFENSE": 2400
-    },
-    14: {  # 元婴中期
-        "HP": 20000,
-        "PHYSICAL_ATTACK": 4000,
-        "MAGIC_ATTACK": 4000,
-        "PHYSICAL_DEFENSE": 3000,
-        "MAGIC_DEFENSE": 3000
-    },
-    15: {  # 元婴后期
-        "HP": 24500,
-        "PHYSICAL_ATTACK": 4900,
-        "MAGIC_ATTACK": 4900,
-        "PHYSICAL_DEFENSE": 3675,
-        "MAGIC_DEFENSE": 3675
-    },
-    16: {  # 元婴大圆满
-        "HP": 29500,
-        "PHYSICAL_ATTACK": 5900,
-        "MAGIC_ATTACK": 5900,
-        "PHYSICAL_DEFENSE": 4425,
-        "MAGIC_DEFENSE": 4425
-    },
-
-    # 化神期 (17-20)
+    # 化神期 (17-20) - 顶级修士阶段
     17: {  # 化神初期
-        "HP": 35000,
-        "PHYSICAL_ATTACK": 7000,
-        "MAGIC_ATTACK": 7000,
-        "PHYSICAL_DEFENSE": 5250,
-        "MAGIC_DEFENSE": 5250
+        "HP": 8200,
+        "PHYSICAL_ATTACK": 1640,
+        "MAGIC_ATTACK": 1640,
+        "PHYSICAL_DEFENSE": 1230,
+        "MAGIC_DEFENSE": 1230
     },
     18: {  # 化神中期
-        "HP": 41000,
-        "PHYSICAL_ATTACK": 8200,
-        "MAGIC_ATTACK": 8200,
-        "PHYSICAL_DEFENSE": 6150,
-        "MAGIC_DEFENSE": 6150
+        "HP": 9600,
+        "PHYSICAL_ATTACK": 1920,
+        "MAGIC_ATTACK": 1920,
+        "PHYSICAL_DEFENSE": 1440,
+        "MAGIC_DEFENSE": 1440
     },
     19: {  # 化神后期
-        "HP": 47500,
-        "PHYSICAL_ATTACK": 9500,
-        "MAGIC_ATTACK": 9500,
-        "PHYSICAL_DEFENSE": 7125,
-        "MAGIC_DEFENSE": 7125
+        "HP": 11200,
+        "PHYSICAL_ATTACK": 2240,
+        "MAGIC_ATTACK": 2240,
+        "PHYSICAL_DEFENSE": 1680,
+        "MAGIC_DEFENSE": 1680
     },
     20: {  # 化神大圆满
-        "HP": 54500,
-        "PHYSICAL_ATTACK": 10900,
-        "MAGIC_ATTACK": 10900,
-        "PHYSICAL_DEFENSE": 8175,
-        "MAGIC_DEFENSE": 8175
+        "HP": 13000,
+        "PHYSICAL_ATTACK": 2600,
+        "MAGIC_ATTACK": 2600,
+        "PHYSICAL_DEFENSE": 1950,
+        "MAGIC_DEFENSE": 1950
     },
 
-    # 炼虚期 (21-24)
+    # 炼虚期 (21-24) - 超级修士阶段
     21: {  # 炼虚初期
-        "HP": 62000,
-        "PHYSICAL_ATTACK": 12400,
-        "MAGIC_ATTACK": 12400,
-        "PHYSICAL_DEFENSE": 9300,
-        "MAGIC_DEFENSE": 9300
+        "HP": 15000,
+        "PHYSICAL_ATTACK": 3000,
+        "MAGIC_ATTACK": 3000,
+        "PHYSICAL_DEFENSE": 2250,
+        "MAGIC_DEFENSE": 2250
     },
     22: {  # 炼虚中期
-        "HP": 70000,
-        "PHYSICAL_ATTACK": 14000,
-        "MAGIC_ATTACK": 14000,
-        "PHYSICAL_DEFENSE": 10500,
-        "MAGIC_DEFENSE": 10500
+        "HP": 17200,
+        "PHYSICAL_ATTACK": 3440,
+        "MAGIC_ATTACK": 3440,
+        "PHYSICAL_DEFENSE": 2580,
+        "MAGIC_DEFENSE": 2580
     },
     23: {  # 炼虚后期
-        "HP": 78500,
-        "PHYSICAL_ATTACK": 15700,
-        "MAGIC_ATTACK": 15700,
-        "PHYSICAL_DEFENSE": 11775,
-        "MAGIC_DEFENSE": 11775
+        "HP": 19600,
+        "PHYSICAL_ATTACK": 3920,
+        "MAGIC_ATTACK": 3920,
+        "PHYSICAL_DEFENSE": 2940,
+        "MAGIC_DEFENSE": 2940
     },
     24: {  # 炼虚大圆满
-        "HP": 87500,
-        "PHYSICAL_ATTACK": 17500,
-        "MAGIC_ATTACK": 17500,
-        "PHYSICAL_DEFENSE": 13125,
-        "MAGIC_DEFENSE": 13125
+        "HP": 22200,
+        "PHYSICAL_ATTACK": 4440,
+        "MAGIC_ATTACK": 4440,
+        "PHYSICAL_DEFENSE": 3330,
+        "MAGIC_DEFENSE": 3330
     },
 
-    # 合体期 (25-28)
+    # 合体期 (25-28) - 准仙级阶段
     25: {  # 合体初期
-        "HP": 97000,
-        "PHYSICAL_ATTACK": 19400,
-        "MAGIC_ATTACK": 19400,
-        "PHYSICAL_DEFENSE": 14550,
-        "MAGIC_DEFENSE": 14550
+        "HP": 25000,
+        "PHYSICAL_ATTACK": 5000,
+        "MAGIC_ATTACK": 5000,
+        "PHYSICAL_DEFENSE": 3750,
+        "MAGIC_DEFENSE": 3750
     },
     26: {  # 合体中期
-        "HP": 107000,
-        "PHYSICAL_ATTACK": 21400,
-        "MAGIC_ATTACK": 21400,
-        "PHYSICAL_DEFENSE": 16050,
-        "MAGIC_DEFENSE": 16050
+        "HP": 28000,
+        "PHYSICAL_ATTACK": 5600,
+        "MAGIC_ATTACK": 5600,
+        "PHYSICAL_DEFENSE": 4200,
+        "MAGIC_DEFENSE": 4200
     },
     27: {  # 合体后期
-        "HP": 117500,
-        "PHYSICAL_ATTACK": 23500,
-        "MAGIC_ATTACK": 23500,
-        "PHYSICAL_DEFENSE": 17625,
-        "MAGIC_DEFENSE": 17625
+        "HP": 31200,
+        "PHYSICAL_ATTACK": 6240,
+        "MAGIC_ATTACK": 6240,
+        "PHYSICAL_DEFENSE": 4680,
+        "MAGIC_DEFENSE": 4680
     },
     28: {  # 合体大圆满
-        "HP": 128500,
-        "PHYSICAL_ATTACK": 25700,
-        "MAGIC_ATTACK": 25700,
-        "PHYSICAL_DEFENSE": 19275,
-        "MAGIC_DEFENSE": 19275
+        "HP": 34600,
+        "PHYSICAL_ATTACK": 6920,
+        "MAGIC_ATTACK": 6920,
+        "PHYSICAL_DEFENSE": 5190,
+        "MAGIC_DEFENSE": 5190
     },
 
-    # 大乘期 (29-32)
+    # 大乘期 (29-32) - 仙级前期
     29: {  # 大乘初期
-        "HP": 140000,
-        "PHYSICAL_ATTACK": 28000,
-        "MAGIC_ATTACK": 28000,
-        "PHYSICAL_DEFENSE": 21000,
-        "MAGIC_DEFENSE": 21000
+        "HP": 38200,
+        "PHYSICAL_ATTACK": 7640,
+        "MAGIC_ATTACK": 7640,
+        "PHYSICAL_DEFENSE": 5730,
+        "MAGIC_DEFENSE": 5730
     },
     30: {  # 大乘中期
-        "HP": 152000,
-        "PHYSICAL_ATTACK": 30400,
-        "MAGIC_ATTACK": 30400,
-        "PHYSICAL_DEFENSE": 22800,
-        "MAGIC_DEFENSE": 22800
+        "HP": 42000,
+        "PHYSICAL_ATTACK": 8400,
+        "MAGIC_ATTACK": 8400,
+        "PHYSICAL_DEFENSE": 6300,
+        "MAGIC_DEFENSE": 6300
     },
     31: {  # 大乘后期
-        "HP": 164500,
-        "PHYSICAL_ATTACK": 32900,
-        "MAGIC_ATTACK": 32900,
-        "PHYSICAL_DEFENSE": 24675,
-        "MAGIC_DEFENSE": 24675
+        "HP": 46000,
+        "PHYSICAL_ATTACK": 9200,
+        "MAGIC_ATTACK": 9200,
+        "PHYSICAL_DEFENSE": 6900,
+        "MAGIC_DEFENSE": 6900
     },
     32: {  # 大乘大圆满
-        "HP": 177500,
-        "PHYSICAL_ATTACK": 35500,
-        "MAGIC_ATTACK": 35500,
-        "PHYSICAL_DEFENSE": 26625,
-        "MAGIC_DEFENSE": 26625
+        "HP": 50200,
+        "PHYSICAL_ATTACK": 10040,
+        "MAGIC_ATTACK": 10040,
+        "PHYSICAL_DEFENSE": 7530,
+        "MAGIC_DEFENSE": 7530
     },
 
-    # 仙人 (33)
+    # 仙人 (33) - 最终境界
     33: {  # 仙人
-        "HP": 200000,
-        "PHYSICAL_ATTACK": 40000,
-        "MAGIC_ATTACK": 40000,
-        "PHYSICAL_DEFENSE": 30000,
-        "MAGIC_DEFENSE": 30000
+        "HP": 55000,
+        "PHYSICAL_ATTACK": 11000,
+        "MAGIC_ATTACK": 11000,
+        "PHYSICAL_DEFENSE": 8250,
+        "MAGIC_DEFENSE": 8250
     }
 }
 
 
 # 属性计算说明
-# 基础属性 = 境界基础值 + 修炼（挂机获得的体修、法修等）+ 装备加成
+# 基础属性 = 境界基础值 + 修炼（挂机获得的基础属性等）+ 装备加成
 # 不再使用等级系统，所有属性提升通过境界突破和挂机修炼获得
 
 # 物品品质
