@@ -375,19 +375,19 @@ class LuckSystem:
 
 
                 elif event_type == "天材地宝":
-                    # 随机提升一个属性
+                    # 随机提升一个属性 - 修复：添加到修习属性中而不是基础属性
                     attributes = {
-                        "hp": "生命值",
-                        "physical_attack": "物理攻击",
-                        "magic_attack": "魔法攻击",
-                        "physical_defense": "物理防御",
-                        "magic_defense": "魔法防御"
+                        "hp_training": "生命值",
+                        "physical_attack_training": "物理攻击",
+                        "magic_attack_training": "魔法攻击",
+                        "physical_defense_training": "物理防御",
+                        "magic_defense_training": "魔法防御"
                     }
                     chosen_attr = random.choice(list(attributes.keys()))
                     attr_name = attributes[chosen_attr]
-                    bonus = event_config.get("attribute_bonus", 5)
+                    bonus = event_config.get("attribute_bonus", 20)  # 使用配置中的正确值
 
-                    # 更新角色属性
+                    # 更新角色修习属性（这些字段在数据库中确实存在）
                     current_value = getattr(character, chosen_attr, 0)
                     setattr(character, chosen_attr, current_value + bonus)
 
