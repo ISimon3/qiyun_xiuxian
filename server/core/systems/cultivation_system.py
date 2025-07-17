@@ -376,7 +376,7 @@ class CultivationSystem:
 
                 # 洞府等级减少损失
                 cave_level = character.cave_level
-                if cave_level > 0 and "CAVE_UPGRADE" in CAVE_SYSTEM_CONFIG:
+                if "CAVE_UPGRADE" in CAVE_SYSTEM_CONFIG:
                     cave_benefits = CAVE_SYSTEM_CONFIG["CAVE_UPGRADE"]["LEVEL_BENEFITS"]
                     loss_reduction = cave_benefits.get(cave_level, {}).get("cultivation_loss_reduction", 0)
                     actual_loss_rate = max(0, base_loss_rate - loss_reduction)

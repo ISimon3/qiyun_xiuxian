@@ -924,13 +924,16 @@ CAVE_SYSTEM_CONFIG = {
 
     # 洞府等级解锁功能（只保留已实现的功能）
     "CAVE_LEVEL_FEATURES": {
-        1: ["突破"],
-        2: ["聚灵阵"]
+        0: ["突破"],  # 0级洞府可以突破
+        1: [],
+        2: [],
+        3: ["聚灵阵"]  # 3级洞府解锁聚灵阵
     },
 
     # 洞府升级成本（返回字典格式）
     "CAVE_UPGRADE_COSTS": {
-        2: {"spirit_stone": 1000},
+        1: {"spirit_stone": 500},   # 0级升1级
+        2: {"spirit_stone": 1000},  # 1级升2级
         3: {"spirit_stone": 2000},
         4: {"spirit_stone": 3000},
         5: {"spirit_stone": 4000},
@@ -959,7 +962,8 @@ CAVE_SYSTEM_CONFIG = {
     "CAVE_UPGRADE": {
         "MAX_LEVEL": 10,  # 最大等级
         "LEVEL_BENEFITS": {
-            # 每级减少1%修为损失，每周期获得金币
+            # 0级洞府无减免，每级减少1%修为损失，每周期获得金币
+            0: {"cultivation_loss_reduction": 0.00, "gold_per_cycle": (0, 0)},
             1: {"cultivation_loss_reduction": 0.01, "gold_per_cycle": (2, 6)},
             2: {"cultivation_loss_reduction": 0.02, "gold_per_cycle": (4, 12)},
             3: {"cultivation_loss_reduction": 0.03, "gold_per_cycle": (6, 18)},
@@ -973,7 +977,7 @@ CAVE_SYSTEM_CONFIG = {
         },
         "UPGRADE_COSTS": {
             # 升级到对应等级所需的灵石
-            2: 1000, 3: 2000, 4: 3000, 5: 4000,
+            1: 500, 2: 1000, 3: 2000, 4: 3000, 5: 4000,
             6: 5000, 7: 6000, 8: 7000, 9: 8000, 10: 9000
         }
     },
@@ -981,7 +985,7 @@ CAVE_SYSTEM_CONFIG = {
     # 聚灵阵配置
     "SPIRIT_GATHERING_ARRAY": {
         "MAX_LEVEL": 10,  # 最大等级
-        "UNLOCK_CAVE_LEVEL": 2,  # 需要2级洞府解锁
+        "UNLOCK_CAVE_LEVEL": 3,  # 需要3级洞府解锁
         "LEVEL_BENEFITS": {
             # 每级减少5%修炼间隔，每周期获得灵石
             1: {"cultivation_interval_reduction": 0.05, "spirit_stone_per_cycle": (1, 3)},

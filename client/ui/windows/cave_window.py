@@ -497,12 +497,12 @@ class CaveWindow(QDialog):
                             <div class="function-header">
                                 <div class="function-label">
                                     <span class="function-icon">🏗️</span>
-                                    <span id="caveLevelLabel">洞府: 1级</span>
+                                    <span id="caveLevelLabel">洞府: 0级</span>
                                 </div>
                                 <button class="function-button" id="caveUpgradeBtn" onclick="upgradeCave()">升级</button>
                             </div>
-                            <div class="function-status status-available" id="caveUpgradeStatus">升级费用: 1000灵石</div>
-                            <div class="function-benefit" id="caveUpgradeBenefit">下一级效益: 减少突破失败修为损失5%</div>
+                            <div class="function-status status-available" id="caveUpgradeStatus">升级费用: 500灵石</div>
+                            <div class="function-benefit" id="caveUpgradeBenefit">下一级效益: 减少突破失败修为损失1%</div>
                         </div>
 
                         <div class="function-card">
@@ -513,7 +513,7 @@ class CaveWindow(QDialog):
                                 </div>
                                 <button class="function-button" id="spiritArrayBtn" onclick="upgradeSpiritArray()">未解锁</button>
                             </div>
-                            <div class="function-status status-locked" id="spiritArrayStatus">需要2级洞府解锁</div>
+                            <div class="function-status status-locked" id="spiritArrayStatus">需要3级洞府解锁</div>
                             <div class="function-benefit" id="spiritArrayBenefit">下一级效益: 修炼速度+20%</div>
                         </div>
                     </div>
@@ -577,7 +577,7 @@ class CaveWindow(QDialog):
                 }}
 
                 function updateCaveLevel() {{
-                    const caveLevel = caveData.cave_level || 1;
+                    const caveLevel = caveData.cave_level !== undefined ? caveData.cave_level : 0;
                     const maxLevel = caveData.max_cave_level || 10;
                     const upgradeCost = caveData.cave_upgrade_cost || {{}};
 
@@ -621,8 +621,8 @@ class CaveWindow(QDialog):
                     const btnEl = document.getElementById('spiritArrayBtn');
                     const benefitEl = document.getElementById('spiritArrayBenefit');
 
-                    if (caveLevel < 2) {{
-                        statusEl.textContent = '需要2级洞府解锁';
+                    if (caveLevel < 3) {{
+                        statusEl.textContent = '需要3级洞府解锁';
                         statusEl.className = 'function-status status-locked';
                         btnEl.disabled = true;
                         btnEl.textContent = '未解锁';
@@ -936,7 +936,7 @@ class CaveWindow(QDialog):
         """升级洞府"""
         try:
             # 确认升级
-            cave_level = self.cave_data.get('cave_level', 1)
+            cave_level = self.cave_data.get('cave_level', 0)
             cost = self.cave_data.get('cave_upgrade_cost', {}).get('spirit_stone', 0)
 
             reply = QMessageBox.question(

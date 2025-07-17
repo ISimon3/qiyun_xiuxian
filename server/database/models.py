@@ -76,7 +76,7 @@ class Character(Base):
     magic_defense_training: Mapped[int] = mapped_column(Integer, default=0)
 
     # 洞府相关
-    cave_level: Mapped[int] = mapped_column(Integer, default=1)  # 洞府等级
+    cave_level: Mapped[int] = mapped_column(Integer, default=0)  # 洞府等级，默认0级
     spirit_gathering_array_level: Mapped[int] = mapped_column(Integer, default=0)  # 聚灵阵等级
 
     # 炼丹相关
