@@ -883,10 +883,17 @@ class UpperAreaWidget(QWidget):
                     const realmElement = document.getElementById('characterRealm');
                     if (realmElement) {
                         const realmNames = [
-                            '凡人', '练气初期', '练气中期', '练气后期', '练气大圆满',
+                            '凡人',
+                            '练气初期', '练气中期', '练气后期', '练气大圆满',
                             '筑基初期', '筑基中期', '筑基后期', '筑基大圆满',
                             '金丹初期', '金丹中期', '金丹后期', '金丹大圆满',
-                            '元婴初期', '元婴中期', '元婴后期', '元婴大圆满'
+                            '元婴初期', '元婴中期', '元婴后期', '元婴大圆满',
+                            '化神初期', '化神中期', '化神后期', '化神大圆满',
+                            '炼虚初期', '炼虚中期', '炼虚后期', '炼虚大圆满',
+                            '合体初期', '合体中期', '合体后期', '合体大圆满',
+                            '大乘初期', '大乘中期', '大乘后期', '大乘大圆满',
+                            '渡劫初期', '渡劫中期', '渡劫后期', '渡劫大圆满',
+                            '仙人'
                         ];
                         const realmLevel = data.cultivation_realm || 0;
                         const realmName = realmNames[realmLevel] || `未知境界(${realmLevel})`;

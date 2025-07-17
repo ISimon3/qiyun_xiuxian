@@ -348,7 +348,11 @@ class UserGameDataEditDialog(QDialog):
         # 境界
         self.realm_combo = QComboBox()
         self.realm_combo.addItems([f"{i} - {realm}" for i, realm in enumerate(CULTIVATION_REALMS)])
-        self.realm_combo.setCurrentIndex(self.game_data['cultivation_realm'])
+        current_realm = self.game_data.get('cultivation_realm', 0)
+        if 0 <= current_realm < len(CULTIVATION_REALMS):
+            self.realm_combo.setCurrentIndex(current_realm)
+        else:
+            self.realm_combo.setCurrentIndex(0)  # 默认设为凡人
         form_layout.addRow("境界:", self.realm_combo)
 
         # 灵根
@@ -867,24 +871,22 @@ class DatabaseAdminMainWindow(QMainWindow):
                 exp_item = QTableWidgetItem(str(data.get('cultivation_exp', 0)))
                 self.game_data_table.setItem(row, 2, exp_item)
 
-                # 境界 - 不可编辑（由修为决定）
-                realm_item = QTableWidgetItem(data.get('realm_name', ''))
-                realm_item.setForeground(QColor("#007acc"))
-                realm_item.setFlags(realm_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                # 境界 - 可编辑（显示境界等级数字）
+                realm_level = data.get('cultivation_realm', 0)
+                realm_item = QTableWidgetItem(str(realm_level))
+                realm_item.setToolTip(f"境界等级: {realm_level} - {data.get('realm_name', '未知境界')}")
                 self.game_data_table.setItem(row, 3, realm_item)
 
-                # 灵根 - 不可编辑
+                # 灵根 - 可编辑
                 root_item = QTableWidgetItem(data.get('spiritual_root', ''))
-                root_item.setFlags(root_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.game_data_table.setItem(row, 4, root_item)
 
-                # 气运 - 不可编辑（由系统管理）
+                # 气运 - 可编辑
                 luck_value = data.get('luck_value', 50)
-                luck_level = data.get('luck_level', '平')
-                luck_item = QTableWidgetItem(f"{luck_level} ({luck_value})")
+                luck_item = QTableWidgetItem(str(luck_value))
                 luck_color = "#28a745" if luck_value >= 70 else "#ffc107" if luck_value >= 30 else "#dc3545"
                 luck_item.setForeground(QColor(luck_color))
-                luck_item.setFlags(luck_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                luck_item.setToolTip(f"气运等级: {data.get('luck_level', '平')}")
                 self.game_data_table.setItem(row, 5, luck_item)
 
                 # 金币 - 可编辑
@@ -1191,6 +1193,9 @@ class DatabaseAdminMainWindow(QMainWindow):
         editable_columns = {
             1: 'name',                          # 用户名
             2: 'cultivation_exp',               # 修为
+            3: 'cultivation_realm',             # 境界
+            4: 'spiritual_root',                # 灵根
+            5: 'luck_value',                    # 气运值
             6: 'gold',                          # 金币
             7: 'spirit_stone',                  # 灵石
             8: 'cave_level',                    # 洞府等级
@@ -1203,19 +1208,33 @@ class DatabaseAdminMainWindow(QMainWindow):
         field_name = editable_columns[col]
         new_value = item.text()
 
-        # 数据类型转换
+        # 数据类型转换和验证
         try:
-            if field_name in ['cultivation_exp', 'gold', 'spirit_stone', 'cave_level', 'spirit_gathering_array_level']:
+            if field_name in ['cultivation_exp', 'gold', 'spirit_stone', 'cave_level', 'spirit_gathering_array_level', 'cultivation_realm', 'luck_value']:
                 # 移除逗号分隔符并转换为整数
                 new_value = int(new_value.replace(',', ''))
 
-                # 验证洞府等级和聚灵阵等级的范围
+                # 验证各字段的范围
                 if field_name == 'cave_level' and not (0 <= new_value <= 10):
                     QMessageBox.warning(self, "错误", "洞府等级必须在0-10之间")
                     self.load_game_data()
                     return
                 elif field_name == 'spirit_gathering_array_level' and not (0 <= new_value <= 10):
                     QMessageBox.warning(self, "错误", "聚灵阵等级必须在0-10之间")
+                    self.load_game_data()
+                    return
+                elif field_name == 'cultivation_realm' and not (0 <= new_value < len(CULTIVATION_REALMS)):
+                    QMessageBox.warning(self, "错误", f"境界等级必须在0-{len(CULTIVATION_REALMS)-1}之间（0=凡人，{len(CULTIVATION_REALMS)-1}=仙人）")
+                    self.load_game_data()
+                    return
+                elif field_name == 'luck_value' and not (0 <= new_value <= 100):
+                    QMessageBox.warning(self, "错误", "气运值必须在0-100之间")
+                    self.load_game_data()
+                    return
+            elif field_name == 'spiritual_root':
+                # 验证灵根类型
+                if new_value not in SPIRITUAL_ROOTS:
+                    QMessageBox.warning(self, "错误", f"无效的灵根类型: {new_value}")
                     self.load_game_data()
                     return
         except ValueError:
