@@ -342,7 +342,7 @@ class FarmWindow(QDialog):
             "• 普通土地：基础成长速度\n"
             "• 肥沃土地：+30%成长速度，+20%产量\n"
             "• 灵田：+50%成长速度，+50%产量\n\n"
-            "聚灵阵会加速作物成长！"
+            "聚灵阵会减少修炼间隔，提升修炼频率！"
         )
         description_layout.addWidget(description_text)
         

@@ -25,8 +25,8 @@ class CaveSystem:
                 features = CAVE_SYSTEM_CONFIG["CAVE_LEVEL_FEATURES"].get(level, [])
                 available_features.extend(features)
             
-            # 聚灵阵现在通过减少修炼间隔来提升效率，不再使用速度加成
-            cultivation_speed_bonus = 1.0
+            # 聚灵阵通过减少修炼间隔来提升修炼频率，不影响单次修炼效率
+            cultivation_interval_reduction = CaveSystem.get_cultivation_interval_reduction(spirit_array_level)
             
             return {
                 "success": True,
@@ -35,7 +35,7 @@ class CaveSystem:
                 "max_cave_level": CAVE_SYSTEM_CONFIG["MAX_CAVE_LEVEL"],
                 "max_spirit_array_level": CAVE_SYSTEM_CONFIG["MAX_SPIRIT_ARRAY_LEVEL"],
                 "available_features": available_features,
-                "cultivation_speed_bonus": cultivation_speed_bonus,
+                "cultivation_interval_reduction": cultivation_interval_reduction,
                 "cave_upgrade_cost": CaveSystem._get_upgrade_cost("cave", cave_level + 1),
                 "spirit_array_upgrade_cost": CaveSystem._get_upgrade_cost("spirit_array", spirit_array_level + 1),
                 # 添加角色信息

@@ -168,16 +168,16 @@ class CultivationSystem:
             if not character.cultivation_focus:
                 character.cultivation_focus = "HP"  # 默认体修
 
-            # 计算修炼速度加成（包含灵根和聚灵阵加成）
+            # 计算修炼效率加成（灵根影响修炼效率，聚灵阵影响修炼间隔）
             from server.core.systems.cave_system import CaveSystem
             from shared.constants import SPIRITUAL_ROOTS
 
-            # 灵根修炼速度加成
+            # 灵根修炼效率加成
             spiritual_root_bonus = 1.0
             if character.spiritual_root in SPIRITUAL_ROOTS:
                 spiritual_root_bonus = SPIRITUAL_ROOTS[character.spiritual_root]["multiplier"]
 
-            # 聚灵阵修炼速度加成（现在通过减少间隔实现，这里保持1.0）
+            # 聚灵阵通过减少修炼间隔来提升修炼频率，不影响单次修炼效率
             spirit_array_bonus = 1.0
 
             # 计算修炼收益 (30秒周期)

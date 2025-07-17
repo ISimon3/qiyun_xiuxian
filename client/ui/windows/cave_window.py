@@ -514,7 +514,7 @@ class CaveWindow(QDialog):
                                 <button class="function-button" id="spiritArrayBtn" onclick="upgradeSpiritArray()">未解锁</button>
                             </div>
                             <div class="function-status status-locked" id="spiritArrayStatus">需要3级洞府解锁</div>
-                            <div class="function-benefit" id="spiritArrayBenefit">下一级效益: 修炼速度+20%</div>
+                            <div class="function-benefit" id="spiritArrayBenefit">下一级效益: 减少修炼间隔5%</div>
                         </div>
                     </div>
                 </div>
@@ -963,10 +963,10 @@ class CaveWindow(QDialog):
         except Exception as e:
             print(f"❌ 洞府界面同步用户数据失败: {e}")
 
-    def get_next_spirit_bonus(self, level: int) -> float:
-        """获取下一级聚灵阵的速度加成"""
-        bonus_map = {0: 1.0, 1: 1.2, 2: 1.5, 3: 1.8, 4: 2.2, 5: 2.5}
-        return bonus_map.get(level, 1.0)
+    def get_next_spirit_interval_reduction(self, level: int) -> int:
+        """获取下一级聚灵阵的间隔减少百分比"""
+        # 每级减少5%修炼间隔
+        return level * 5
 
     def upgrade_cave(self):
         """升级洞府"""
@@ -999,13 +999,13 @@ class CaveWindow(QDialog):
             # 确认升级
             spirit_level = self.cave_data.get('spirit_gathering_array_level', 0)
             cost = self.cave_data.get('spirit_array_upgrade_cost', {}).get('spirit_stone', 0)
-            next_bonus = self.get_next_spirit_bonus(spirit_level + 1)
+            next_reduction = self.get_next_spirit_interval_reduction(spirit_level + 1)
 
             reply = QMessageBox.question(
                 self, "确认升级",
                 f"确定要将聚灵阵升级到{spirit_level + 1}级吗？\n"
                 f"需要消耗: {cost} 灵石\n"
-                f"升级后修炼速度: {next_bonus:.1f}x",
+                f"升级后减少修炼间隔: {next_reduction}%",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
 

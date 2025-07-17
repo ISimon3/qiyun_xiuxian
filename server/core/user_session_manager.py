@@ -27,6 +27,30 @@ class UserSessionManager:
         self.cultivation_interval = settings.CULTIVATION_TICK_INTERVAL
         logger.info(f"🔧 用户会话管理器初始化，修炼间隔: {self.cultivation_interval}秒")
 
+    def _get_character_cultivation_interval(self, character) -> float:
+        """获取角色的实际修炼间隔（考虑聚灵阵加成）"""
+        try:
+            from shared.constants import CAVE_SYSTEM_CONFIG
+
+            base_interval = self.cultivation_interval
+            spirit_array_level = character.spirit_gathering_array_level
+
+            # 获取聚灵阵的间隔减少效果
+            if spirit_array_level > 0 and "SPIRIT_GATHERING_ARRAY" in CAVE_SYSTEM_CONFIG:
+                array_benefits = CAVE_SYSTEM_CONFIG["SPIRIT_GATHERING_ARRAY"]["LEVEL_BENEFITS"]
+                if spirit_array_level in array_benefits:
+                    interval_reduction = array_benefits[spirit_array_level].get("cultivation_interval_reduction", 0)
+                    # 减少修炼间隔
+                    actual_interval = base_interval * (1 - interval_reduction)
+                    logger.info(f"🏠 角色聚灵阵{spirit_array_level}级，间隔减少{interval_reduction*100:.0f}%，实际间隔: {actual_interval:.1f}秒")
+                    return max(5.0, actual_interval)  # 最小间隔5秒
+
+            return base_interval
+
+        except Exception as e:
+            logger.error(f"❌ 计算修炼间隔失败: {e}")
+            return self.cultivation_interval
+
     async def user_login(self, user_id: int, character_id: int) -> Dict[str, Any]:
         """
         用户登录处理
@@ -198,10 +222,10 @@ class UserSessionManager:
     async def process_user_cultivation_cycle(self, user_id: int) -> Dict[str, Any]:
         """
         处理用户的修炼周期（手动触发或定时触发）
-        
+
         Args:
             user_id: 用户ID
-            
+
         Returns:
             修炼结果
         """
@@ -213,16 +237,26 @@ class UserSessionManager:
             character_id = session["character_id"]
             current_time = datetime.now()
 
+            # 获取角色信息以计算聚灵阵间隔
+            async with get_db_session() as db:
+                character = await CharacterCRUD.get_character_by_id(db, character_id)
+                if not character:
+                    return {"success": False, "message": "角色不存在"}
+
+                # 计算考虑聚灵阵加成的修炼间隔
+                actual_interval = self._get_character_cultivation_interval(character)
+
             # 检查是否可以进行修炼周期
             last_cultivation = session["last_cultivation_time"]
             time_diff = (current_time - last_cultivation).total_seconds()
 
-            if time_diff < self.cultivation_interval:
-                remaining_time = self.cultivation_interval - time_diff
+            if time_diff < actual_interval:
+                remaining_time = actual_interval - time_diff
                 return {
                     "success": False,
                     "message": f"修炼周期未到，还需等待 {remaining_time:.0f} 秒",
-                    "remaining_time": remaining_time
+                    "remaining_time": remaining_time,
+                    "actual_interval": actual_interval
                 }
 
             # 执行修炼周期

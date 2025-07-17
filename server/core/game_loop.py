@@ -131,10 +131,16 @@ class GameLoop:
         except Exception as e:
             logger.error(f"处理角色 {character.name} 修炼失败: {e}")
 
-    def get_character_next_cultivation_time(self, character_id: int) -> datetime:
-        """获取角色下次修炼时间"""
+    async def get_character_next_cultivation_time(self, character_id: int) -> datetime:
+        """获取角色下次修炼时间（考虑聚灵阵加成）"""
         current_time = datetime.now()
         last_cultivation = self.last_cultivation_time.get(character_id)
+
+        # 获取角色信息以计算聚灵阵加成
+        async with get_db_session() as db:
+            character = await CharacterCRUD.get_character_by_id(db, character_id)
+            if not character:
+                return current_time + timedelta(seconds=self.cultivation_interval)
 
         # 计算考虑聚灵阵加成的修炼间隔
         current_interval = self._get_character_cultivation_interval(character)
@@ -204,21 +210,7 @@ class GameLoop:
             logger.error(f"强制修炼周期失败: {e}")
             return {"success": False, "message": f"修炼失败: {str(e)}"}
 
-    def get_character_next_cultivation_time(self, character_id: int) -> datetime:
-        """
-        获取角色下次修炼时间
 
-        Args:
-            character_id: 角色ID
-
-        Returns:
-            下次修炼时间
-        """
-        last_cultivation = self.last_cultivation_time.get(character_id)
-        if last_cultivation is None:
-            return datetime.now()
-
-        return last_cultivation + timedelta(seconds=self.cultivation_interval)
 
     def _get_character_cultivation_interval(self, character) -> float:
         """获取角色的实际修炼间隔（考虑聚灵阵加成）"""

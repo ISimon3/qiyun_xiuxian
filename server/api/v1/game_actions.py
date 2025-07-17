@@ -298,19 +298,21 @@ async def get_next_cultivation_time(
         from datetime import datetime, timedelta
         current_time = datetime.now()
 
+        # 计算考虑聚灵阵加成的修炼间隔
+        actual_interval = user_session_manager._get_character_cultivation_interval(character)
+
         if session_info:
             last_cultivation_time = session_info["last_cultivation_time"]
-            cultivation_interval = user_session_manager.cultivation_interval
             time_diff = (current_time - last_cultivation_time).total_seconds()
 
-            if time_diff >= cultivation_interval:
+            if time_diff >= actual_interval:
                 # 修炼时间已到，可以立即修炼
                 remaining_seconds = 0
                 next_time = current_time
             else:
                 # 计算剩余时间
-                remaining_seconds = cultivation_interval - time_diff
-                next_time = last_cultivation_time + timedelta(seconds=cultivation_interval)
+                remaining_seconds = actual_interval - time_diff
+                next_time = last_cultivation_time + timedelta(seconds=actual_interval)
         else:
             # 用户未在线，返回默认值
             next_time = current_time + timedelta(seconds=5)  # 5秒后
@@ -326,7 +328,9 @@ async def get_next_cultivation_time(
                 "remaining_seconds": int(remaining_seconds),
                 "cultivation_focus": character.cultivation_focus or "HP",
                 "server_time": current_time.isoformat(),  # 服务器当前时间
-                "cultivation_interval": cultivation_interval,  # 修炼间隔
+                "cultivation_interval": actual_interval,  # 修炼间隔（考虑聚灵阵）
+                "base_interval": user_session_manager.cultivation_interval,  # 基础间隔
+                "spirit_array_level": character.spirit_gathering_array_level,  # 聚灵阵等级
                 "last_cultivation_time": session_info["last_cultivation_time"].isoformat() if session_info else None
             }
         )
