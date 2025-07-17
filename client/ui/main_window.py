@@ -491,7 +491,8 @@ class MainWindow(QMainWindow):
                 client_time = datetime.now()
                 time_offset = (server_time - client_time).total_seconds()
 
-
+                # 补偿网络延迟和处理时间（估算2-3秒）
+                network_delay_compensation = 2.5
 
                 # 基于服务器时间计算下次修炼时间
                 if remaining_seconds <= 0:
@@ -499,13 +500,20 @@ class MainWindow(QMainWindow):
                     cultivation_interval = data_info.get('cultivation_interval', 5)
                     next_time = client_time + timedelta(seconds=cultivation_interval) + timedelta(seconds=time_offset)
                 else:
-                    # 使用服务器返回的剩余时间，但调整时间差
-                    next_time = client_time + timedelta(seconds=remaining_seconds) + timedelta(seconds=time_offset)
+                    # 使用服务器返回的剩余时间，但调整时间差并补偿网络延迟
+                    adjusted_remaining = remaining_seconds + network_delay_compensation
+                    next_time = client_time + timedelta(seconds=adjusted_remaining) + timedelta(seconds=time_offset)
+
+                    # 调试信息
+                    print(f"🕐 修炼倒计时调试: 服务器剩余={remaining_seconds}秒, 补偿后={adjusted_remaining}秒, 时间偏移={time_offset:.1f}秒")
             else:
                 # 没有服务器时间信息，使用本地时间
+                network_delay_compensation = 2.5
                 if remaining_seconds <= 0:
                     remaining_seconds = 5
-                next_time = datetime.now() + timedelta(seconds=remaining_seconds)
+                # 补偿网络延迟
+                adjusted_remaining = remaining_seconds + network_delay_compensation
+                next_time = datetime.now() + timedelta(seconds=adjusted_remaining)
 
 
 
