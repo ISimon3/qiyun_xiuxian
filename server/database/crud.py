@@ -130,8 +130,8 @@ class CharacterCRUD:
                 return existing_character
 
             # 如果不存在，创建新角色
-            # 使用简单的默认灵根，避免复杂的随机选择
-            selected_root = "单灵根"
+            # 根据权重随机分配灵根
+            selected_root = CharacterCRUD._get_random_spiritual_root()
 
             # 生成8位随机角色ID
             import random
@@ -164,23 +164,17 @@ class CharacterCRUD:
 
     @staticmethod
     def _get_random_spiritual_root() -> str:
-        """随机选择灵根类型（根据稀有度权重）"""
+        """根据权重随机选择灵根类型"""
         from shared.constants import SPIRITUAL_ROOTS
         import random
 
-        # 随机分配灵根（根据稀有度权重）
-        spiritual_roots = list(SPIRITUAL_ROOTS.keys())
+        # 使用新的权重系统进行随机分配
+        spiritual_roots = []
         weights = []
-        for root_name in spiritual_roots:
-            root_info = SPIRITUAL_ROOTS[root_name]
-            rarity_weights = {
-                "common": 40,
-                "uncommon": 20,
-                "rare": 10,
-                "epic": 3,
-                "legendary": 1
-            }
-            weights.append(rarity_weights.get(root_info["rarity"], 10))
+
+        for root_name, root_info in SPIRITUAL_ROOTS.items():
+            spiritual_roots.append(root_name)
+            weights.append(root_info["weight"])
 
         return random.choices(spiritual_roots, weights=weights)[0]
 

@@ -74,14 +74,62 @@ CULTIVATION_EXP_REQUIREMENTS = {
 
 # 灵根类型
 SPIRITUAL_ROOTS = {
-    "废灵根": {"name": "废灵根", "multiplier": 0.5, "rarity": "common"},
-    "单灵根": {"name": "单灵根", "multiplier": 1.5, "rarity": "uncommon"},
-    "双灵根": {"name": "双灵根", "multiplier": 1.2, "rarity": "common"},
-    "三灵根": {"name": "三灵根", "multiplier": 1.0, "rarity": "common"},
-    "四灵根": {"name": "四灵根", "multiplier": 0.8, "rarity": "common"},
-    "五灵根": {"name": "五灵根", "multiplier": 0.6, "rarity": "common"},
-    "天灵根": {"name": "天灵根", "multiplier": 3.0, "rarity": "legendary"},
-    "变异灵根": {"name": "变异灵根", "multiplier": 2.0, "rarity": "epic"}
+    "天灵根": {
+        "name": "天灵根",
+        "multiplier": 2.0,  # 2.0倍修炼速度
+        "breakthrough_bonus": 0.15,  # +15%突破成功率
+        "rarity": "legendary",
+        "weight": 1  # 权重1（最稀有）
+    },
+    "变异灵根": {
+        "name": "变异灵根",
+        "multiplier": 1.5,  # 1.5倍修炼速度
+        "breakthrough_bonus": 0.10,  # +10%突破成功率
+        "rarity": "epic",
+        "weight": 3  # 权重3
+    },
+    "单灵根": {
+        "name": "单灵根",
+        "multiplier": 1.2,  # 1.2倍修炼速度
+        "breakthrough_bonus": 0.05,  # +5%突破成功率
+        "rarity": "excellent",
+        "weight": 20  # 权重20
+    },
+    "双灵根": {
+        "name": "双灵根",
+        "multiplier": 1.1,  # 1.1倍修炼速度
+        "breakthrough_bonus": 0.0,  # 无突破加成
+        "rarity": "common",
+        "weight": 40  # 权重40
+    },
+    "三灵根": {
+        "name": "三灵根",
+        "multiplier": 1.0,  # 1.0倍修炼速度（基准）
+        "breakthrough_bonus": 0.0,  # 无突破加成
+        "rarity": "common",
+        "weight": 40  # 权重40
+    },
+    "四灵根": {
+        "name": "四灵根",
+        "multiplier": 0.9,  # 0.9倍修炼速度
+        "breakthrough_bonus": 0.0,  # 无突破加成
+        "rarity": "common",
+        "weight": 40  # 权重40
+    },
+    "五灵根": {
+        "name": "五灵根",
+        "multiplier": 0.8,  # 0.8倍修炼速度
+        "breakthrough_bonus": 0.0,  # 无突破加成
+        "rarity": "common",
+        "weight": 40  # 权重40
+    },
+    "废灵根": {
+        "name": "废灵根",
+        "multiplier": 0.7,  # 0.7倍修炼速度
+        "breakthrough_bonus": 0.0,  # 无突破加成
+        "rarity": "common",
+        "weight": 40  # 权重40
+    }
 }
 
 # 气运等级

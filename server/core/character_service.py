@@ -139,16 +139,8 @@ class CharacterService:
 
         if character.spiritual_root in SPIRITUAL_ROOTS:
             root_info = SPIRITUAL_ROOTS[character.spiritual_root]
-            # 灵根对突破成功率的影响：修炼倍率越高，突破加成越大
-            # 天灵根(3.0x) -> 20%加成, 变异灵根(2.0x) -> 10%加成, 单灵根(1.5x) -> 5%加成
-            multiplier = root_info["multiplier"]
-            if multiplier >= 3.0:  # 天灵根
-                spiritual_root_bonus = 0.2
-            elif multiplier >= 2.0:  # 变异灵根
-                spiritual_root_bonus = 0.1
-            elif multiplier >= 1.5:  # 单灵根
-                spiritual_root_bonus = 0.05
-            # 其他灵根无突破加成
+            # 直接使用灵根配置中的突破加成
+            spiritual_root_bonus = root_info.get("breakthrough_bonus", 0.0)
 
         # TODO: 物品加成
         item_bonus = 0.0

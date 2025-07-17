@@ -104,27 +104,18 @@ class CharacterInitService:
     
     @staticmethod
     def get_random_spiritual_root() -> str:
-        """随机生成灵根类型（用于角色创建时的建议）"""
+        """根据权重随机生成灵根类型"""
         from shared.constants import SPIRITUAL_ROOTS
 
-        # 根据稀有度设置权重
+        # 使用新的权重系统进行随机分配
+        spiritual_roots = []
         weights = []
-        roots = []
 
         for root_name, root_info in SPIRITUAL_ROOTS.items():
-            roots.append(root_name)
+            spiritual_roots.append(root_name)
+            weights.append(root_info["weight"])
 
-            # 根据稀有度设置权重
-            rarity_weights = {
-                "common": 40,
-                "uncommon": 20,
-                "rare": 10,
-                "epic": 3,
-                "legendary": 1
-            }
-            weights.append(rarity_weights.get(root_info["rarity"], 10))
-
-        return random.choices(roots, weights=weights)[0]
+        return random.choices(spiritual_roots, weights=weights)[0]
     
     @staticmethod
     async def validate_character_creation(
@@ -175,12 +166,15 @@ class CharacterInitService:
 
         return {
             "spiritual_roots": root_info,
-            "default_root": "单灵根",  # 新用户默认灵根
             "info": [
-                "系统会为新用户自动分配单灵根",
-                "天灵根和变异灵根极其稀有，修炼速度最快",
-                "单灵根比较稀有，修炼速度较快",
-                "双灵根和三灵根比较常见，修炼速度适中",
-                "废灵根修炼速度最慢，但也有逆天改命的可能"
+                "系统会为新用户注册时自动随机分配灵根",
+                "天灵根：2.0倍修炼速度，+15%突破成功率（传说级，权重1）",
+                "变异灵根：1.5倍修炼速度，+10%突破成功率（史诗级，权重3）",
+                "单灵根：1.2倍修炼速度，+5%突破成功率（优秀级，权重20）",
+                "双灵根：1.1倍修炼速度（普通级，权重40）",
+                "三灵根：1.0倍修炼速度，基准（普通级，权重40）",
+                "四灵根：0.9倍修炼速度（普通级，权重40）",
+                "五灵根：0.8倍修炼速度（普通级，权重40）",
+                "废灵根：0.7倍修炼速度（普通级，权重40）"
             ]
         }
