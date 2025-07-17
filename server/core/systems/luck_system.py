@@ -56,10 +56,14 @@ class LuckSystem:
             new_luck = generate_daily_luck()
             old_luck = character.luck_value
 
-            # 更新角色气运值、最后活跃时间和签到日期（使用服务器时区）
+            # 生成签到奖励（灵石）
+            spirit_stone_reward = random.randint(50, 200)
+
+            # 更新角色气运值、最后活跃时间、签到日期和灵石（使用服务器时区）
             character.luck_value = new_luck
             character.last_active = now
             character.last_sign_date = now
+            character.spirit_stone += spirit_stone_reward
 
             # 记录日志
             luck_change = new_luck - old_luck
@@ -69,12 +73,13 @@ class LuckSystem:
                 db,
                 character.id,
                 "DAILY_SIGN",
-                f"每日签到完成，今日气运：{luck_level}",
+                f"每日签到完成，今日气运：{luck_level}，获得灵石：{spirit_stone_reward}",
                 {
                     "old_luck": old_luck,
                     "new_luck": new_luck,
                     "luck_change": luck_change,
-                    "luck_level": luck_level
+                    "luck_level": luck_level,
+                    "spirit_stone_reward": spirit_stone_reward
                 }
             )
 
@@ -82,12 +87,15 @@ class LuckSystem:
 
             return {
                 "success": True,
-                "message": f"签到成功！今日气运：{luck_level}",
+                "message": f"签到成功！今日气运：{luck_level}，获得灵石：{spirit_stone_reward}",
                 "old_luck": old_luck,
                 "new_luck": new_luck,
                 "luck_change": luck_change,
                 "luck_level": luck_level,
-                "luck_color": LUCK_LEVELS[luck_level]["color"]
+                "luck_color": LUCK_LEVELS[luck_level]["color"],
+                "reward": {
+                    "spirit_stone": spirit_stone_reward
+                }
             }
 
         except Exception as e:

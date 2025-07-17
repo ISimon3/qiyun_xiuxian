@@ -228,6 +228,15 @@ class GameAPI:
         """
         return self.client.post('/api/v1/game/daily-sign')
 
+    def get_sign_info(self) -> Dict[str, Any]:
+        """
+        获取签到信息
+
+        Returns:
+            签到信息
+        """
+        return self.client.get('/api/v1/game/sign-info')
+
     def use_luck_item(self, item_id: int, quantity: int = 1) -> Dict[str, Any]:
         """
         使用气运道具

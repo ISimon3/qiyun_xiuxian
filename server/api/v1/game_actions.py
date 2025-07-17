@@ -56,6 +56,64 @@ async def daily_sign_in(
         )
 
 
+@router.get("/sign-info", response_model=BaseResponse, summary="获取签到信息")
+async def get_sign_info(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    获取签到信息，包括签到状态和历史记录
+    """
+    try:
+        # 获取角色
+        character = await CharacterCRUD.get_or_create_character(db, current_user.id, current_user.username)
+
+        # 检查今日是否可以签到
+        from server.config import get_server_today, convert_to_server_time
+
+        today = get_server_today()
+
+        # 检查最后签到日期
+        last_sign_date = None
+        can_sign = True
+        already_signed = False
+
+        if character.last_sign_date:
+            last_sign_datetime = convert_to_server_time(character.last_sign_date)
+            last_sign_date = last_sign_datetime.date()
+
+            # 如果今天已经签到过，则不能再次签到
+            if last_sign_date == today:
+                can_sign = False
+                already_signed = True
+
+        # 获取本月签到记录（简化版，只返回已签到的日期）
+        signed_dates = []
+        if character.last_sign_date:
+            # 这里可以扩展为查询数据库获取完整的签到历史
+            # 目前简化为只包含最后签到日期
+            signed_dates.append(last_sign_date.strftime("%Y-%m-%d"))
+
+        return BaseResponse(
+            success=True,
+            message="获取签到信息成功",
+            data={
+                "can_sign": can_sign,
+                "already_signed": already_signed,
+                "last_sign_date": last_sign_date.strftime("%Y-%m-%d") if last_sign_date else None,
+                "signed_dates": signed_dates,
+                "current_luck": character.luck_value,
+                "luck_level": get_luck_level_name(character.luck_value)
+            }
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取签到信息失败: {str(e)}"
+        )
+
+
 @router.post("/use-luck-item", response_model=BaseResponse, summary="使用气运道具")
 async def use_luck_item(
     request: UseLuckItemRequest,

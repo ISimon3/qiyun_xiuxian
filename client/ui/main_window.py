@@ -411,26 +411,8 @@ class MainWindow(QMainWindow):
             pass  # 聊天信号连接失败
 
     def on_daily_sign_requested(self):
-        """处理每日签到请求"""
-        try:
-            response = self.api_client.game.daily_sign_in()
-            if response.get('success'):
-                data = response['data']
-                message = data.get('message', '签到成功')
-                QMessageBox.information(self, "签到成功", message)
-                # 异步刷新数据
-                self.load_initial_data()
-            else:
-                error_msg = response.get('message', '签到失败')
-                QMessageBox.warning(self, "签到失败", error_msg)
-        except APIException as e:
-            if "401" in str(e):
-                QMessageBox.warning(self, "认证失败", "登录状态已过期，请重新登录")
-                self.state_manager.logout()  # 触发登出，会自动关闭窗口
-            else:
-                QMessageBox.warning(self, "签到失败", str(e))
-        except Exception as e:
-            QMessageBox.critical(self, "错误", f"签到时发生错误: {str(e)}")
+        """处理每日签到请求 - 打开签到窗口"""
+        self.show_daily_sign_window()
 
     def on_cultivation_focus_changed(self, focus_type: str):
         """处理修炼方向变更（异步版本）"""
@@ -961,7 +943,14 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "错误", f"打开商城窗口失败: {str(e)}")
 
-
+    def show_daily_sign_window(self):
+        """显示每日签到窗口"""
+        try:
+            from client.ui.windows.daily_sign_window import DailySignWindow
+            sign_window = DailySignWindow(self.api_client, self)
+            sign_window.exec()
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"打开每日签到窗口失败: {str(e)}")
 
     def start_auto_cultivation(self):
         """启动自动修炼（异步版本）"""
