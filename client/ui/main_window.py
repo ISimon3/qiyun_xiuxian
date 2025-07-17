@@ -947,9 +947,31 @@ class MainWindow(QMainWindow):
         """显示每日签到窗口"""
         try:
             from client.ui.windows.daily_sign_window import DailySignWindow
-            sign_window = DailySignWindow(self.api_client, self)
-            sign_window.exec()
+
+            # 检查是否已经打开了签到窗口
+            if hasattr(self, 'sign_window') and self.sign_window and not self.sign_window.isHidden():
+                # 如果已经打开，就将其置于前台
+                self.sign_window.raise_()
+                self.sign_window.activateWindow()
+                return
+
+            # 创建新的签到窗口
+            print("🔄 正在创建签到窗口...")
+            self.sign_window = DailySignWindow(self.api_client, self)
+
+            # 连接窗口关闭信号，确保引用被清理
+            def on_sign_window_closed():
+                self.sign_window = None
+                print("✅ 签到窗口已关闭")
+
+            self.sign_window.finished.connect(on_sign_window_closed)
+            self.sign_window.show()  # 使用show()而不是exec()，实现非模态
+            print("✅ 签到窗口已显示")
+
         except Exception as e:
+            print(f"❌ 打开签到窗口失败: {e}")
+            import traceback
+            traceback.print_exc()
             QMessageBox.critical(self, "错误", f"打开每日签到窗口失败: {str(e)}")
 
     def start_auto_cultivation(self):

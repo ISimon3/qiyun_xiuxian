@@ -45,10 +45,7 @@ class DailySignWidget(QWidget):
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(15, 15, 15, 15)
 
-        # 标题栏
-        self.create_title_bar(main_layout)
-
-        # 日历显示区域
+        # 日历显示区域（移除标题栏）
         if WEBENGINE_AVAILABLE:
             self.create_html_calendar(main_layout)
         else:
@@ -356,26 +353,26 @@ class DailySignWidget(QWidget):
 
             <script>
                 // 生成日历
-                function generateCalendar(year, month, signedDates = []) {{
+                function generateCalendar(year, month, signedDates = []) {
                     const grid = document.getElementById('calendarGrid');
                     const header = document.getElementById('calendarHeader');
 
                     // 更新标题
                     const monthNames = ['一月', '二月', '三月', '四月', '五月', '六月',
                                       '七月', '八月', '九月', '十月', '十一月', '十二月'];
-                    header.textContent = `${{year}}年 ${{monthNames[month - 1]}}`;
+                    header.textContent = `${year}年 ${monthNames[month - 1]}`;
 
                     // 清空网格
                     grid.innerHTML = '';
 
                     // 添加星期标题
                     const dayHeaders = ['日', '一', '二', '三', '四', '五', '六'];
-                    dayHeaders.forEach(day => {{
+                    dayHeaders.forEach(day => {
                         const dayHeader = document.createElement('div');
                         dayHeader.className = 'calendar-day-header';
                         dayHeader.textContent = day;
                         grid.appendChild(dayHeader);
-                    }});
+                    });
 
                     // 获取当月第一天和最后一天
                     const firstDay = new Date(year, month - 1, 1);
@@ -393,67 +390,67 @@ class DailySignWidget(QWidget):
                     const prevYear = month === 1 ? year - 1 : year;
                     const prevMonthLastDay = new Date(prevYear, prevMonth, 0).getDate();
 
-                    for (let i = startDayOfWeek - 1; i >= 0; i--) {{
+                    for (let i = startDayOfWeek - 1; i >= 0; i--) {
                         const dayElement = document.createElement('div');
                         dayElement.className = 'calendar-day other-month';
                         dayElement.textContent = prevMonthLastDay - i;
                         grid.appendChild(dayElement);
-                    }}
+                    }
 
                     // 添加当月的日期
-                    for (let day = 1; day <= daysInMonth; day++) {{
+                    for (let day = 1; day <= daysInMonth; day++) {
                         const dayElement = document.createElement('div');
                         dayElement.className = 'calendar-day';
                         dayElement.textContent = day;
 
                         // 检查是否是今天
-                        if (isCurrentMonth && day === todayDate) {{
+                        if (isCurrentMonth && day === todayDate) {
                             dayElement.classList.add('today');
-                        }}
+                        }
 
                         // 检查是否已签到
-                        const dateStr = `${{year}}-${{month.toString().padStart(2, '0')}}-${{day.toString().padStart(2, '0')}}`;
-                        if (signedDates.includes(dateStr)) {{
+                        const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+                        if (signedDates.includes(dateStr)) {
                             dayElement.classList.add('signed');
-                        }}
+                        }
 
                         grid.appendChild(dayElement);
-                    }}
+                    }
 
                     // 填充下个月的日期
                     const totalCells = grid.children.length;
                     const remainingCells = 42 - totalCells + 7; // 6行 * 7列 - 已有单元格 + 星期标题
 
-                    for (let day = 1; day <= remainingCells; day++) {{
+                    for (let day = 1; day <= remainingCells; day++) {
                         const dayElement = document.createElement('div');
                         dayElement.className = 'calendar-day other-month';
                         dayElement.textContent = day;
                         grid.appendChild(dayElement);
-                    }}
-                }}
+                    }
+                }
 
                 // 更新签到状态
-                function updateSignStatus(canSign, alreadySigned) {{
+                function updateSignStatus(canSign, alreadySigned) {
                     const statusElement = document.getElementById('signStatus');
 
-                    if (alreadySigned) {{
+                    if (alreadySigned) {
                         statusElement.className = 'sign-status already-signed';
                         statusElement.innerHTML = '<div>✅ 今日已签到，明天再来吧！</div>';
-                    }} else if (canSign) {{
+                    } else if (canSign) {
                         statusElement.className = 'sign-status can-sign';
                         statusElement.innerHTML = '<div>🎁 今日尚未签到，快来领取奖励吧！</div>';
-                    }} else {{
+                    } else {
                         statusElement.className = 'sign-status';
                         statusElement.innerHTML = '<div>📅 点击上方按钮进行签到</div>';
-                    }}
-                }}
+                    }
+                }
 
                 // 页面加载完成后初始化
-                document.addEventListener('DOMContentLoaded', function() {{
-                    const now = new Date();
-                    generateCalendar(now.getFullYear(), now.getMonth() + 1, []);
+                document.addEventListener('DOMContentLoaded', function() {
+                    var currentDate = new Date();
+                    generateCalendar(currentDate.getFullYear(), currentDate.getMonth() + 1, []);
                     updateSignStatus(true, false);
-                }});
+                });
             </script>
         </body>
         </html>
@@ -462,10 +459,9 @@ class DailySignWidget(QWidget):
         # 格式化当前月份年份
         current_date = datetime.now()
         month_year = f"{current_date.year}年 {current_date.month}月"
-        
-        formatted_html = html_template.format(
-            current_month_year=month_year
-        )
+
+        # 使用字符串替换而不是format()方法，避免大括号冲突
+        formatted_html = html_template.replace("{current_month_year}", month_year)
 
         if hasattr(self.calendar_display, 'setHtml'):
             self.calendar_display.setHtml(formatted_html)
@@ -501,8 +497,8 @@ class DailySignWidget(QWidget):
         
         # 更新日历
         js_code = f"""
-        const now = new Date();
-        generateCalendar(now.getFullYear(), now.getMonth() + 1, {signed_dates});
+        var updateDate = new Date();
+        generateCalendar(updateDate.getFullYear(), updateDate.getMonth() + 1, {signed_dates});
         updateSignStatus({str(can_sign).lower()}, {str(already_signed).lower()});
         """
         
@@ -511,12 +507,15 @@ class DailySignWidget(QWidget):
     def show_sign_result(self, result: Dict[str, Any]):
         """显示签到结果"""
         if result.get('success'):
+            print(f"🔍 签到结果调试: {result}")
             reward = result.get('reward', {})
+            print(f"🔍 奖励数据: {reward}")
             spirit_stone = reward.get('spirit_stone', 0)
-            
+            print(f"🔍 灵石数量: {spirit_stone}")
+
             QMessageBox.information(
-                self, 
-                "签到成功", 
+                self,
+                "签到成功",
                 f"🎉 签到成功！\n💎 获得灵石：{spirit_stone}"
             )
             

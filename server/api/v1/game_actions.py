@@ -4,6 +4,7 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 
@@ -87,12 +88,42 @@ async def get_sign_info(
                 can_sign = False
                 already_signed = True
 
-        # 获取本月签到记录（简化版，只返回已签到的日期）
+        # 获取本月签到记录（从游戏日志中查询）
         signed_dates = []
-        if character.last_sign_date:
-            # 这里可以扩展为查询数据库获取完整的签到历史
-            # 目前简化为只包含最后签到日期
-            signed_dates.append(last_sign_date.strftime("%Y-%m-%d"))
+        try:
+            from datetime import date
+            from sqlalchemy import and_, extract
+            from server.database.models import GameLog
+
+            # 获取当前月份的所有签到记录
+            current_month = today.month
+            current_year = today.year
+
+            sign_logs = await db.execute(
+                select(GameLog.created_at)
+                .where(
+                    and_(
+                        GameLog.character_id == character.id,
+                        GameLog.event_type == "DAILY_SIGN",
+                        extract('year', GameLog.created_at) == current_year,
+                        extract('month', GameLog.created_at) == current_month
+                    )
+                )
+                .order_by(GameLog.created_at.desc())
+            )
+
+            # 转换为日期字符串列表
+            for log in sign_logs.scalars():
+                sign_date = convert_to_server_time(log).date()
+                date_str = sign_date.strftime("%Y-%m-%d")
+                if date_str not in signed_dates:
+                    signed_dates.append(date_str)
+
+        except Exception as e:
+            print(f"⚠️ 获取签到历史失败: {e}")
+            # 如果查询失败，至少返回最后签到日期
+            if character.last_sign_date:
+                signed_dates.append(last_sign_date.strftime("%Y-%m-%d"))
 
         return BaseResponse(
             success=True,

@@ -570,6 +570,7 @@ class DailySignInResult(BaseModel):
     luck_change: Optional[int] = None
     luck_level: str
     luck_color: Optional[str] = None
+    reward: Optional[Dict[str, Any]] = None  # 添加奖励字段
 
 
 class UseLuckItemRequest(BaseModel):
