@@ -870,6 +870,51 @@ ALCHEMY_MATERIALS = {
 
 # 洞府系统配置
 CAVE_SYSTEM_CONFIG = {
+    # 基础配置
+    "MAX_CAVE_LEVEL": 10,  # 最大洞府等级
+    "MAX_SPIRIT_ARRAY_LEVEL": 10,  # 最大聚灵阵等级
+
+    # 洞府等级解锁功能（简化版本，只显示基本功能）
+    "CAVE_LEVEL_FEATURES": {
+        1: ["基础修炼"],
+        2: ["聚灵阵"],
+        3: ["高级修炼"],
+        4: ["修炼加速"],
+        5: ["灵气聚集"],
+        6: ["修为稳固"],
+        7: ["境界感悟"],
+        8: ["天地共鸣"],
+        9: ["道法自然"],
+        10: ["天人合一"]
+    },
+
+    # 洞府升级成本（返回字典格式）
+    "CAVE_UPGRADE_COSTS": {
+        2: {"spirit_stone": 1000},
+        3: {"spirit_stone": 2000},
+        4: {"spirit_stone": 3000},
+        5: {"spirit_stone": 4000},
+        6: {"spirit_stone": 5000},
+        7: {"spirit_stone": 6000},
+        8: {"spirit_stone": 7000},
+        9: {"spirit_stone": 8000},
+        10: {"spirit_stone": 9000}
+    },
+
+    # 聚灵阵升级成本（返回字典格式）
+    "SPIRIT_ARRAY_UPGRADE_COSTS": {
+        1: {"spirit_stone": 500},
+        2: {"spirit_stone": 1000},
+        3: {"spirit_stone": 1500},
+        4: {"spirit_stone": 2000},
+        5: {"spirit_stone": 2500},
+        6: {"spirit_stone": 3000},
+        7: {"spirit_stone": 3500},
+        8: {"spirit_stone": 4000},
+        9: {"spirit_stone": 4500},
+        10: {"spirit_stone": 5000}
+    },
+
     # 洞府升级配置
     "CAVE_UPGRADE": {
         "MAX_LEVEL": 10,  # 最大等级
