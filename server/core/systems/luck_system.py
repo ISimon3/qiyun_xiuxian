@@ -269,7 +269,7 @@ class LuckSystem:
             最终成功率
         """
         # 气运影响突破成功率
-        luck_bonus = (luck_value - 50) * 0.01  # 每点气运影响1%成功率
+        luck_bonus = (luck_value - 50) * 0.005  # 每点气运影响0.5%成功率
 
         # 极端气运的额外影响
         if luck_value >= 90:  # 极好气运

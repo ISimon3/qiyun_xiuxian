@@ -118,7 +118,7 @@ async def get_luck_info(
         cultivation_effect = LuckSystem.calculate_luck_effect_on_cultivation(character.luck_value)
 
         # 获取突破加成
-        breakthrough_bonus = (character.luck_value - 50) * 0.01
+        breakthrough_bonus = (character.luck_value - 50) * 0.005
 
         # 获取掉落影响
         drop_effects = LuckSystem.calculate_luck_effect_on_drops(character.luck_value)

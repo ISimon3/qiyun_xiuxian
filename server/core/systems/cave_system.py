@@ -38,6 +38,9 @@ class CaveSystem:
                 "cultivation_speed_bonus": cultivation_speed_bonus,
                 "cave_upgrade_cost": CaveSystem._get_upgrade_cost("cave", cave_level + 1),
                 "spirit_array_upgrade_cost": CaveSystem._get_upgrade_cost("spirit_array", spirit_array_level + 1),
+                # 添加角色信息
+                "cultivation_realm": character.cultivation_realm,
+                "spiritual_root": character.spiritual_root,
             }
             
         except Exception as e:

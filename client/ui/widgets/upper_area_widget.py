@@ -242,6 +242,12 @@ class UpperAreaWidget(QWidget):
                     color: #e74c3c;
                 }
 
+                .character-spiritual-root {
+                    font-size: 12px;
+                    font-weight: bold;
+                    color: #8B4513;
+                }
+
                 .sign-icon {
                     font-size: 24px;
                     cursor: pointer;
@@ -550,6 +556,9 @@ class UpperAreaWidget(QWidget):
                             <div>
                                 <span class="character-realm" id="characterRealm">境界：筑基期</span>
                             </div>
+                            <div>
+                                <span class="character-spiritual-root" id="characterSpiritualRoot">灵根：单灵根</span>
+                            </div>
                         </div>
                         <div class="sign-icon" id="signIcon" onclick="handleDailySign()" title="每日签到">
                             {check_icon_img}
@@ -609,7 +618,7 @@ class UpperAreaWidget(QWidget):
                         <span>灵石: </span>
                         <span class="resource-value" id="spiritStoneValue">xxx</span>
                     </div>
-                    <div class="resource-item">
+                    <div class="resource-item" id="luckResourceItem" style="display: none;">
                         <span class="resource-icon">{cultivation_focus_icon_img}</span>
                         <span>今日气运: </span>
                         <span class="resource-value" id="luckValue">xxx</span>
@@ -884,6 +893,25 @@ class UpperAreaWidget(QWidget):
                         realmElement.textContent = `境界：${realmName}`;
                     }
 
+                    // 更新灵根信息
+                    const spiritualRootElement = document.getElementById('characterSpiritualRoot');
+                    if (spiritualRootElement) {
+                        const spiritualRoot = data.spiritual_root || '单灵根';
+                        // 根据灵根类型设置颜色
+                        const rootColors = {
+                            '天灵根': '#FFD700',
+                            '变异灵根': '#8A2BE2',
+                            '单灵根': '#32CD32',
+                            '双灵根': '#4169E1',
+                            '三灵根': '#808080',
+                            '四灵根': '#A0522D',
+                            '五灵根': '#696969',
+                            '废灵根': '#8B4513'
+                        };
+                        const rootColor = rootColors[spiritualRoot] || '#8B4513';
+                        spiritualRootElement.innerHTML = `灵根：<span style="color: ${rootColor};">${spiritualRoot}</span>`;
+                    }
+
                     // 更新资源信息
                     const goldElement = document.getElementById('goldValue');
                     if (goldElement) {
@@ -895,12 +923,22 @@ class UpperAreaWidget(QWidget):
                         spiritStoneElement.textContent = (data.spirit_stone || 0).toString();
                     }
 
+                    // 更新气运信息（只有签到后才显示）
                     const luckElement = document.getElementById('luckValue');
-                    if (luckElement) {
-                        const luckValue = data.luck_value || 50;
-                        const luckLevel = getLuckLevelName(luckValue);
-                        const luckColor = getLuckColor(luckValue);
-                        luckElement.innerHTML = `<span style="color: ${luckColor}; font-weight: bold;">${luckLevel}</span>`;
+                    const luckResourceItem = document.getElementById('luckResourceItem');
+                    if (luckElement && luckResourceItem) {
+                        // 检查是否已签到（通过luck_info数据判断）
+                        if (data.luck_info && data.luck_info.can_sign_today === false) {
+                            // 已签到，显示气运信息
+                            const luckValue = data.luck_value || 50;
+                            const luckLevel = getLuckLevelName(luckValue);
+                            const luckColor = getLuckColor(luckValue);
+                            luckElement.innerHTML = `<span style="color: ${luckColor}; font-weight: bold;">${luckLevel}</span>`;
+                            luckResourceItem.style.display = 'flex';
+                        } else {
+                            // 未签到，隐藏气运信息
+                            luckResourceItem.style.display = 'none';
+                        }
                     }
 
                     // 更新修为进度条
@@ -1372,9 +1410,12 @@ class UpperAreaWidget(QWidget):
         """更新气运信息"""
         self.luck_info = luck_data
 
-        # 如果有角色数据，重新更新显示
+        # 如果有角色数据，将气运信息合并到角色数据中并重新更新显示
         if self.character_data:
-            self.update_character_info(self.character_data)
+            # 将气运信息合并到角色数据中
+            updated_character_data = self.character_data.copy()
+            updated_character_data['luck_info'] = luck_data
+            self.update_character_info(updated_character_data)
     def update_channel_button(self, icon: str, tooltip: str):
         """更新频道按钮"""
         if not WEBENGINE_AVAILABLE or not hasattr(self, 'html_display'):

@@ -176,12 +176,32 @@ class CaveWindow(QDialog):
                     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
                 }}
 
+                .cave-title-row {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    width: 100%;
+                }}
+
                 .cave-title {{
                     font-size: 24px;
                     font-weight: bold;
                     color: #ffffff;
                     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
                     letter-spacing: 2px;
+                }}
+
+                .character-info {{
+                    display: flex;
+                    gap: 15px;
+                    font-size: 12px;
+                    color: #ffffff;
+                    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+                }}
+
+                .character-info span {{
+                    font-size: 12px;
+                    font-weight: bold;
                 }}
 
                 .cave-main {{
@@ -440,7 +460,13 @@ class CaveWindow(QDialog):
         <body>
             <div class="cave-container">
                 <div class="cave-header">
-                    <div class="cave-title">洞府</div>
+                    <div class="cave-title-row">
+                        <div class="cave-title">洞府</div>
+                        <div class="character-info">
+                            <span id="characterRealm">境界：练气初期</span>
+                            <span id="characterSpiritualRoot">灵根：单灵根</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="cave-main">
@@ -499,6 +525,9 @@ class CaveWindow(QDialog):
                 function updateCaveInfo(data) {{
                     caveData = data;
 
+                    // 更新角色信息
+                    updateCharacterInfo();
+
                     // 更新洞府等级显示
                     updateCaveLevel();
 
@@ -507,6 +536,41 @@ class CaveWindow(QDialog):
 
                     // 更新修为进度条
                     updateCultivationProgress();
+                }}
+
+                function updateCharacterInfo() {{
+                    // 更新境界信息
+                    const realmElement = document.getElementById('characterRealm');
+                    if (realmElement) {{
+                        const realmNames = [
+                            '凡人', '练气初期', '练气中期', '练气后期', '练气大圆满',
+                            '筑基初期', '筑基中期', '筑基后期', '筑基大圆满',
+                            '金丹初期', '金丹中期', '金丹后期', '金丹大圆满',
+                            '元婴初期', '元婴中期', '元婴后期', '元婴大圆满'
+                        ];
+                        const realmLevel = caveData.cultivation_realm || 0;
+                        const realmName = realmNames[realmLevel] || `未知境界(${{realmLevel}})`;
+                        realmElement.textContent = `境界：${{realmName}}`;
+                    }}
+
+                    // 更新灵根信息
+                    const spiritualRootElement = document.getElementById('characterSpiritualRoot');
+                    if (spiritualRootElement) {{
+                        const spiritualRoot = caveData.spiritual_root || '单灵根';
+                        // 根据灵根类型设置颜色
+                        const rootColors = {{
+                            '天灵根': '#FFD700',
+                            '变异灵根': '#8A2BE2',
+                            '单灵根': '#32CD32',
+                            '双灵根': '#4169E1',
+                            '三灵根': '#C0C0C0',
+                            '四灵根': '#A0522D',
+                            '五灵根': '#696969',
+                            '废灵根': '#8B4513'
+                        }};
+                        const rootColor = rootColors[spiritualRoot] || '#FFFFFF';
+                        spiritualRootElement.innerHTML = `灵根：<span style="color: ${{rootColor}}; font-weight: bold;">${{spiritualRoot}}</span>`;
+                    }}
                 }}
 
                 function updateCaveLevel() {{
@@ -881,7 +945,7 @@ class CaveWindow(QDialog):
             reply = QMessageBox.question(
                 self, "境界突破",
                 f"当前境界: {current_realm}\n"
-                f"突破成功率: {breakthrough_rate:.1f}%\n\n"
+                f"突破成功率: {breakthrough_rate * 100:.1f}%\n\n"
                 f"是否尝试突破到下一境界？\n"
                 f"注意：突破失败可能会损失部分修为。",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No

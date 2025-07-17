@@ -131,7 +131,7 @@ class CharacterService:
         realm_penalty = target_realm * realm_difficulty_reduction
 
         # 气运影响
-        luck_bonus = (character.luck_value - 50) * 0.01  # 气运每点影响1%
+        luck_bonus = (character.luck_value - 50) * 0.005  # 气运每点影响0.5%
 
         # 灵根影响 - 使用constants中定义的灵根系统
         from shared.constants import SPIRITUAL_ROOTS
