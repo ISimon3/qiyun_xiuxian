@@ -139,6 +139,8 @@ class DatabaseWorker(QThread):
                             'luck_level': get_luck_level_name(char.luck_value or 50),
                             'gold': char.gold or 0,
                             'spirit_stone': char.spirit_stone or 0,
+                            'cave_level': char.cave_level or 0,
+                            'spirit_gathering_array_level': char.spirit_gathering_array_level or 0,
                             'created_at': char.created_at.strftime('%Y-%m-%d %H:%M:%S') if char.created_at else '',
                             'updated_at': char.updated_at.strftime('%Y-%m-%d %H:%M:%S') if char.updated_at else '',
                             'last_active': char.last_active.strftime('%Y-%m-%d %H:%M:%S') if char.last_active else '从未活跃',
@@ -336,7 +338,7 @@ class UserGameDataEditDialog(QDialog):
         # 用户名
         self.name_edit = QLineEdit(self.game_data['name'])
         form_layout.addRow("用户名:", self.name_edit)
-        
+
         # 修为
         self.exp_spinbox = QSpinBox()
         self.exp_spinbox.setRange(0, 999999999)
@@ -348,7 +350,7 @@ class UserGameDataEditDialog(QDialog):
         self.realm_combo.addItems([f"{i} - {realm}" for i, realm in enumerate(CULTIVATION_REALMS)])
         self.realm_combo.setCurrentIndex(self.game_data['cultivation_realm'])
         form_layout.addRow("境界:", self.realm_combo)
-        
+
         # 灵根
         self.root_combo = QComboBox()
         self.root_combo.addItems(list(SPIRITUAL_ROOTS.keys()))
@@ -372,6 +374,18 @@ class UserGameDataEditDialog(QDialog):
         self.spirit_spinbox.setRange(0, 999999999)
         self.spirit_spinbox.setValue(self.game_data['spirit_stone'])
         form_layout.addRow("灵石:", self.spirit_spinbox)
+
+        # 洞府等级
+        self.cave_level_spinbox = QSpinBox()
+        self.cave_level_spinbox.setRange(0, 10)  # 洞府等级范围0-10
+        self.cave_level_spinbox.setValue(self.game_data.get('cave_level', 0))
+        form_layout.addRow("洞府等级:", self.cave_level_spinbox)
+
+        # 聚灵阵等级
+        self.spirit_array_spinbox = QSpinBox()
+        self.spirit_array_spinbox.setRange(0, 10)  # 聚灵阵等级范围0-10
+        self.spirit_array_spinbox.setValue(self.game_data.get('spirit_gathering_array_level', 0))
+        form_layout.addRow("聚灵阵等级:", self.spirit_array_spinbox)
         
         # 修炼方向
         self.focus_combo = QComboBox()
@@ -409,6 +423,8 @@ class UserGameDataEditDialog(QDialog):
             'luck_value': self.luck_spinbox.value(),
             'gold': self.gold_spinbox.value(),
             'spirit_stone': self.spirit_spinbox.value(),
+            'cave_level': self.cave_level_spinbox.value(),
+            'spirit_gathering_array_level': self.spirit_array_spinbox.value(),
             'cultivation_focus': focus if focus != '无' else None
         }
 
@@ -439,6 +455,9 @@ class DatabaseAdminMainWindow(QMainWindow):
         """初始化界面"""
         self.setWindowTitle("纸上修仙模拟器 - 数据库管理工具")
         self.setGeometry(100, 100, 1200, 800)
+
+        # 窗口居中显示
+        self.center_window()
 
         # 设置窗口图标
         try:
@@ -532,6 +551,23 @@ class DatabaseAdminMainWindow(QMainWindow):
                 color: #666666;
             }
         """)
+
+    def center_window(self):
+        """将窗口居中显示"""
+        try:
+            from PyQt6.QtGui import QScreen
+            # 获取屏幕几何信息
+            screen = QApplication.primaryScreen()
+            if screen:
+                screen_geometry = screen.availableGeometry()
+                window_geometry = self.frameGeometry()
+
+                # 计算居中位置
+                center_point = screen_geometry.center()
+                window_geometry.moveCenter(center_point)
+                self.move(window_geometry.topLeft())
+        except Exception as e:
+            print(f"❌ 窗口居中失败: {e}")
 
     def create_toolbar(self, parent_layout: QVBoxLayout):
         """创建工具栏"""
@@ -810,7 +846,7 @@ class DatabaseAdminMainWindow(QMainWindow):
         self.loading_data = True
 
         # 设置表格 - 优化后的列结构
-        headers = ['用户ID', '修仙者名', '修为', '境界', '灵根', '气运', '金币', '灵石', '更新时间']
+        headers = ['用户ID', '用户名', '修为', '境界', '灵根', '气运', '金币', '灵石', '洞府等级', '聚灵阵等级', '更新时间']
         self.game_data_table.setColumnCount(len(headers))
         self.game_data_table.setHorizontalHeaderLabels(headers)
         self.game_data_table.setRowCount(len(game_data))
@@ -823,7 +859,7 @@ class DatabaseAdminMainWindow(QMainWindow):
                 id_item.setFlags(id_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.game_data_table.setItem(row, 0, id_item)
 
-                # 修仙者名（就是用户名）- 可编辑
+                # 用户名 - 可编辑
                 name_item = QTableWidgetItem(data.get('name', ''))
                 self.game_data_table.setItem(row, 1, name_item)
 
@@ -859,11 +895,19 @@ class DatabaseAdminMainWindow(QMainWindow):
                 spirit_item = QTableWidgetItem(str(data.get('spirit_stone', 0)))
                 self.game_data_table.setItem(row, 7, spirit_item)
 
+                # 洞府等级 - 可编辑
+                cave_level_item = QTableWidgetItem(str(data.get('cave_level', 0)))
+                self.game_data_table.setItem(row, 8, cave_level_item)
+
+                # 聚灵阵等级 - 可编辑
+                spirit_array_item = QTableWidgetItem(str(data.get('spirit_gathering_array_level', 0)))
+                self.game_data_table.setItem(row, 9, spirit_array_item)
+
                 # 更新时间（数据最后变动时间）- 不可编辑
                 update_time = data.get('updated_at', data.get('created_at', ''))
                 time_item = QTableWidgetItem(update_time)
                 time_item.setFlags(time_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                self.game_data_table.setItem(row, 8, time_item)
+                self.game_data_table.setItem(row, 10, time_item)
 
             except Exception as e:
                 print(f"填充游戏数据表格第{row}行时出错: {e}")
@@ -873,7 +917,7 @@ class DatabaseAdminMainWindow(QMainWindow):
         # 调整列宽
         self.game_data_table.resizeColumnsToContents()
         header = self.game_data_table.horizontalHeader()
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # 修仙者名列自适应
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # 用户名列自适应
 
         # 重置加载标志
         self.loading_data = False
@@ -1145,10 +1189,12 @@ class DatabaseAdminMainWindow(QMainWindow):
 
         # 定义可编辑的列和对应的字段名
         editable_columns = {
-            1: 'name',           # 修仙者名
-            2: 'cultivation_exp', # 修为
-            6: 'gold',           # 金币
-            7: 'spirit_stone'    # 灵石
+            1: 'name',                          # 用户名
+            2: 'cultivation_exp',               # 修为
+            6: 'gold',                          # 金币
+            7: 'spirit_stone',                  # 灵石
+            8: 'cave_level',                    # 洞府等级
+            9: 'spirit_gathering_array_level'   # 聚灵阵等级
         }
 
         if col not in editable_columns:
@@ -1159,9 +1205,19 @@ class DatabaseAdminMainWindow(QMainWindow):
 
         # 数据类型转换
         try:
-            if field_name in ['cultivation_exp', 'gold', 'spirit_stone']:
+            if field_name in ['cultivation_exp', 'gold', 'spirit_stone', 'cave_level', 'spirit_gathering_array_level']:
                 # 移除逗号分隔符并转换为整数
                 new_value = int(new_value.replace(',', ''))
+
+                # 验证洞府等级和聚灵阵等级的范围
+                if field_name == 'cave_level' and not (0 <= new_value <= 10):
+                    QMessageBox.warning(self, "错误", "洞府等级必须在0-10之间")
+                    self.load_game_data()
+                    return
+                elif field_name == 'spirit_gathering_array_level' and not (0 <= new_value <= 10):
+                    QMessageBox.warning(self, "错误", "聚灵阵等级必须在0-10之间")
+                    self.load_game_data()
+                    return
         except ValueError:
             QMessageBox.warning(self, "错误", f"无效的数值: {item.text()}")
             # 恢复原值
