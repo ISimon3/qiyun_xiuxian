@@ -935,7 +935,9 @@ class CaveWindow(QDialog):
             cultivation_data = response['data']
             can_breakthrough = cultivation_data.get('can_breakthrough', False)
             breakthrough_rate = cultivation_data.get('breakthrough_rate', 0)
+            breakthrough_failure_loss_rate = cultivation_data.get('breakthrough_failure_loss_rate', 0)
             current_realm = cultivation_data.get('current_realm_name', '未知')
+            required_exp = cultivation_data.get('required_exp', 0)
 
             if not can_breakthrough:
                 QMessageBox.information(
@@ -944,13 +946,18 @@ class CaveWindow(QDialog):
                 )
                 return
 
+            # 计算失败时具体损失的修为数量
+            exp_loss_amount = int(required_exp * breakthrough_failure_loss_rate)
+
             # 确认突破
             reply = QMessageBox.question(
                 self, "境界突破",
                 f"当前境界: {current_realm}\n"
-                f"突破成功率: {breakthrough_rate * 100:.1f}%\n\n"
+                f"突破成功率: {breakthrough_rate * 100:.1f}%\n"
+                f"失败损失比例: {breakthrough_failure_loss_rate * 100:.1f}%\n"
+                f"失败损失修为: {exp_loss_amount}\n\n"
                 f"是否尝试突破到下一境界？\n"
-                f"注意：突破失败可能会损失部分修为。",
+                f"注意：突破失败会损失 {breakthrough_failure_loss_rate * 100:.1f}% 的突破所需修为。",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
 

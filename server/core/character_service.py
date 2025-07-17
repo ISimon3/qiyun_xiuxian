@@ -153,6 +153,25 @@ class CharacterService:
 
         # 限制在0.05-0.95之间（最低5%，最高95%）
         return max(0.05, min(0.95, final_rate))
+
+    @staticmethod
+    def calculate_breakthrough_failure_loss_rate(character: Character) -> float:
+        """计算突破失败时的修为损失比例"""
+        from shared.constants import BREAKTHROUGH_CONFIG, CAVE_SYSTEM_CONFIG
+
+        # 基础损失率20%
+        base_loss_rate = BREAKTHROUGH_CONFIG.get("DEFAULT_FAILURE_LOSS_RATE", 0.2)
+
+        # 洞府等级减少损失
+        cave_level = character.cave_level
+        if cave_level > 0 and "CAVE_UPGRADE" in CAVE_SYSTEM_CONFIG:
+            cave_benefits = CAVE_SYSTEM_CONFIG["CAVE_UPGRADE"]["LEVEL_BENEFITS"]
+            loss_reduction = cave_benefits.get(cave_level, {}).get("cultivation_loss_reduction", 0)
+            actual_loss_rate = max(0, base_loss_rate - loss_reduction)
+        else:
+            actual_loss_rate = base_loss_rate
+
+        return actual_loss_rate
     
     @staticmethod
     async def can_breakthrough(character: Character, target_realm: int) -> tuple[bool, str]:

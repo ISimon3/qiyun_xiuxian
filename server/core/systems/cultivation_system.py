@@ -450,12 +450,14 @@ class CultivationSystem:
             # 气运影响
             luck_effect = LuckSystem.calculate_luck_effect_on_cultivation(character.luck_value)
 
-            # 突破成功率
+            # 突破成功率和失败损失率
             breakthrough_rate = 0.0
+            breakthrough_failure_loss_rate = 0.0
             can_breakthrough = False
             if current_realm < len(CULTIVATION_REALMS) - 1 and current_exp >= required_exp:
                 from server.core.character_service import CharacterService
                 breakthrough_rate = CharacterService.calculate_breakthrough_success_rate(character, next_realm)
+                breakthrough_failure_loss_rate = CharacterService.calculate_breakthrough_failure_loss_rate(character)
                 can_breakthrough = True
 
             return {
@@ -469,6 +471,7 @@ class CultivationSystem:
                 "exp_progress": exp_progress,
                 "can_breakthrough": can_breakthrough,
                 "breakthrough_rate": breakthrough_rate,
+                "breakthrough_failure_loss_rate": breakthrough_failure_loss_rate,
                 "cultivation_focus": cultivation_focus,
                 "focus_name": focus_info["name"],
                 "luck_effect": luck_effect,
