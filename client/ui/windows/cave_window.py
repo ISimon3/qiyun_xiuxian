@@ -178,9 +178,10 @@ class CaveWindow(QDialog):
 
                 .cave-title-row {{
                     display: flex;
-                    justify-content: space-between;
+                    justify-content: center;
                     align-items: center;
                     width: 100%;
+                    position: relative;
                 }}
 
                 .cave-title {{
@@ -192,6 +193,8 @@ class CaveWindow(QDialog):
                 }}
 
                 .character-info {{
+                    position: absolute;
+                    right: 20px;
                     display: flex;
                     gap: 15px;
                     font-size: 12px;

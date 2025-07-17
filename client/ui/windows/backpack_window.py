@@ -86,7 +86,6 @@ class CharacterAttributesWidget(QFrame):
         attrs_layout.setSpacing(5)
 
         # 创建属性标签
-        self.spiritual_root_label = QLabel("灵根: 单灵根")
         self.hp_label = QLabel("生命值: 0")
         self.physical_attack_label = QLabel("物理攻击: 0")
         self.magic_attack_label = QLabel("法术攻击: 0")
@@ -97,7 +96,7 @@ class CharacterAttributesWidget(QFrame):
 
         # 设置标签样式
         labels = [
-            self.spiritual_root_label, self.hp_label, self.physical_attack_label, self.magic_attack_label,
+            self.hp_label, self.physical_attack_label, self.magic_attack_label,
             self.physical_defense_label, self.magic_defense_label,
             self.critical_rate_label, self.critical_damage_label
         ]
@@ -113,14 +112,13 @@ class CharacterAttributesWidget(QFrame):
             """)
 
         # 布局属性标签（2列）
-        attrs_layout.addWidget(self.spiritual_root_label, 0, 0, 1, 2)  # 灵根跨两列显示
-        attrs_layout.addWidget(self.hp_label, 1, 0)
-        attrs_layout.addWidget(self.physical_attack_label, 2, 0)
-        attrs_layout.addWidget(self.magic_attack_label, 3, 0)
-        attrs_layout.addWidget(self.physical_defense_label, 1, 1)
-        attrs_layout.addWidget(self.magic_defense_label, 2, 1)
-        attrs_layout.addWidget(self.critical_rate_label, 4, 0)
-        attrs_layout.addWidget(self.critical_damage_label, 4, 1)
+        attrs_layout.addWidget(self.hp_label, 0, 0)
+        attrs_layout.addWidget(self.physical_attack_label, 1, 0)
+        attrs_layout.addWidget(self.magic_attack_label, 2, 0)
+        attrs_layout.addWidget(self.physical_defense_label, 0, 1)
+        attrs_layout.addWidget(self.magic_defense_label, 1, 1)
+        attrs_layout.addWidget(self.critical_rate_label, 3, 0)
+        attrs_layout.addWidget(self.critical_damage_label, 3, 1)
 
         layout.addLayout(attrs_layout)
         layout.addStretch()
@@ -136,30 +134,6 @@ class CharacterAttributesWidget(QFrame):
 
         # 获取属性数据
         attributes = character_data.get('attributes', {})
-
-        # 更新灵根信息
-        spiritual_root = character_data.get('spiritual_root', '单灵根')
-        # 根据灵根类型设置颜色
-        root_colors = {
-            '天灵根': '#FFD700',
-            '变异灵根': '#8A2BE2',
-            '单灵根': '#32CD32',
-            '双灵根': '#4169E1',
-            '三灵根': '#808080',
-            '四灵根': '#A0522D',
-            '五灵根': '#696969',
-            '废灵根': '#8B4513'
-        }
-        root_color = root_colors.get(spiritual_root, '#8B4513')
-        self.spiritual_root_label.setText(f"灵根: {spiritual_root}")
-        self.spiritual_root_label.setStyleSheet(f"""
-            QLabel {{
-                color: {root_color};
-                font-size: 11px;
-                font-weight: bold;
-                padding: 2px;
-            }}
-        """)
 
         # 更新显示（不使用千位分隔符）
         self.hp_label.setText(f"生命值: {attributes.get('hp', 0)}")
