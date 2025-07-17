@@ -429,6 +429,9 @@ class DatabaseAdminMainWindow(QMainWindow):
         self.users_data = []
         self.game_data = []
 
+        # 防止在加载数据时触发编辑事件
+        self.loading_data = False
+
         self.init_ui()
 
         # 自动加载数据
@@ -644,6 +647,7 @@ class DatabaseAdminMainWindow(QMainWindow):
         self.game_data_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.game_data_table.setAlternatingRowColors(True)
         self.game_data_table.itemSelectionChanged.connect(self.on_game_data_selection_changed)
+        self.game_data_table.itemChanged.connect(self.on_game_data_item_changed)
         layout.addWidget(self.game_data_table)
 
         self.game_data_tab.setLayout(layout)
@@ -804,6 +808,9 @@ class DatabaseAdminMainWindow(QMainWindow):
         if not game_data:
             return
 
+        # 设置加载标志，防止触发编辑事件
+        self.loading_data = True
+
         # 设置表格 - 优化后的列结构
         headers = ['用户ID', '修仙者名', '修为', '境界', '灵根', '气运', '金币', '灵石', '更新时间']
         self.game_data_table.setColumnCount(len(headers))
@@ -813,36 +820,52 @@ class DatabaseAdminMainWindow(QMainWindow):
         # 填充数据
         for row, data in enumerate(game_data):
             try:
-                # 使用用户ID作为唯一标识
-                self.game_data_table.setItem(row, 0, QTableWidgetItem(str(data.get('user_id', ''))))
-                # 修仙者名（就是用户名）
-                self.game_data_table.setItem(row, 1, QTableWidgetItem(data.get('name', '')))
-                # 修为
-                self.game_data_table.setItem(row, 2, QTableWidgetItem(f"{data.get('cultivation_exp', 0):,}"))
+                # 使用用户ID作为唯一标识 - 不可编辑
+                id_item = QTableWidgetItem(str(data.get('user_id', '')))
+                id_item.setFlags(id_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.game_data_table.setItem(row, 0, id_item)
 
-                # 境界
+                # 修仙者名（就是用户名）- 可编辑
+                name_item = QTableWidgetItem(data.get('name', ''))
+                self.game_data_table.setItem(row, 1, name_item)
+
+                # 修为 - 可编辑
+                exp_item = QTableWidgetItem(str(data.get('cultivation_exp', 0)))
+                self.game_data_table.setItem(row, 2, exp_item)
+
+                # 境界 - 不可编辑（由修为决定）
                 realm_item = QTableWidgetItem(data.get('realm_name', ''))
                 realm_item.setForeground(QColor("#007acc"))
+                realm_item.setFlags(realm_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.game_data_table.setItem(row, 3, realm_item)
 
-                # 灵根
-                self.game_data_table.setItem(row, 4, QTableWidgetItem(data.get('spiritual_root', '')))
+                # 灵根 - 不可编辑
+                root_item = QTableWidgetItem(data.get('spiritual_root', ''))
+                root_item.setFlags(root_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.game_data_table.setItem(row, 4, root_item)
 
-                # 气运
+                # 气运 - 不可编辑（由系统管理）
                 luck_value = data.get('luck_value', 50)
                 luck_level = data.get('luck_level', '平')
                 luck_item = QTableWidgetItem(f"{luck_level} ({luck_value})")
                 luck_color = "#28a745" if luck_value >= 70 else "#ffc107" if luck_value >= 30 else "#dc3545"
                 luck_item.setForeground(QColor(luck_color))
+                luck_item.setFlags(luck_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 self.game_data_table.setItem(row, 5, luck_item)
 
-                # 金币
-                self.game_data_table.setItem(row, 6, QTableWidgetItem(f"{data.get('gold', 0):,}"))
-                # 灵石
-                self.game_data_table.setItem(row, 7, QTableWidgetItem(f"{data.get('spirit_stone', 0):,}"))
-                # 更新时间（数据最后变动时间）
+                # 金币 - 可编辑
+                gold_item = QTableWidgetItem(str(data.get('gold', 0)))
+                self.game_data_table.setItem(row, 6, gold_item)
+
+                # 灵石 - 可编辑
+                spirit_item = QTableWidgetItem(str(data.get('spirit_stone', 0)))
+                self.game_data_table.setItem(row, 7, spirit_item)
+
+                # 更新时间（数据最后变动时间）- 不可编辑
                 update_time = data.get('updated_at', data.get('created_at', ''))
-                self.game_data_table.setItem(row, 8, QTableWidgetItem(update_time))
+                time_item = QTableWidgetItem(update_time)
+                time_item.setFlags(time_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                self.game_data_table.setItem(row, 8, time_item)
 
             except Exception as e:
                 print(f"填充游戏数据表格第{row}行时出错: {e}")
@@ -853,6 +876,9 @@ class DatabaseAdminMainWindow(QMainWindow):
         self.game_data_table.resizeColumnsToContents()
         header = self.game_data_table.horizontalHeader()
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)  # 修仙者名列自适应
+
+        # 重置加载标志
+        self.loading_data = False
 
     def on_user_selection_changed(self):
         """用户选择变更处理"""
@@ -887,10 +913,10 @@ class DatabaseAdminMainWindow(QMainWindow):
 
         if has_selection:
             row = selected_rows[0].row()
-            data_id = int(self.game_data_table.item(row, 0).text())
-            user_name = self.game_data_table.item(row, 3).text()
+            user_id = int(self.game_data_table.item(row, 0).text())
+            user_name = self.game_data_table.item(row, 1).text()
 
-            self.status_label.setText(f"已选择用户: {user_name} (数据ID: {data_id})")
+            self.status_label.setText(f"已选择用户: {user_name} (用户ID: {user_id})")
         else:
             self.status_label.setText("就绪")
 
@@ -901,12 +927,13 @@ class DatabaseAdminMainWindow(QMainWindow):
     def on_operation_completed(self, success: bool, message: str):
         """操作完成处理"""
         if success:
-            QMessageBox.information(self, "操作成功", message)
+            # 只在状态栏显示成功信息，不弹出对话框
+            self.status_label.setText(f"✅ {message}")
             self.refresh_current_tab()
         else:
+            # 失败时仍然弹出警告
             QMessageBox.warning(self, "操作失败", message)
-
-        self.status_label.setText("就绪")
+            self.status_label.setText("就绪")
 
     def edit_selected_user(self):
         """编辑选中的用户"""
@@ -1015,12 +1042,12 @@ class DatabaseAdminMainWindow(QMainWindow):
             return
 
         row = selected_rows[0].row()
-        data_id = int(self.game_data_table.item(row, 0).text())
+        user_id = int(self.game_data_table.item(row, 0).text())
 
         # 查找游戏数据
         game_data = None
         for data in self.game_data:
-            if data['id'] == data_id:
+            if data['user_id'] == user_id:
                 game_data = data
                 break
 
@@ -1033,7 +1060,9 @@ class DatabaseAdminMainWindow(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_data = dialog.get_data()
             self.status_label.setText("正在更新游戏数据...")
-            self.db_worker.update_user_game_data(data_id, new_data)
+            # 使用角色ID进行更新
+            character_id = game_data['id']
+            self.db_worker.update_user_game_data(character_id, new_data)
 
     def reset_selected_game_data(self):
         """重置选中的游戏数据"""
@@ -1042,8 +1071,19 @@ class DatabaseAdminMainWindow(QMainWindow):
             return
 
         row = selected_rows[0].row()
-        data_id = int(self.game_data_table.item(row, 0).text())
-        user_name = self.game_data_table.item(row, 3).text()
+        user_id = int(self.game_data_table.item(row, 0).text())
+        user_name = self.game_data_table.item(row, 1).text()
+
+        # 查找游戏数据以获取角色ID
+        game_data = None
+        for data in self.game_data:
+            if data['user_id'] == user_id:
+                game_data = data
+                break
+
+        if not game_data:
+            QMessageBox.warning(self, "错误", "未找到游戏数据")
+            return
 
         reply = QMessageBox.question(
             self, "确认重置",
@@ -1069,7 +1109,71 @@ class DatabaseAdminMainWindow(QMainWindow):
                 'last_sign_date': None  # 重置签到日期，允许重新签到
             }
             self.status_label.setText("正在重置游戏数据...")
-            self.db_worker.update_user_game_data(data_id, reset_data)
+            # 使用角色ID进行更新
+            character_id = game_data['id']
+            self.db_worker.update_user_game_data(character_id, reset_data)
+
+    def on_game_data_item_changed(self, item):
+        """游戏数据表格项变更处理"""
+        if not item or self.loading_data:
+            return
+
+        row = item.row()
+        col = item.column()
+
+        # 获取用户ID
+        user_id_item = self.game_data_table.item(row, 0)
+        if not user_id_item:
+            return
+
+        try:
+            user_id = int(user_id_item.text())
+        except ValueError:
+            QMessageBox.warning(self, "错误", "无效的用户ID")
+            return
+
+        # 查找游戏数据以获取角色ID
+        game_data = None
+        for data in self.game_data:
+            if data['user_id'] == user_id:
+                game_data = data
+                break
+
+        if not game_data:
+            QMessageBox.warning(self, "错误", "未找到游戏数据")
+            return
+
+        character_id = game_data['id']
+
+        # 定义可编辑的列和对应的字段名
+        editable_columns = {
+            1: 'name',           # 修仙者名
+            2: 'cultivation_exp', # 修为
+            6: 'gold',           # 金币
+            7: 'spirit_stone'    # 灵石
+        }
+
+        if col not in editable_columns:
+            return
+
+        field_name = editable_columns[col]
+        new_value = item.text()
+
+        # 数据类型转换
+        try:
+            if field_name in ['cultivation_exp', 'gold', 'spirit_stone']:
+                # 移除逗号分隔符并转换为整数
+                new_value = int(new_value.replace(',', ''))
+        except ValueError:
+            QMessageBox.warning(self, "错误", f"无效的数值: {item.text()}")
+            # 恢复原值
+            self.load_game_data()
+            return
+
+        # 更新数据库
+        update_data = {field_name: new_value}
+        self.status_label.setText(f"正在更新 {field_name}...")
+        self.db_worker.update_user_game_data(character_id, update_data)
 
 
 def main():
