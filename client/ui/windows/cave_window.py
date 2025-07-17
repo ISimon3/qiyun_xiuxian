@@ -692,22 +692,33 @@ class CaveWindow(QDialog):
                     }}
                 }}
 
-                // 功能按钮点击事件
+                // 功能按钮点击事件 - 这些函数会被JavaScript桥接重新定义
                 function performBreakthrough() {{
+                    console.log('HTML中的突破函数被调用');
                     if (window.pyqtSignal) {{
                         window.pyqtSignal('breakthrough_requested');
+                    }} else {{
+                        console.error('pyqtSignal 不可用');
+                        // 备用方案：直接修改标题
+                        document.title = 'SIGNAL:breakthrough_requested:' + Date.now();
                     }}
                 }}
 
                 function upgradeCave() {{
+                    console.log('HTML中的洞府升级函数被调用');
                     if (window.pyqtSignal) {{
                         window.pyqtSignal('cave_upgrade_requested');
+                    }} else {{
+                        document.title = 'SIGNAL:cave_upgrade_requested:' + Date.now();
                     }}
                 }}
 
                 function upgradeSpiritArray() {{
+                    console.log('HTML中的聚灵阵升级函数被调用');
                     if (window.pyqtSignal) {{
                         window.pyqtSignal('spirit_array_upgrade_requested');
+                    }} else {{
+                        document.title = 'SIGNAL:spirit_array_upgrade_requested:' + Date.now();
                     }}
                 }}
 
@@ -739,23 +750,68 @@ class CaveWindow(QDialog):
         else:
             print("❌ 洞府HTML页面加载失败")
 
+    def showEvent(self, event):
+        """窗口显示事件"""
+        super().showEvent(event)
+        # 每次显示窗口时重新设置JavaScript桥接，确保功能正常
+        if hasattr(self, 'cave_display') and self.html_loaded:
+            QTimer.singleShot(100, self.setup_javascript_bridge)
+            QTimer.singleShot(200, self.update_html_display)
+
     def setup_javascript_bridge(self):
         """设置JavaScript桥接"""
         try:
             # 注入JavaScript桥接函数
             js_code = """
+            // 清除之前的桥接函数
+            if (window.pyqtSignal) {
+                delete window.pyqtSignal;
+            }
+
             window.pyqtSignal = function(signal, data) {
+                console.log('JavaScript桥接调用:', signal);
                 if (signal === 'breakthrough_requested') {
-                    document.title = 'SIGNAL:breakthrough_requested';
+                    document.title = 'SIGNAL:breakthrough_requested:' + Date.now();
                 } else if (signal === 'spirit_array_upgrade_requested') {
-                    document.title = 'SIGNAL:spirit_array_upgrade_requested';
+                    document.title = 'SIGNAL:spirit_array_upgrade_requested:' + Date.now();
                 } else if (signal === 'cave_upgrade_requested') {
-                    document.title = 'SIGNAL:cave_upgrade_requested';
+                    document.title = 'SIGNAL:cave_upgrade_requested:' + Date.now();
                 }
             };
+
+            // 重新定义按钮点击函数，确保它们始终可用
+            window.performBreakthrough = function() {
+                console.log('突破按钮被点击');
+                if (window.pyqtSignal) {
+                    window.pyqtSignal('breakthrough_requested');
+                } else {
+                    console.error('pyqtSignal 不可用');
+                }
+            };
+
+            window.upgradeCave = function() {
+                console.log('洞府升级按钮被点击');
+                if (window.pyqtSignal) {
+                    window.pyqtSignal('cave_upgrade_requested');
+                }
+            };
+
+            window.upgradeSpiritArray = function() {
+                console.log('聚灵阵升级按钮被点击');
+                if (window.pyqtSignal) {
+                    window.pyqtSignal('spirit_array_upgrade_requested');
+                }
+            };
+
             console.log('✅ 洞府JavaScript桥接已建立');
             """
             self.cave_display.page().runJavaScript(js_code)
+
+            # 断开之前的连接，避免重复连接
+            try:
+                self.cave_display.page().titleChanged.disconnect()
+            except:
+                pass
 
             # 监听页面标题变化
             self.cave_display.page().titleChanged.connect(self.handle_title_change)
@@ -765,8 +821,13 @@ class CaveWindow(QDialog):
 
     def handle_title_change(self, title):
         """处理页面标题变化（用于JavaScript信号）"""
+        print(f"🔍 洞府窗口标题变化: {title}")
         if title.startswith('SIGNAL:'):
-            signal = title.replace('SIGNAL:', '')
+            # 移除SIGNAL:前缀和时间戳
+            signal_part = title.replace('SIGNAL:', '')
+            signal = signal_part.split(':')[0]  # 取第一部分，忽略时间戳
+
+            print(f"🎯 处理洞府信号: {signal}")
             if signal == 'breakthrough_requested':
                 self.show_breakthrough()
             elif signal == 'spirit_array_upgrade_requested':
@@ -996,9 +1057,17 @@ class CaveWindow(QDialog):
                     self.load_cave_info()
                     if hasattr(self.parent_window, 'load_initial_data'):
                         self.parent_window.load_initial_data()
+
+                    # 强制刷新HTML显示和JavaScript桥接
+                    QTimer.singleShot(500, self.setup_javascript_bridge)
+                    QTimer.singleShot(600, self.update_html_display)
                 else:
                     error_msg = breakthrough_response.get('message', '突破失败')
                     QMessageBox.warning(self, "突破失败", error_msg)
+
+                    # 即使失败也要刷新显示
+                    self.load_cave_info()
+                    QTimer.singleShot(300, self.update_html_display)
 
         except Exception as e:
             QMessageBox.critical(self, "错误", f"突破时发生错误: {str(e)}")

@@ -803,15 +803,33 @@ class MainWindow(QMainWindow):
         try:
             from client.ui.windows.cave_window import CaveWindow
 
-            # 检查是否已经打开了洞府窗口
-            if hasattr(self, 'cave_window') and self.cave_window and not self.cave_window.isHidden():
+            # 检查是否已经打开了洞府窗口且窗口仍然有效
+            if (hasattr(self, 'cave_window') and
+                self.cave_window and
+                not self.cave_window.isHidden() and
+                self.cave_window.isVisible()):
                 # 如果已经打开，就将其置于前台
                 self.cave_window.raise_()
                 self.cave_window.activateWindow()
                 return
 
+            # 如果窗口已关闭或无效，清理引用
+            if hasattr(self, 'cave_window'):
+                if self.cave_window:
+                    try:
+                        self.cave_window.close()
+                    except:
+                        pass
+                self.cave_window = None
+
             # 创建新的洞府窗口
             self.cave_window = CaveWindow(self)
+
+            # 连接窗口关闭信号，确保引用被清理
+            def on_cave_window_closed():
+                self.cave_window = None
+
+            self.cave_window.finished.connect(on_cave_window_closed)
             self.cave_window.show()  # 使用show()而不是exec()，实现非模态
         except Exception as e:
             QMessageBox.critical(self, "错误", f"打开洞府窗口失败: {str(e)}")
