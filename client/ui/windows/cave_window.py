@@ -1061,26 +1061,10 @@ class CaveWindow(QDialog):
 
                     if success:
                         QMessageBox.information(self, "突破成功！", f"🎉 {message}")
-                        # 添加突破日志到主窗口
-                        if hasattr(self.parent_window, 'lower_area_widget') and self.parent_window.lower_area_widget:
-                            cultivation_log_widget = self.parent_window.lower_area_widget.get_cultivation_log_widget()
-                            if cultivation_log_widget:
-                                cultivation_log_widget.add_breakthrough_log(
-                                    cultivation_data.get('current_realm', 0),
-                                    cultivation_data.get('current_realm', 0) + 1,
-                                    True
-                                )
+                        # 服务端已经记录了突破日志，客户端不需要重复添加
                     else:
                         QMessageBox.warning(self, "突破失败", f"💥 {message}")
-                        # 添加失败日志到主窗口
-                        if hasattr(self.parent_window, 'lower_area_widget') and self.parent_window.lower_area_widget:
-                            cultivation_log_widget = self.parent_window.lower_area_widget.get_cultivation_log_widget()
-                            if cultivation_log_widget:
-                                cultivation_log_widget.add_breakthrough_log(
-                                    cultivation_data.get('current_realm', 0),
-                                    cultivation_data.get('current_realm', 0),
-                                    False
-                                )
+                        # 服务端已经记录了突破失败日志，客户端不需要重复添加
 
                     # 刷新洞府信息和主窗口数据
                     self.load_cave_info()
