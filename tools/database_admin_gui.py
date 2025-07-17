@@ -1,9 +1,8 @@
 # 可视化数据库管理工具
 
-import sys
 import os
-from datetime import datetime
-from typing import List, Dict, Any, Optional
+import sys
+from typing import List, Dict, Any
 
 # 添加项目根目录到Python路径
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -12,20 +11,19 @@ sys.path.insert(0, project_root)
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTableWidget, QTableWidgetItem, QPushButton, QLabel, QLineEdit,
-    QComboBox, QSpinBox, QDoubleSpinBox, QTextEdit, QTabWidget,
+    QComboBox, QSpinBox, QTabWidget,
     QMessageBox, QDialog, QFormLayout, QCheckBox, QGroupBox,
-    QSplitter, QHeaderView, QAbstractItemView, QProgressBar
+    QHeaderView, QAbstractItemView, QProgressBar
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QColor, QIcon
+from PyQt6.QtGui import QColor, QIcon
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from server.database.models import User, Character, InventoryItem, EquippedItem, GameLog
+from server.database.models import User, Character
 from server.config import settings
-from shared.constants import CULTIVATION_REALMS, LUCK_LEVELS, SPIRITUAL_ROOTS
+from shared.constants import CULTIVATION_REALMS, SPIRITUAL_ROOTS
 from shared.utils import get_realm_name, get_luck_level_name
-from passlib.context import CryptContext
 
 
 class DatabaseWorker(QThread):
